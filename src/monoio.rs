@@ -118,13 +118,12 @@ impl Runtime for MonoioRuntime {
     ::monoio::spawn(fut)
   }
 
-  fn spawn_local<F>(&self, _fut: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
   where
     F: Future + 'static,
     F::Output: 'static,
   {
-    // ::monoio::spawn_local(fut)
-    todo!()
+    ::monoio::spawn(fut)
   }
 
   fn spawn_blocking<F, R>(_f: F) -> Self::JoinHandle<R>
@@ -132,8 +131,7 @@ impl Runtime for MonoioRuntime {
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    // ::monoio::task::spawn_blocking(f)
-    todo!()
+    panic!("MonoioRuntime does not support spawn blocking")
   }
 
   fn interval(&self, interval: Duration) -> Self::Interval {
