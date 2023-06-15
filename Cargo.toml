@@ -1,0 +1,18 @@
+[package]
+name = "agnostic"
+version = "0.0.0"
+edition = "2021"
+license = "MIT/Apache-2.0"
+description = "Agnostic is a trait for users who want to write async runtime-agnostic crate."
+
+[features]
+default = []
+tokio = ["dep:tokio", "tokio-stream"]
+
+[dependencies]
+arc-swap = "1.6"
+async-trait = "0.1"
+futures-util = { version = "0.3", default-features = false, features = ["io"] }
+
+tokio = { version = "1.28", default-features = false, features = ["rt", "time", "sync", "macros"], optional = true }
+tokio-stream = { version = "0.1", default-features = false, optional = true, features = ["time"] }
