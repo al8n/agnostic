@@ -1,6 +1,8 @@
 //! Agnostic is a trait for users who want to write async runtime-agnostic crate.
 #![forbid(unsafe_code)]
 #![deny(warnings)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, allow(unused_attributes))]
 
 use std::{
   future::Future,
@@ -9,16 +11,32 @@ use std::{
 
 use futures_util::Stream;
 
+/// [`tokio`] runtime adapter
+///
+/// [`tokio`]: https://docs.rs/tokio
 #[cfg(feature = "tokio")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
 pub mod tokio;
 
+/// [`async_std`] runtime adapter
+///
+/// [`async_std`]: https://docs.rs/async-std
 #[cfg(feature = "async-std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
 pub mod async_std;
 
+/// [`smol`] runtime adapter
+///
+/// [`smol`]: https://docs.rs/smol
 #[cfg(feature = "smol")]
+#[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
 pub mod smol;
 
+/// [`monoio`] runtime adapter
+///
+/// [`monoio`]: https://docs.rs/monoio
 #[cfg(feature = "monoio")]
+#[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
 pub mod monoio;
 
 /// Simlilar to Go's `time.AfterFunc`
@@ -57,7 +75,7 @@ pub trait Runtime {
   fn spawn_detach<F>(&self, future: F)
   where
     F::Output: Send + 'static,
-    F: Future + Send + 'static
+    F: Future + Send + 'static,
   {
     self.spawn(future);
   }
@@ -66,11 +84,11 @@ pub trait Runtime {
   where
     F: Future + 'static,
     F::Output: 'static;
-  
+
   fn spawn_local_detach<F>(&self, future: F)
   where
     F: Future + 'static,
-    F::Output: 'static
+    F::Output: 'static,
   {
     self.spawn_local(future);
   }
@@ -79,11 +97,11 @@ pub trait Runtime {
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static;
-  
+
   fn spawn_blocking_detach<F, R>(&self, f: F)
   where
     F: FnOnce() -> R + Send + 'static,
-    R: Send + 'static
+    R: Send + 'static,
   {
     self.spawn_blocking(f);
   }
@@ -117,6 +135,7 @@ mod timer {
   pin_project_lite::pin_project! {
     /// Future returned by the `FutureExt::timeout` method.
     #[derive(Debug)]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "async-std", feature = "smol"))))]
     pub struct Timeout<F>
     where
         F: Future,
