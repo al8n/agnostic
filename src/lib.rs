@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![deny(warnings)]
+// #![deny(warnings)]
 
 use std::{
   future::Future,
@@ -11,8 +11,17 @@ use futures_util::Stream;
 #[cfg(feature = "tokio")]
 pub mod tokio;
 
+#[cfg(feature = "async-std")]
+pub mod async_std;
+
+#[cfg(feature = "smol")]
+pub mod smol;
+
+#[cfg(feature = "monoio")]
+pub mod monoio;
+
 #[async_trait::async_trait]
-pub trait DelayFunc<F>
+pub trait Delay<F>
 where
   F: Future + Send + 'static,
   F::Output: Send,
@@ -28,8 +37,8 @@ where
 pub trait Runtime {
   type JoinHandle<T>: Future;
   type Interval: Stream;
-  type Delay: Future;
-  type DelayFunc<F>: DelayFunc<F>
+  type Sleep: Future;
+  type Delay<F>: Delay<F>
   where
     F: Future + Send + 'static,
     F::Output: Send;
@@ -52,16 +61,28 @@ pub trait Runtime {
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static;
 
+  /// Returns `true` if the spawned thread will be auto detached.
+  ///
+  /// Some async runtimes' handle (e.g. [`smol::Task<T>`]) will not auto detach the spawned thread,
+  /// which means that once the handle of spawn functions is dropped, the future will be canceled.
+  /// Hence, if the runtime this `detach_spawn` method is used to let users check if such runtime will
+  /// auto detach the spawned thread. If not, users need to manually detach the spawned thread themselves.
+  ///
+  /// [`smol::Task<T>`]: https://docs.rs/smol/latest/smol/struct.Task.html
+  fn detach_spawn(&self) -> bool {
+    true
+  }
+
   fn interval(&self, interval: Duration) -> Self::Interval;
 
   fn interval_at(&self, start: Instant, period: Duration) -> Self::Interval;
 
-  fn delay(&self, duration: Duration) -> Self::Delay;
+  fn sleep(&self, duration: Duration) -> Self::Sleep;
 
-  fn delayed_func<F>(&self, duration: Duration, fut: F) -> Self::DelayFunc<F>
+  fn delay<F>(&self, duration: Duration, fut: F) -> Self::Delay<F>
   where
     F: Future + Send + 'static,
-    F::Output: Send;
+    F::Output: Send + Sync + 'static;
 
   fn timeout<F>(&self, duration: Duration, future: F) -> Self::Timeout<F>
   where
@@ -70,4 +91,60 @@ pub trait Runtime {
   fn timeout_at<F>(&self, instant: Instant, future: F) -> Self::Timeout<F>
   where
     F: Future;
+}
+
+#[cfg(any(feature = "async-std", feature = "smol"))]
+mod timer {
+  use std::{future::Future, io, task::Poll, time::Duration};
+
+  pin_project_lite::pin_project! {
+    /// Future returned by the `FutureExt::timeout` method.
+    #[derive(Debug)]
+    pub struct Timeout<F>
+    where
+        F: Future,
+    {
+      #[pin]
+      pub(crate) future: F,
+      #[pin]
+      pub(crate) timeout: async_io::Timer,
+    }
+  }
+
+  impl<F> Timeout<F>
+  where
+    F: Future,
+  {
+    pub fn new(timeout: Duration, future: F) -> Self {
+      Self {
+        future,
+        timeout: async_io::Timer::after(timeout),
+      }
+    }
+  }
+
+  impl<F> Future for Timeout<F>
+  where
+    F: Future,
+  {
+    type Output = io::Result<F::Output>;
+
+    fn poll(
+      self: std::pin::Pin<&mut Self>,
+      cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+      let this = self.project();
+      match this.future.poll(cx) {
+        Poll::Pending => {}
+        other => return other.map(Ok),
+      }
+
+      if this.timeout.poll(cx).is_ready() {
+        let err = Err(io::Error::new(io::ErrorKind::TimedOut, "future timed out"));
+        Poll::Ready(err)
+      } else {
+        Poll::Pending
+      }
+    }
+  }
 }

@@ -1,39 +1,46 @@
-use ::tokio::sync::mpsc;
-use tokio_stream::wrappers::IntervalStream;
+use std::sync::{
+  atomic::{AtomicBool, Ordering},
+  Arc,
+};
 
+pub use super::timer::*;
 use super::*;
+use ::smol::channel;
+use async_io::Timer;
+use futures_util::FutureExt;
 
 struct DelayFuncHandle<F: Future> {
-  handle: ::tokio::task::JoinHandle<Option<F::Output>>,
-  reset_tx: mpsc::Sender<Duration>,
-  stop_tx: mpsc::Sender<()>,
+  handle: ::smol::Task<Option<F::Output>>,
+  reset_tx: channel::Sender<Duration>,
+  finished: Arc<AtomicBool>,
 }
 
-pub struct TokioDelay<F: Future> {
+pub struct SmolDelay<F: Future> {
   handle: Option<DelayFuncHandle<F>>,
 }
 
 #[async_trait::async_trait]
-impl<F> Delay<F> for TokioDelay<F>
+impl<F> Delay<F> for SmolDelay<F>
 where
   F: Future + Send + 'static,
   F::Output: Send,
 {
   fn new(delay: Duration, fut: F) -> Self {
-    let (stop_tx, mut stop_rx) = mpsc::channel(1);
-    let (reset_tx, mut reset_rx) = mpsc::channel(1);
-    let handle = ::tokio::spawn(async move {
-      let sleep = ::tokio::time::sleep(delay);
-      ::tokio::pin!(sleep);
+    let finished = Arc::new(AtomicBool::new(false));
+    let ff = finished.clone();
+    let (reset_tx, reset_rx) = channel::bounded(1);
+    let handle = ::smol::spawn(async move {
+      let mut sleep = Timer::after(delay);
       loop {
-        ::tokio::select! {
-          _ = &mut sleep => {
-            return Some(fut.await);
+        ::futures_util::select! {
+          _ = sleep.fuse() => {
+            let rst = fut.await;
+            ff.store(true, ::std::sync::atomic::Ordering::SeqCst);
+            return Some(rst);
           },
-          _ = stop_rx.recv() => return None,
-          remaining = reset_rx.recv() => {
-            if let Some(remaining) = remaining {
-              sleep.as_mut().reset(::tokio::time::Instant::now() + remaining);
+          remaining = reset_rx.recv().fuse() => {
+            if let Ok(remaining) = remaining {
+              sleep = Timer::after(remaining);
             } else {
               return None;
             }
@@ -45,7 +52,7 @@ where
       handle: Some(DelayFuncHandle {
         reset_tx,
         handle,
-        stop_tx,
+        finished,
       }),
     }
   }
@@ -59,14 +66,11 @@ where
 
   async fn cancel(&mut self) -> Option<F::Output> {
     if let Some(handle) = self.handle.take() {
-      if handle.handle.is_finished() {
-        return match handle.handle.await {
-          Ok(rst) => rst,
-          Err(_) => None,
-        };
+      if handle.finished.load(Ordering::SeqCst) {
+        return handle.handle.await;
       } else {
         // if we fail to send a message, which means the rx has been dropped, and that thread has exited
-        let _ = handle.stop_tx.send(()).await;
+        handle.handle.cancel().await;
         return None;
       }
     }
@@ -75,28 +79,28 @@ where
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct TokioRuntime;
+pub struct SmolRuntime;
 
-impl core::fmt::Display for TokioRuntime {
+impl core::fmt::Display for SmolRuntime {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    write!(f, "tokio")
+    write!(f, "smol")
   }
 }
 
 #[async_trait::async_trait]
-impl Runtime for TokioRuntime {
-  type JoinHandle<T> = ::tokio::task::JoinHandle<T>;
-  type Interval = IntervalStream;
-  type Sleep = ::tokio::time::Sleep;
-  type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
-  type Timeout<F> = ::tokio::time::Timeout<F> where F: Future;
+impl Runtime for SmolRuntime {
+  type JoinHandle<T> = ::smol::Task<T>;
+  type Interval = Timer;
+  type Sleep = Timer;
+  type Delay<F> = SmolDelay<F> where F: Future + Send + 'static, F::Output: Send;
+  type Timeout<F> = Timeout<F> where F: Future;
 
   fn spawn<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static,
   {
-    ::tokio::spawn(fut)
+    ::smol::spawn(fut)
   }
 
   fn spawn_local<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
@@ -104,35 +108,31 @@ impl Runtime for TokioRuntime {
     F: Future + 'static,
     F::Output: 'static,
   {
-    ::tokio::task::spawn_local(fut)
+    ::smol::LocalExecutor::new().spawn(fut)
   }
 
-  fn spawn_blocking<F, R>(_f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(f: F) -> Self::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    #[cfg(not(target_family = "wasm"))]
-    {
-      ::tokio::task::spawn_blocking(_f)
-    }
+    ::smol::spawn(::smol::unblock(f))
+  }
 
-    #[cfg(target_family = "wasm")]
-    {
-      panic!("TokioRuntime::spawn_blocking is not supported on wasm")
-    }
+  fn detach_spawn(&self) -> bool {
+    false
   }
 
   fn interval(&self, interval: Duration) -> Self::Interval {
-    IntervalStream::new(::tokio::time::interval(interval))
+    Timer::interval(interval)
   }
 
   fn interval_at(&self, start: Instant, period: Duration) -> Self::Interval {
-    IntervalStream::new(::tokio::time::interval_at(start.into(), period))
+    Timer::interval_at(start, period)
   }
 
   fn sleep(&self, duration: Duration) -> Self::Sleep {
-    ::tokio::time::sleep(duration)
+    Timer::after(duration)
   }
 
   fn delay<F>(&self, delay: Duration, fut: F) -> Self::Delay<F>
@@ -140,20 +140,23 @@ impl Runtime for TokioRuntime {
     F: Future + Send + 'static,
     F::Output: Send,
   {
-    TokioDelay::new(delay, fut)
+    SmolDelay::new(delay, fut)
   }
 
   fn timeout<F>(&self, duration: Duration, fut: F) -> Self::Timeout<F>
   where
     F: Future,
   {
-    ::tokio::time::timeout(duration, fut)
+    Timeout::new(duration, fut)
   }
 
   fn timeout_at<F>(&self, instant: Instant, fut: F) -> Self::Timeout<F>
   where
     F: Future,
   {
-    ::tokio::time::timeout_at(instant.into(), fut)
+    Timeout {
+      timeout: Timer::at(instant),
+      future: fut,
+    }
   }
 }
