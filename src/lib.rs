@@ -67,6 +67,8 @@ pub trait Runtime {
   where
     F: Future;
 
+  fn new() -> Self;
+
   fn spawn<F>(&self, future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,

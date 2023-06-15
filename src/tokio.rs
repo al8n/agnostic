@@ -91,6 +91,10 @@ impl Runtime for TokioRuntime {
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = ::tokio::time::Timeout<F> where F: Future;
 
+  fn new() -> Self {
+    Self
+  }
+
   fn spawn<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,

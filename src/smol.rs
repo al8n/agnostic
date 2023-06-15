@@ -95,6 +95,10 @@ impl Runtime for SmolRuntime {
   type Delay<F> = SmolDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = Timeout<F> where F: Future;
 
+  fn new() -> Self {
+    Self
+  }
+
   fn spawn<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,

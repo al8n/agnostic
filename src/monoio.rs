@@ -110,6 +110,10 @@ impl Runtime for MonoioRuntime {
   type Delay<F> = MonoioDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = ::monoio::time::Timeout<F> where F: Future;
 
+  fn new() -> Self {
+    Self
+  }
+
   fn spawn<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
