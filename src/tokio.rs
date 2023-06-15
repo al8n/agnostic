@@ -107,7 +107,7 @@ impl Runtime for TokioRuntime {
     ::tokio::task::spawn_local(fut)
   }
 
-  fn spawn_blocking<F, R>(_f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(&self, _f: F) -> Self::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
@@ -133,6 +133,10 @@ impl Runtime for TokioRuntime {
 
   fn sleep(&self, duration: Duration) -> Self::Sleep {
     ::tokio::time::sleep(duration)
+  }
+
+  fn sleep_until(&self, instant: Instant) -> Self::Sleep {
+    ::tokio::time::sleep_until(instant.into())
   }
 
   fn delay<F>(&self, delay: Duration, fut: F) -> Self::Delay<F>

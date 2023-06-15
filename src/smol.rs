@@ -103,6 +103,14 @@ impl Runtime for SmolRuntime {
     ::smol::spawn(fut)
   }
 
+  fn spawn_detach<F>(&self, fut: F)
+  where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+  {
+    ::smol::spawn(fut).detach();
+  }
+
   fn spawn_local<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
   where
     F: Future + 'static,
@@ -111,7 +119,15 @@ impl Runtime for SmolRuntime {
     ::smol::LocalExecutor::new().spawn(fut)
   }
 
-  fn spawn_blocking<F, R>(f: F) -> Self::JoinHandle<R>
+  fn spawn_local_detach<F>(&self, fut: F)
+  where
+    F: Future + 'static,
+    F::Output: 'static,
+  {
+    ::smol::LocalExecutor::new().spawn(fut).detach();
+  }
+
+  fn spawn_blocking<F, R>(&self, f: F) -> Self::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
@@ -119,8 +135,12 @@ impl Runtime for SmolRuntime {
     ::smol::spawn(::smol::unblock(f))
   }
 
-  fn detach_spawn(&self) -> bool {
-    false
+  fn spawn_blocking_detach<F, R>(&self, f: F)
+  where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+  {
+    ::smol::spawn(::smol::unblock(f)).detach();
   }
 
   fn interval(&self, interval: Duration) -> Self::Interval {
@@ -133,6 +153,10 @@ impl Runtime for SmolRuntime {
 
   fn sleep(&self, duration: Duration) -> Self::Sleep {
     Timer::after(duration)
+  }
+
+  fn sleep_until(&self, deadline: Instant) -> Self::Sleep {
+    Timer::at(deadline)
   }
 
   fn delay<F>(&self, delay: Duration, fut: F) -> Self::Delay<F>

@@ -1,3 +1,4 @@
+//! Agnostic is a trait for users who want to write async runtime-agnostic crate.
 #![forbid(unsafe_code)]
 #![deny(warnings)]
 
@@ -20,6 +21,7 @@ pub mod smol;
 #[cfg(feature = "monoio")]
 pub mod monoio;
 
+/// Simlilar to Go's `time.AfterFunc`
 #[async_trait::async_trait]
 pub trait Delay<F>
 where
@@ -33,6 +35,7 @@ where
   async fn cancel(&mut self) -> Option<F::Output>;
 }
 
+/// Runtime trait
 #[async_trait::async_trait]
 pub trait Runtime {
   type JoinHandle<T>: Future;
@@ -51,26 +54,38 @@ pub trait Runtime {
     F::Output: Send + 'static,
     F: Future + Send + 'static;
 
+  fn spawn_detach<F>(&self, future: F)
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static
+  {
+    self.spawn(future);
+  }
+
   fn spawn_local<F>(&self, future: F) -> Self::JoinHandle<F::Output>
   where
     F: Future + 'static,
     F::Output: 'static;
+  
+  fn spawn_local_detach<F>(&self, future: F)
+  where
+    F: Future + 'static,
+    F::Output: 'static
+  {
+    self.spawn_local(future);
+  }
 
-  fn spawn_blocking<F, R>(f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(&self, f: F) -> Self::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static;
-
-  /// Returns `true` if the spawned thread will be auto detached.
-  ///
-  /// Some async runtimes' handle (e.g. [`smol::Task<T>`]) will not auto detach the spawned thread,
-  /// which means that once the handle of spawn functions is dropped, the future will be canceled.
-  /// Hence, if the runtime this `detach_spawn` method is used to let users check if such runtime will
-  /// auto detach the spawned thread. If not, users need to manually detach the spawned thread themselves.
-  ///
-  /// [`smol::Task<T>`]: https://docs.rs/smol/latest/smol/struct.Task.html
-  fn detach_spawn(&self) -> bool {
-    true
+  
+  fn spawn_blocking_detach<F, R>(&self, f: F)
+  where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static
+  {
+    self.spawn_blocking(f);
   }
 
   fn interval(&self, interval: Duration) -> Self::Interval;
@@ -78,6 +93,8 @@ pub trait Runtime {
   fn interval_at(&self, start: Instant, period: Duration) -> Self::Interval;
 
   fn sleep(&self, duration: Duration) -> Self::Sleep;
+
+  fn sleep_until(&self, instant: Instant) -> Self::Sleep;
 
   fn delay<F>(&self, duration: Duration, fut: F) -> Self::Delay<F>
   where

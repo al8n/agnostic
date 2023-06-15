@@ -126,12 +126,20 @@ impl Runtime for MonoioRuntime {
     ::monoio::spawn(fut)
   }
 
-  fn spawn_blocking<F, R>(_f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(&self, _f: F) -> Self::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    panic!("MonoioRuntime does not support spawn blocking")
+    panic!("MonoioRuntime does not support spawn blocking because it has different spwan_blocking fn signature, please use spawn_blocking_detach instead")
+  }
+
+  fn spawn_blocking_detach<F, R>(&self, f: F)
+  where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+  {
+    ::monoio::spawn_blocking(f);
   }
 
   fn interval(&self, interval: Duration) -> Self::Interval {
@@ -144,6 +152,10 @@ impl Runtime for MonoioRuntime {
 
   fn sleep(&self, duration: Duration) -> Self::Sleep {
     ::monoio::time::sleep(duration)
+  }
+
+  fn sleep_until(&self, deadline: Instant) -> Self::Sleep {
+    ::monoio::time::sleep_until(deadline.into())
   }
 
   fn delay<F>(&self, delay: Duration, fut: F) -> Self::Delay<F>

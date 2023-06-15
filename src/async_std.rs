@@ -111,7 +111,7 @@ impl Runtime for AsyncStdRuntime {
     ::async_std::task::spawn_local(fut)
   }
 
-  fn spawn_blocking<F, R>(f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(&self, f: F) -> Self::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
@@ -129,6 +129,10 @@ impl Runtime for AsyncStdRuntime {
 
   fn sleep(&self, duration: Duration) -> Self::Sleep {
     Timer::after(duration)
+  }
+
+  fn sleep_until(&self, deadline: Instant) -> Self::Sleep {
+    Timer::at(deadline)
   }
 
   fn delay<F>(&self, delay: Duration, fut: F) -> Self::Delay<F>
