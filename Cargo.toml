@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "Agnostic is a helpful crate for users who want to write async runtime-agnostic crate."
@@ -12,6 +12,7 @@ categories = ["asynchronous"]
 homepage = "https://github.com/al8n/agnostic"
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]

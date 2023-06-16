@@ -102,6 +102,7 @@ impl core::fmt::Display for MonoioRuntime {
   }
 }
 
+#[cfg(not(all(feature = "monoio", feature = "net")))]
 impl Runtime for MonoioRuntime {
   type JoinHandle<T> = ::monoio::task::JoinHandle<T>;
   type Interval = IntervalStream;

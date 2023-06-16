@@ -3,15 +3,13 @@
 // #![deny(warnings)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
+#![allow(clippy::needless_return)]
 
 #[cfg(all(feature = "compat", not(feature = "net")))]
 compile_error!("`compat` feature is enabled, but `net` feature is disabled, `compact` feature must only be enabled with `net` feature");
 
 #[cfg(all(feature = "unsafe-net", not(feature = "net")))]
 compile_error!("`unsafe-net` feature is enabled, but `net` feature is disabled, `unsafe-net` feature must only be enabled with `net` feature");
-
-#[cfg(all(feature = "monoio", feature = "net"))]
-compile_error!("`monoio` is not yet support `net` feature");
 
 #[macro_use]
 mod macros;
@@ -40,7 +38,7 @@ pub mod smol;
 /// [`monoio`] runtime adapter
 ///
 /// [`monoio`]: https://docs.rs/monoio
-#[cfg(feature = "monoio")]
+#[cfg(not(all(feature = "monoio", feature = "net")))]
 #[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
 pub mod monoio;
 
