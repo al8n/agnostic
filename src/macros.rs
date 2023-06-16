@@ -1,3 +1,4 @@
+#[cfg(feature = "net")]
 macro_rules! cfg_async_std {
   ($($item:item)*) => {
     $(
@@ -8,6 +9,7 @@ macro_rules! cfg_async_std {
   }
 }
 
+#[cfg(feature = "net")]
 macro_rules! cfg_tokio {
   ($($item:item)*) => {
     $(
@@ -18,6 +20,7 @@ macro_rules! cfg_tokio {
   }
 }
 
+#[cfg(feature = "net")]
 macro_rules! cfg_smol {
   ($($item:item)*) => {
     $(
@@ -28,6 +31,7 @@ macro_rules! cfg_smol {
   }
 }
 
+#[cfg(feature = "net")]
 macro_rules! cfg_monoio {
   ($($item:item)*) => {
     $(

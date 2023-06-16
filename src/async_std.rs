@@ -96,6 +96,8 @@ impl Runtime for AsyncStdRuntime {
   type Sleep = Timer;
   type Delay<F> = AsyncStdDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = Timeout<F> where F: Future;
+  #[cfg(feature = "net")]
+  type Net = net::AsyncStdNet;
 
   fn new() -> Self {
     Self

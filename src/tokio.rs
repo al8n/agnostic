@@ -93,7 +93,7 @@ impl Runtime for TokioRuntime {
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = ::tokio::time::Timeout<F> where F: Future;
   #[cfg(feature = "net")]
-  type Net = net::TokioNet;
+  type Net = self::net::TokioNet;
 
   fn new() -> Self {
     Self

@@ -10,6 +10,9 @@ compile_error!("`compat` feature is enabled, but `net` feature is disabled, `com
 #[cfg(all(feature = "unsafe-net", not(feature = "net")))]
 compile_error!("`unsafe-net` feature is enabled, but `net` feature is disabled, `unsafe-net` feature must only be enabled with `net` feature");
 
+#[cfg(all(feature = "monoio", feature = "net"))]
+compile_error!("`monoio` is not yet support `net` feature");
+
 #[macro_use]
 mod macros;
 
@@ -27,19 +30,19 @@ pub mod tokio;
 #[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
 pub mod async_std;
 
-// /// [`smol`] runtime adapter
-// ///
-// /// [`smol`]: https://docs.rs/smol
-// #[cfg(feature = "smol")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
-// pub mod smol;
+/// [`smol`] runtime adapter
+///
+/// [`smol`]: https://docs.rs/smol
+#[cfg(feature = "smol")]
+#[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
+pub mod smol;
 
-// /// [`monoio`] runtime adapter
-// ///
-// /// [`monoio`]: https://docs.rs/monoio
-// #[cfg(feature = "monoio")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
-// pub mod monoio;
+/// [`monoio`] runtime adapter
+///
+/// [`monoio`]: https://docs.rs/monoio
+#[cfg(feature = "monoio")]
+#[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
+pub mod monoio;
 
 #[cfg(feature = "net")]
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]

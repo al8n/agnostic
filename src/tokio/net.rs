@@ -47,7 +47,7 @@ impl crate::net::TcpListener for TokioTcpListener {
   where
     Self: Sized,
   {
-    let addrs = addr.to_socket_addrs(&TokioRuntime).await?;
+    let mut addrs = addr.to_socket_addrs(&TokioRuntime).await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -173,7 +173,7 @@ impl futures_util::AsyncWrite for TokioTcpStream {
 
 impl tokio::io::AsyncRead for TokioTcpStream {
   fn poll_read(
-    mut self: Pin<&mut Self>,
+    self: Pin<&mut Self>,
     cx: &mut Context<'_>,
     buf: &mut tokio::io::ReadBuf<'_>,
   ) -> Poll<io::Result<()>> {
@@ -207,7 +207,7 @@ impl crate::net::TcpStream for TokioTcpStream {
   where
     Self: Sized,
   {
-    let addrs = addr.to_socket_addrs(&TokioRuntime).await?;
+    let mut addrs = addr.to_socket_addrs(&TokioRuntime).await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -298,7 +298,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   where
     Self: Sized,
   {
-    let addrs = addr.to_socket_addrs(&TokioRuntime).await?;
+    let mut addrs = addr.to_socket_addrs(&TokioRuntime).await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -337,7 +337,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   where
     Self: Sized,
   {
-    let addrs = addr.to_socket_addrs(&TokioRuntime).await?;
+    let mut addrs = addr.to_socket_addrs(&TokioRuntime).await?;
 
     if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -415,7 +415,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     buf: &[u8],
     target: A,
   ) -> io::Result<usize> {
-    let addrs = target.to_socket_addrs(&TokioRuntime).await?;
+    let mut addrs = target.to_socket_addrs(&TokioRuntime).await?;
     if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
         if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
@@ -486,12 +486,44 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   }
 
   #[cfg(feature = "unsafe-net")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "unsafe-net")))]
   fn set_read_buffer(&self, size: usize) -> io::Result<()> {
-    todo!()
+    #[cfg(not(any(unix, windows)))]
+    {
+      panic!("unsupported platform");
+    }
+
+    #[cfg(unix)]
+    {
+      use std::os::fd::AsRawFd;
+      return crate::net::set_read_buffer(self.socket.as_raw_fd(), size);
+    }
+
+    #[cfg(windows)]
+    {
+      use std::os::windows::io::AsRawSocket;
+      return crate::net::set_read_buffer(self.socket.as_raw_socket(), size);
+    }
   }
 
   #[cfg(feature = "unsafe-net")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "unsafe-net")))]
   fn set_write_buffer(&self, size: usize) -> io::Result<()> {
-    todo!()
+    #[cfg(not(any(unix, windows)))]
+    {
+      panic!("unsupported platform");
+    }
+
+    #[cfg(unix)]
+    {
+      use std::os::fd::AsRawFd;
+      return crate::net::set_write_buffer(self.socket.as_raw_fd(), size);
+    }
+
+    #[cfg(windows)]
+    {
+      use std::os::windows::io::AsRawSocket;
+      return crate::net::set_write_buffer(self.socket.as_raw_socket(), size);
+    }
   }
 }

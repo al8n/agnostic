@@ -8,9 +8,6 @@ use super::*;
 use async_channel as channel;
 use futures_util::FutureExt;
 
-#[cfg(feature = "net")]
-pub mod net;
-
 struct MonoioDelayHandle<F>
 where
   F: Future + Send + 'static,

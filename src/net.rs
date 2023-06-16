@@ -26,7 +26,7 @@ pub trait ToSocketAddrs<R: Runtime>: Send + Sync {
 }
 
 #[async_trait::async_trait]
-pub trait TcpListener: Send {
+pub trait TcpListener {
   type Runtime: Runtime;
   type Stream: TcpStream<Runtime = Self::Runtime>;
 
@@ -162,9 +162,11 @@ pub trait UdpSocket {
   fn read_timeout(&self) -> Option<Duration>;
 
   #[cfg(feature = "unsafe-net")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "unsafe-net")))]
   fn set_read_buffer(&self, size: usize) -> io::Result<()>;
 
   #[cfg(feature = "unsafe-net")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "unsafe-net")))]
   fn set_write_buffer(&self, size: usize) -> io::Result<()>;
 }
 
@@ -173,4 +175,121 @@ pub trait Net {
   type TcpListener: TcpListener;
   type TcpStream: TcpStream;
   type UdpSocket: UdpSocket;
+}
+
+#[cfg(all(feature = "unsafe-net", unix))]
+#[inline]
+pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Result<()> {
+  use socket2::Socket;
+  use std::os::fd::FromRawFd;
+
+  // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
+  let socket = unsafe { Socket::from_raw_fd(fd) };
+  let mut err = None;
+
+  while size > 0 {
+    match socket.set_recv_buffer_size(size) {
+      Ok(()) => return Ok(()),
+      Err(e) => {
+        err = Some(e);
+        size /= 2;
+      }
+    }
+  }
+  // This is required to prevent double-closing the file descriptor.
+  drop(socket);
+  match err {
+    Some(err) => Err(err),
+    None => Ok(()),
+  }
+}
+
+#[cfg(all(feature = "unsafe-net", unix))]
+#[inline]
+pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Result<()> {
+  use socket2::Socket;
+  use std::os::fd::FromRawFd;
+
+  // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
+  let socket = unsafe { Socket::from_raw_fd(fd) };
+  let mut err = None;
+
+  while size > 0 {
+    match socket.set_send_buffer_size(size) {
+      Ok(()) => return Ok(()),
+      Err(e) => {
+        err = Some(e);
+        size /= 2;
+      }
+    }
+  }
+
+  // This is required to prevent double-closing the file descriptor.
+  drop(socket);
+  match err {
+    Some(err) => Err(err),
+    None => Ok(()),
+  }
+}
+
+#[cfg(all(feature = "unsafe-net", windows))]
+#[inline]
+pub(crate) fn set_read_buffer(
+  fd: std::os::windows::io::RawSocket,
+  mut size: usize,
+) -> io::Result<()> {
+  use socket2::Socket;
+  use std::os::windows::io::FromRawSocket;
+
+  // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
+  let socket = unsafe { Socket::from_raw_socket(fd) };
+  let mut err = None;
+
+  while size > 0 {
+    match socket.set_recv_buffer_size(size) {
+      Ok(()) => return Ok(()),
+      Err(e) => {
+        err = Some(e);
+        size /= 2;
+      }
+    }
+  }
+
+  // This is required to prevent double-closing the file descriptor.
+  drop(socket);
+  match err {
+    Some(err) => Err(err),
+    None => Ok(()),
+  }
+}
+
+#[cfg(all(feature = "unsafe-net", windows))]
+#[inline]
+pub(crate) fn set_write_buffer(
+  fd: std::os::windows::io::RawSocket,
+  mut size: usize,
+) -> io::Result<()> {
+  use socket2::Socket;
+  use std::os::windows::io::FromRawSocket;
+
+  // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
+  let socket = unsafe { Socket::from_raw_socket(fd) };
+  let mut err = None;
+
+  while size > 0 {
+    match socket.set_send_buffer_size(size) {
+      Ok(()) => return Ok(()),
+      Err(e) => {
+        err = Some(e);
+        size /= 2;
+      }
+    }
+  }
+
+  // This is required to prevent double-closing the file descriptor.
+  drop(socket);
+  match err {
+    Some(err) => Err(err),
+    None => Ok(()),
+  }
 }
