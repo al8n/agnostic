@@ -152,6 +152,20 @@ pub trait UdpSocket {
   fn set_broadcast(&self, broadcast: bool) -> io::Result<()>;
 
   fn broadcast(&self) -> io::Result<bool>;
+
+  fn set_write_timeout(&self, timeout: Option<Duration>);
+
+  fn write_timeout(&self) -> Option<Duration>;
+
+  fn set_read_timeout(&self, timeout: Option<Duration>);
+
+  fn read_timeout(&self) -> Option<Duration>;
+
+  #[cfg(feature = "unsafe-net")]
+  fn set_read_buffer(&self, size: usize) -> io::Result<()>;
+
+  #[cfg(feature = "unsafe-net")]
+  fn set_write_buffer(&self, size: usize) -> io::Result<()>;
 }
 
 #[cfg(feature = "net")]

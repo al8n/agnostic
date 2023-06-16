@@ -47,11 +47,22 @@ impl crate::net::TcpListener for TokioTcpListener {
   where
     Self: Sized,
   {
-    let addrs = addr
-      .to_socket_addrs(&TokioRuntime)
-      .await?
-      .collect::<Vec<_>>();
-    TcpListener::bind(addrs.as_slice()).await.map(|ln| Self {
+    let addrs = addr.to_socket_addrs(&TokioRuntime).await?;
+
+    let res = if addrs.size_hint().0 <= 1 {
+      if let Some(addr) = addrs.next() {
+        TcpListener::bind(addr).await
+      } else {
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    } else {
+      TcpListener::bind(addrs.collect::<Vec<_>>().as_slice()).await
+    };
+
+    res.map(|ln| Self {
       ln,
       write_timeout: Atomic::new(None),
       read_timeout: Atomic::new(None),
@@ -196,17 +207,26 @@ impl crate::net::TcpStream for TokioTcpStream {
   where
     Self: Sized,
   {
-    let addrs = addr
-      .to_socket_addrs(&TokioRuntime)
-      .await?
-      .collect::<Vec<_>>();
-    TcpStream::connect(addrs.as_slice())
-      .await
-      .map(|stream| Self {
-        stream,
-        write_timeout: Atomic::new(None),
-        read_timeout: Atomic::new(None),
-      })
+    let addrs = addr.to_socket_addrs(&TokioRuntime).await?;
+
+    let res = if addrs.size_hint().0 <= 1 {
+      if let Some(addr) = addrs.next() {
+        TcpStream::connect(addr).await
+      } else {
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    } else {
+      TcpStream::connect(&addrs.collect::<Vec<_>>().as_slice()).await
+    };
+
+    res.map(|stream| Self {
+      stream,
+      write_timeout: Atomic::new(None),
+      read_timeout: Atomic::new(None),
+    })
   }
 
   async fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
@@ -266,6 +286,8 @@ impl crate::net::TcpStream for TokioTcpStream {
 
 pub struct TokioUdpSocket {
   socket: UdpSocket,
+  write_timeout: Atomic<Option<Duration>>,
+  read_timeout: Atomic<Option<Duration>>,
 }
 
 #[async_trait::async_trait]
@@ -276,13 +298,25 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   where
     Self: Sized,
   {
-    let addrs = addr
-      .to_socket_addrs(&TokioRuntime)
-      .await?
-      .collect::<Vec<_>>();
-    UdpSocket::bind(addrs.as_slice())
-      .await
-      .map(|socket| Self { socket })
+    let addrs = addr.to_socket_addrs(&TokioRuntime).await?;
+
+    let res = if addrs.size_hint().0 <= 1 {
+      if let Some(addr) = addrs.next() {
+        UdpSocket::bind(addr).await
+      } else {
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    } else {
+      UdpSocket::bind(&addrs.collect::<Vec<_>>().as_slice()).await
+    };
+    res.map(|socket| Self {
+      socket,
+      write_timeout: Atomic::new(None),
+      read_timeout: Atomic::new(None),
+    })
   }
 
   async fn bind_timeout<A: ToSocketAddrs<Self::Runtime>>(
@@ -303,11 +337,23 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   where
     Self: Sized,
   {
-    let addrs = addr
-      .to_socket_addrs(&TokioRuntime)
-      .await?
-      .collect::<Vec<_>>();
-    self.socket.connect(addrs.as_slice()).await
+    let addrs = addr.to_socket_addrs(&TokioRuntime).await?;
+
+    if addrs.size_hint().0 <= 1 {
+      if let Some(addr) = addrs.next() {
+        self.socket.connect(addr).await
+      } else {
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    } else {
+      self
+        .socket
+        .connect(&addrs.collect::<Vec<_>>().as_slice())
+        .await
+    }
   }
 
   async fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
@@ -326,14 +372,41 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   }
 
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
+    if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
+      if !timeout.is_zero() {
+        return match TokioRuntime.timeout(timeout, self.socket.recv(buf)).await {
+          Ok(timeout) => timeout,
+          Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
+        };
+      }
+    }
     self.socket.recv(buf).await
   }
 
   async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+    if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
+      if !timeout.is_zero() {
+        return match TokioRuntime
+          .timeout(timeout, self.socket.recv_from(buf))
+          .await
+        {
+          Ok(timeout) => timeout,
+          Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
+        };
+      }
+    }
     self.socket.recv_from(buf).await
   }
 
   async fn send(&self, buf: &[u8]) -> io::Result<usize> {
+    if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
+      if !timeout.is_zero() {
+        return match TokioRuntime.timeout(timeout, self.socket.send(buf)).await {
+          Ok(timeout) => timeout,
+          Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
+        };
+      }
+    }
     self.socket.send(buf).await
   }
 
@@ -342,11 +415,42 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     buf: &[u8],
     target: A,
   ) -> io::Result<usize> {
-    let addrs = target
-      .to_socket_addrs(&TokioRuntime)
-      .await?
-      .collect::<Vec<_>>();
-    self.socket.send_to(buf, addrs.as_slice()).await
+    let addrs = target.to_socket_addrs(&TokioRuntime).await?;
+    if addrs.size_hint().0 <= 1 {
+      if let Some(addr) = addrs.next() {
+        if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
+          if !timeout.is_zero() {
+            return match TokioRuntime
+              .timeout(timeout, self.socket.send_to(buf, addr))
+              .await
+            {
+              Ok(timeout) => timeout,
+              Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
+            };
+          }
+        }
+        self.socket.send_to(buf, addr).await
+      } else {
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    } else {
+      let addrs = addrs.collect::<Vec<_>>();
+      if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
+        if !timeout.is_zero() {
+          return match TokioRuntime
+            .timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
+            .await
+          {
+            Ok(timeout) => timeout,
+            Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
+          };
+        }
+      }
+      self.socket.send_to(buf, addrs.as_slice()).await
+    }
   }
 
   fn set_ttl(&self, ttl: u32) -> io::Result<()> {
@@ -363,5 +467,31 @@ impl crate::net::UdpSocket for TokioUdpSocket {
 
   fn broadcast(&self) -> io::Result<bool> {
     self.socket.broadcast()
+  }
+
+  fn set_write_timeout(&self, timeout: Option<Duration>) {
+    self.write_timeout.store(timeout, Ordering::SeqCst);
+  }
+
+  fn write_timeout(&self) -> Option<Duration> {
+    self.write_timeout.load(Ordering::SeqCst)
+  }
+
+  fn set_read_timeout(&self, timeout: Option<Duration>) {
+    self.read_timeout.store(timeout, Ordering::SeqCst);
+  }
+
+  fn read_timeout(&self) -> Option<Duration> {
+    self.read_timeout.load(Ordering::SeqCst)
+  }
+
+  #[cfg(feature = "unsafe-net")]
+  fn set_read_buffer(&self, size: usize) -> io::Result<()> {
+    todo!()
+  }
+
+  #[cfg(feature = "unsafe-net")]
+  fn set_write_buffer(&self, size: usize) -> io::Result<()> {
+    todo!()
   }
 }

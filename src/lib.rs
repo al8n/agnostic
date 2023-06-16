@@ -1,11 +1,14 @@
 //! Agnostic is a trait for users who want to write async runtime-agnostic crate.
-#![forbid(unsafe_code)]
+#![cfg_attr(not(feature = "unsafe-net"), forbid(unsafe_code))]
 // #![deny(warnings)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
 #[cfg(all(feature = "compat", not(feature = "net")))]
 compile_error!("`compat` feature is enabled, but `net` feature is disabled, `compact` feature must only be enabled with `net` feature");
+
+#[cfg(all(feature = "unsafe-net", not(feature = "net")))]
+compile_error!("`unsafe-net` feature is enabled, but `net` feature is disabled, `unsafe-net` feature must only be enabled with `net` feature");
 
 #[macro_use]
 mod macros;
