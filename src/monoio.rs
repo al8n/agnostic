@@ -8,6 +8,9 @@ use super::*;
 use async_channel as channel;
 use futures_util::FutureExt;
 
+#[cfg(feature = "net")]
+pub mod net;
+
 struct MonoioDelayHandle<F>
 where
   F: Future + Send + 'static,
@@ -102,7 +105,6 @@ impl core::fmt::Display for MonoioRuntime {
   }
 }
 
-#[async_trait::async_trait]
 impl Runtime for MonoioRuntime {
   type JoinHandle<T> = ::monoio::task::JoinHandle<T>;
   type Interval = IntervalStream;

@@ -9,6 +9,9 @@ use ::smol::channel;
 use async_io::Timer;
 use futures_util::FutureExt;
 
+#[cfg(feature = "net")]
+pub mod net;
+
 struct DelayFuncHandle<F: Future> {
   handle: ::smol::Task<Option<F::Output>>,
   reset_tx: channel::Sender<Duration>,
@@ -87,7 +90,6 @@ impl core::fmt::Display for SmolRuntime {
   }
 }
 
-#[async_trait::async_trait]
 impl Runtime for SmolRuntime {
   type JoinHandle<T> = ::smol::Task<T>;
   type Interval = Timer;
@@ -136,7 +138,7 @@ impl Runtime for SmolRuntime {
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    ::smol::spawn(::smol::unblock(f))
+    ::smol::unblock(f)
   }
 
   fn spawn_blocking_detach<F, R>(&self, f: F)
@@ -144,7 +146,7 @@ impl Runtime for SmolRuntime {
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    ::smol::spawn(::smol::unblock(f)).detach();
+    ::smol::unblock(f).detach();
   }
 
   fn interval(&self, interval: Duration) -> Self::Interval {

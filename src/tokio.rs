@@ -3,6 +3,9 @@ use tokio_stream::wrappers::IntervalStream;
 
 use super::*;
 
+#[cfg(feature = "tokio-net")]
+pub mod net;
+
 struct DelayFuncHandle<F: Future> {
   handle: ::tokio::task::JoinHandle<Option<F::Output>>,
   reset_tx: mpsc::Sender<Duration>,
@@ -83,7 +86,6 @@ impl core::fmt::Display for TokioRuntime {
   }
 }
 
-#[async_trait::async_trait]
 impl Runtime for TokioRuntime {
   type JoinHandle<T> = ::tokio::task::JoinHandle<T>;
   type Interval = IntervalStream;

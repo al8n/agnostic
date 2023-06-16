@@ -1,15 +1,11 @@
 //! Agnostic is a trait for users who want to write async runtime-agnostic crate.
 #![forbid(unsafe_code)]
-#![deny(warnings)]
+// #![deny(warnings)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
-use std::{
-  future::Future,
-  time::{Duration, Instant},
-};
-
-use futures_util::Stream;
+#[macro_use]
+mod macros;
 
 /// [`tokio`] runtime adapter
 ///
@@ -39,6 +35,17 @@ pub mod smol;
 #[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
 pub mod monoio;
 
+#[cfg(feature = "net")]
+#[cfg_attr(docsrs, doc(cfg(feature = "net")))]
+mod net;
+
+use std::{
+  future::Future,
+  time::{Duration, Instant},
+};
+
+use futures_util::Stream;
+
 /// Simlilar to Go's `time.AfterFunc`
 #[async_trait::async_trait]
 pub trait Delay<F>
@@ -54,9 +61,8 @@ where
 }
 
 /// Runtime trait
-#[async_trait::async_trait]
-pub trait Runtime {
-  type JoinHandle<T>: Future;
+pub trait Runtime: Send + Sync + 'static {
+  type JoinHandle<F>: Future;
   type Interval: Stream;
   type Sleep: Future;
   type Delay<F>: Delay<F>

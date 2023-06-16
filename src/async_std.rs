@@ -9,6 +9,9 @@ use ::async_std::channel;
 use async_io::Timer;
 use futures_util::FutureExt;
 
+#[cfg(feature = "net")]
+pub mod net;
+
 struct DelayFuncHandle<F: Future> {
   handle: ::async_std::task::JoinHandle<Option<F::Output>>,
   reset_tx: channel::Sender<Duration>,
@@ -78,7 +81,6 @@ where
   }
 }
 
-#[derive(Debug, Copy, Clone)]
 pub struct AsyncStdRuntime;
 
 impl core::fmt::Display for AsyncStdRuntime {
