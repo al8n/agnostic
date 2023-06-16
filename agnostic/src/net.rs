@@ -160,13 +160,9 @@ pub trait UdpSocket {
   fn set_read_timeout(&self, timeout: Option<Duration>);
 
   fn read_timeout(&self) -> Option<Duration>;
-
-  #[cfg(feature = "unsafe-net")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "unsafe-net")))]
+ 
   fn set_read_buffer(&self, size: usize) -> io::Result<()>;
 
-  #[cfg(feature = "unsafe-net")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "unsafe-net")))]
   fn set_write_buffer(&self, size: usize) -> io::Result<()>;
 }
 
@@ -177,7 +173,7 @@ pub trait Net {
   type UdpSocket: UdpSocket;
 }
 
-#[cfg(all(feature = "unsafe-net", unix))]
+#[cfg(all(unix, not(feature = "wasm-net")))]
 #[inline]
 pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Result<()> {
   use socket2::Socket;
@@ -204,7 +200,7 @@ pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Re
   }
 }
 
-#[cfg(all(feature = "unsafe-net", unix))]
+#[cfg(all(unix, not(feature = "wasm-net")))]
 #[inline]
 pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Result<()> {
   use socket2::Socket;
@@ -232,7 +228,7 @@ pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::R
   }
 }
 
-#[cfg(all(feature = "unsafe-net", windows))]
+#[cfg(all(windows, not(feature = "wasm-net")))]
 #[inline]
 pub(crate) fn set_read_buffer(
   fd: std::os::windows::io::RawSocket,
@@ -263,7 +259,7 @@ pub(crate) fn set_read_buffer(
   }
 }
 
-#[cfg(all(feature = "unsafe-net", windows))]
+#[cfg(all(windows, not(feature = "wasm-net")))]
 #[inline]
 pub(crate) fn set_write_buffer(
   fd: std::os::windows::io::RawSocket,

@@ -7,46 +7,47 @@ use std::{
   time::Duration,
 };
 
-use async_std::net::{TcpListener, TcpStream, UdpSocket};
 use atomic::{Atomic, Ordering};
-use futures_util::{AsyncReadExt, AsyncWriteExt};
-#[cfg(feature = "compat")]
-use tokio_util::compat::FuturesAsyncWriteCompatExt;
+use tokio::{
+  io::{AsyncReadExt, AsyncWriteExt},
+  net::{TcpListener, TcpStream, UdpSocket},
+};
+use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
 use crate::{
   net::{Net, ToSocketAddrs},
   Runtime,
 };
 
-use super::AsyncStdRuntime;
+use super::TokioRuntime;
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct AsyncStdNet;
+pub struct TokioNet;
 
-impl Net for AsyncStdNet {
-  type TcpListener = AsyncStdTcpListener;
+impl Net for TokioNet {
+  type TcpListener = TokioTcpListener;
 
-  type TcpStream = AsyncStdTcpStream;
+  type TcpStream = TokioTcpStream;
 
-  type UdpSocket = AsyncStdUdpSocket;
+  type UdpSocket = TokioUdpSocket;
 }
 
-pub struct AsyncStdTcpListener {
+pub struct TokioTcpListener {
   ln: TcpListener,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
 }
 
 #[async_trait::async_trait]
-impl crate::net::TcpListener for AsyncStdTcpListener {
-  type Stream = AsyncStdTcpStream;
-  type Runtime = AsyncStdRuntime;
+impl crate::net::TcpListener for TokioTcpListener {
+  type Stream = TokioTcpStream;
+  type Runtime = TokioRuntime;
 
   async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+    let mut addrs = addr.to_socket_addrs(&TokioRuntime).await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -71,7 +72,7 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
   async fn accept(&self) -> io::Result<(Self::Stream, SocketAddr)> {
     self.ln.accept().await.map(|(stream, addr)| {
       (
-        AsyncStdTcpStream {
+        TokioTcpStream {
           stream,
           write_timeout: Atomic::new(self.write_timeout.load(Ordering::SeqCst)),
           read_timeout: Atomic::new(self.read_timeout.load(Ordering::SeqCst)),
@@ -102,13 +103,13 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
   }
 }
 
-pub struct AsyncStdTcpStream {
+pub struct TokioTcpStream {
   stream: TcpStream,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
 }
 
-impl futures_util::AsyncRead for AsyncStdTcpStream {
+impl futures_util::AsyncRead for TokioTcpStream {
   fn poll_read(
     mut self: Pin<&mut Self>,
     cx: &mut Context<'_>,
@@ -116,8 +117,8 @@ impl futures_util::AsyncRead for AsyncStdTcpStream {
   ) -> Poll<io::Result<usize>> {
     if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
-        let timeout = AsyncStdRuntime.timeout(d, self.stream.read(buf));
-        futures_util::pin_mut!(timeout);
+        let timeout = TokioRuntime.timeout(d, self.stream.read(buf));
+        tokio::pin!(timeout);
         match timeout.poll(cx) {
           Poll::Ready(rst) => match rst {
             Ok(rst) => return Poll::Ready(rst),
@@ -128,11 +129,11 @@ impl futures_util::AsyncRead for AsyncStdTcpStream {
       }
     }
 
-    Pin::new(&mut (&mut self.stream)).poll_read(cx, buf)
+    Pin::new(&mut (&mut self.stream).compat()).poll_read(cx, buf)
   }
 }
 
-impl futures_util::AsyncWrite for AsyncStdTcpStream {
+impl futures_util::AsyncWrite for TokioTcpStream {
   fn poll_write(
     mut self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
@@ -140,8 +141,8 @@ impl futures_util::AsyncWrite for AsyncStdTcpStream {
   ) -> std::task::Poll<io::Result<usize>> {
     if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
-        let timeout = AsyncStdRuntime.timeout(d, self.stream.write(buf));
-        futures_util::pin_mut!(timeout);
+        let timeout = TokioRuntime.timeout(d, self.stream.write(buf));
+        tokio::pin!(timeout);
         match timeout.poll(cx) {
           Poll::Ready(rst) => match rst {
             Ok(rst) => return Poll::Ready(rst),
@@ -152,26 +153,25 @@ impl futures_util::AsyncWrite for AsyncStdTcpStream {
       }
     }
 
-    Pin::new(&mut (&mut self.stream)).poll_write(cx, buf)
+    Pin::new(&mut (&mut self.stream).compat_write()).poll_write(cx, buf)
   }
 
   fn poll_flush(
     mut self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
   ) -> std::task::Poll<io::Result<()>> {
-    Pin::new(&mut (&mut self.stream)).poll_flush(cx)
+    Pin::new(&mut (&mut self.stream).compat_write()).poll_flush(cx)
   }
 
   fn poll_close(
     mut self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
   ) -> std::task::Poll<io::Result<()>> {
-    Pin::new(&mut (&mut self.stream)).poll_close(cx)
+    Pin::new(&mut (&mut self.stream).compat_write()).poll_close(cx)
   }
 }
 
-#[cfg(feature = "compat")]
-impl tokio::io::AsyncRead for AsyncStdTcpStream {
+impl tokio::io::AsyncRead for TokioTcpStream {
   fn poll_read(
     self: Pin<&mut Self>,
     cx: &mut Context<'_>,
@@ -184,31 +184,30 @@ impl tokio::io::AsyncRead for AsyncStdTcpStream {
   }
 }
 
-#[cfg(feature = "compat")]
-impl tokio::io::AsyncWrite for AsyncStdTcpStream {
+impl tokio::io::AsyncWrite for TokioTcpStream {
   fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
     Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
       .poll_write(cx, buf)
   }
 
   fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-    Pin::new(&mut (&mut self.stream).compat_write()).poll_flush(cx)
+    Pin::new(&mut self.stream).poll_flush(cx)
   }
 
   fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-    Pin::new(&mut (&mut self.stream).compat_write()).poll_shutdown(cx)
+    Pin::new(&mut self.stream).poll_shutdown(cx)
   }
 }
 
 #[async_trait::async_trait]
-impl crate::net::TcpStream for AsyncStdTcpStream {
-  type Runtime = AsyncStdRuntime;
+impl crate::net::TcpStream for TokioTcpStream {
+  type Runtime = TokioRuntime;
 
   async fn connect<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+    let mut addrs = addr.to_socket_addrs(&TokioRuntime).await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -237,7 +236,7 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
   where
     Self: Sized,
   {
-    AsyncStdRuntime
+    TokioRuntime
       .timeout(timeout, Self::connect(addr))
       .await
       .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
@@ -285,21 +284,21 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
   }
 }
 
-pub struct AsyncStdUdpSocket {
+pub struct TokioUdpSocket {
   socket: UdpSocket,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
 }
 
 #[async_trait::async_trait]
-impl crate::net::UdpSocket for AsyncStdUdpSocket {
-  type Runtime = AsyncStdRuntime;
+impl crate::net::UdpSocket for TokioUdpSocket {
+  type Runtime = TokioRuntime;
 
   async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+    let mut addrs = addr.to_socket_addrs(&TokioRuntime).await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -327,7 +326,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   where
     Self: Sized,
   {
-    AsyncStdRuntime
+    TokioRuntime
       .timeout(timeout, Self::bind(addr))
       .await
       .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
@@ -338,7 +337,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+    let mut addrs = addr.to_socket_addrs(&TokioRuntime).await?;
 
     if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -365,7 +364,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   where
     Self: Sized,
   {
-    AsyncStdRuntime
+    TokioRuntime
       .timeout(timeout, self.connect(addr))
       .await
       .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
@@ -375,10 +374,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
-        return match AsyncStdRuntime
-          .timeout(timeout, self.socket.recv(buf))
-          .await
-        {
+        return match TokioRuntime.timeout(timeout, self.socket.recv(buf)).await {
           Ok(timeout) => timeout,
           Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
         };
@@ -390,7 +386,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
-        return match AsyncStdRuntime
+        return match TokioRuntime
           .timeout(timeout, self.socket.recv_from(buf))
           .await
         {
@@ -405,10 +401,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   async fn send(&self, buf: &[u8]) -> io::Result<usize> {
     if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
-        return match AsyncStdRuntime
-          .timeout(timeout, self.socket.send(buf))
-          .await
-        {
+        return match TokioRuntime.timeout(timeout, self.socket.send(buf)).await {
           Ok(timeout) => timeout,
           Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
         };
@@ -422,12 +415,12 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     buf: &[u8],
     target: A,
   ) -> io::Result<usize> {
-    let mut addrs = target.to_socket_addrs(&AsyncStdRuntime).await?;
+    let mut addrs = target.to_socket_addrs(&TokioRuntime).await?;
     if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
         if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
           if !timeout.is_zero() {
-            return match AsyncStdRuntime
+            return match TokioRuntime
               .timeout(timeout, self.socket.send_to(buf, addr))
               .await
             {
@@ -447,7 +440,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
       let addrs = addrs.collect::<Vec<_>>();
       if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match AsyncStdRuntime
+          return match TokioRuntime
             .timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
             .await
           {
@@ -492,45 +485,47 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     self.read_timeout.load(Ordering::SeqCst)
   }
 
-  #[cfg(feature = "unsafe-net")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "unsafe-net")))]
   fn set_read_buffer(&self, size: usize) -> io::Result<()> {
     #[cfg(not(any(unix, windows)))]
     {
       panic!("unsupported platform");
     }
 
-    #[cfg(unix)]
+    #[cfg(all(unix, not(feature = "wasm-net")))]
     {
       use std::os::fd::AsRawFd;
       return crate::net::set_read_buffer(self.socket.as_raw_fd(), size);
     }
 
-    #[cfg(windows)]
+    #[cfg(all(windows, not(feature = "wasm-net")))]
     {
       use std::os::windows::io::AsRawSocket;
       return crate::net::set_read_buffer(self.socket.as_raw_socket(), size);
     }
+
+    let _ = size;
+    Ok(())
   }
 
-  #[cfg(feature = "unsafe-net")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "unsafe-net")))]
   fn set_write_buffer(&self, size: usize) -> io::Result<()> {
     #[cfg(not(any(unix, windows)))]
     {
       panic!("unsupported platform");
     }
 
-    #[cfg(unix)]
+    #[cfg(all(unix, not(feature = "wasm-net")))]
     {
       use std::os::fd::AsRawFd;
       return crate::net::set_write_buffer(self.socket.as_raw_fd(), size);
     }
 
-    #[cfg(windows)]
+    #[cfg(all(windows, not(feature = "wasm-net")))]
     {
       use std::os::windows::io::AsRawSocket;
       return crate::net::set_write_buffer(self.socket.as_raw_socket(), size);
     }
+
+    let _ = size;
+    Ok(())
   }
 }

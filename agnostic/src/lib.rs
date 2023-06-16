@@ -1,15 +1,11 @@
 //! Agnostic is a trait for users who want to write async runtime-agnostic crate.
-#![cfg_attr(not(feature = "unsafe-net"), forbid(unsafe_code))]
-// #![deny(warnings)]
+#![deny(warnings)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 #![allow(clippy::needless_return)]
 
 #[cfg(all(feature = "compat", not(feature = "net")))]
 compile_error!("`compat` feature is enabled, but `net` feature is disabled, `compact` feature must only be enabled with `net` feature");
-
-#[cfg(all(feature = "unsafe-net", not(feature = "net")))]
-compile_error!("`unsafe-net` feature is enabled, but `net` feature is disabled, `unsafe-net` feature must only be enabled with `net` feature");
 
 #[macro_use]
 mod macros;
@@ -35,12 +31,12 @@ pub mod async_std;
 #[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
 pub mod smol;
 
-/// [`monoio`] runtime adapter
-///
-/// [`monoio`]: https://docs.rs/monoio
-#[cfg(not(all(feature = "monoio", feature = "net")))]
-#[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
-pub mod monoio;
+// /// [`monoio`] runtime adapter
+// ///
+// /// [`monoio`]: https://docs.rs/monoio
+// #[cfg(not(all(feature = "monoio", feature = "net")))]
+// #[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
+// pub mod monoio;
 
 #[cfg(feature = "net")]
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
@@ -79,7 +75,12 @@ pub trait Runtime: Send + Sync + 'static {
   type Timeout<F>: Future
   where
     F: Future;
-  #[cfg(feature = "net")]
+  #[cfg(any(
+    feature = "tokio-net",
+    feature = "async-std-net",
+    feature = "smol-net",
+    feature = "wasm-net"
+  ))]
   type Net: net::Net;
 
   fn new() -> Self;

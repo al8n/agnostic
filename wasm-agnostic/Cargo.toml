@@ -1,0 +1,34 @@
+[package]
+name = "wasm-agnostic"
+version = "0.1.0"
+edition = "2021"
+license = "MIT/Apache-2.0"
+description = "wasm-agnostic is a helpful crate for users who want to write async runtime-agnostic crate for wasm target."
+repository = "https://github.com/al8n/agnostic"
+documentation = "https://docs.rs/wasm-agnostic"
+readme = "README.md"
+keywords = ["async", "runtime", "agnostic", "wasi", "wasm"]
+categories = ["asynchronous"]
+homepage = "https://github.com/al8n/agnostic"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = []
+
+[dependencies]
+atomic = "0.5"
+async-trait = "0.1"
+agnostic = { version = "0.1.8", path = "../agnostic", default-features = false, features = ["wasm-net"] }
+futures-util = { version = "0.3", default-features = false, features = ["io"] }
+socket2 = "=0.4.7"
+tokio = { version = "=1.24.2", default-features = false, features = ["full"] }
+tokio-stream = { version = "0.1", default-features = false, features = ["time"] }
+tokio-util = { version = "0.7", default-features = false, features = ["compat"] }
+
+[patch.crates-io]
+socket2 = { git = "https://github.com/wasix-org/socket2.git", branch = "v0.4.7" }
+libc = { git = "https://github.com/wasix-org/libc.git" }
+tokio = { git = "https://github.com/wasix-org/tokio.git", branch = "wasix-1.24.2" }

@@ -1,10 +1,16 @@
-use ::tokio::sync::mpsc;
+use std::{
+  future::Future,
+  time::{Duration, Instant},
+};
+
+use agnostic::{Delay, Runtime};
+use tokio::sync::mpsc;
 use tokio_stream::wrappers::IntervalStream;
 
-use super::*;
-
-#[cfg(feature = "tokio-net")]
 pub mod net;
+
+#[derive(Debug, Default, Copy, Clone)]
+pub struct TokioWasmRuntime;
 
 struct DelayFuncHandle<F: Future> {
   handle: ::tokio::task::JoinHandle<Option<F::Output>>,
@@ -12,12 +18,12 @@ struct DelayFuncHandle<F: Future> {
   stop_tx: mpsc::Sender<()>,
 }
 
-pub struct TokioDelay<F: Future> {
+pub struct TokioWasmDelay<F: Future> {
   handle: Option<DelayFuncHandle<F>>,
 }
 
 #[async_trait::async_trait]
-impl<F> Delay<F> for TokioDelay<F>
+impl<F> Delay<F> for TokioWasmDelay<F>
 where
   F: Future + Send + 'static,
   F::Output: Send,
@@ -77,23 +83,19 @@ where
   }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct TokioRuntime;
-
-impl core::fmt::Display for TokioRuntime {
+impl core::fmt::Display for TokioWasmRuntime {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    write!(f, "tokio")
+    write!(f, "wasm")
   }
 }
 
-impl Runtime for TokioRuntime {
+impl Runtime for TokioWasmRuntime {
   type JoinHandle<T> = ::tokio::task::JoinHandle<T>;
   type Interval = IntervalStream;
   type Sleep = ::tokio::time::Sleep;
-  type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
+  type Delay<F> = TokioWasmDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = ::tokio::time::Timeout<F> where F: Future;
-  #[cfg(feature = "net")]
-  type Net = self::net::TokioNet;
+  type Net = self::net::TokioWasmNet;
 
   fn new() -> Self {
     Self
@@ -115,20 +117,12 @@ impl Runtime for TokioRuntime {
     ::tokio::task::spawn_local(fut)
   }
 
-  fn spawn_blocking<F, R>(&self, _f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(&self, f: F) -> Self::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    #[cfg(not(target_family = "wasm"))]
-    {
-      ::tokio::task::spawn_blocking(_f)
-    }
-
-    #[cfg(target_family = "wasm")]
-    {
-      panic!("TokioRuntime::spawn_blocking is not supported on wasm")
-    }
+    ::tokio::task::spawn_blocking(f)
   }
 
   fn interval(&self, interval: Duration) -> Self::Interval {
@@ -152,7 +146,7 @@ impl Runtime for TokioRuntime {
     F: Future + Send + 'static,
     F::Output: Send,
   {
-    TokioDelay::new(delay, fut)
+    TokioWasmDelay::new(delay, fut)
   }
 
   fn timeout<F>(&self, duration: Duration, fut: F) -> Self::Timeout<F>

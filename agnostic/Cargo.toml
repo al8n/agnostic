@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.1.6"
+version = "0.1.8"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "Agnostic is a helpful crate for users who want to write async runtime-agnostic crate."
@@ -19,8 +19,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = []
 net = ["atomic", "futures-util/io"]
 
-# Enable some unsafe methods for net
-unsafe-net = ["socket2"]
+wasm-net = ["net"]
 
 # This feature must be used with net feature
 # by enable this feature, TcpStream will implement
@@ -28,11 +27,16 @@ unsafe-net = ["socket2"]
 # But if you are using tokio, this feature can be ignored.
 compat = ["tokio-util/compat", "dep:tokio"]
 
-tokio-net = ["tokio", "net", "tokio/net", "tokio-util", "tokio/io-util"]
+tokio-net = ["tokio", "net", "tokio/net", "tokio-util", "tokio/io-util", "socket2"]
 tokio = ["dep:tokio", "tokio-stream", "tokio/rt", "tokio/sync", "tokio/macros", "tokio/time", "tokio-util/compat"]
 
+async-std-net = ["socket2", "async-std", "net"]
 async-std = ["dep:async-std", "async-io", "pin-project-lite"]
+
+smol-net = ["socket2", "smol", "net"]
 smol = ["dep:smol", "pin-project-lite", "async-io"]
+
+# Note: this crate does not support net features for monoio
 monoio = ["dep:monoio", "async-channel", "monoio-compat"]
 
 [dependencies]
