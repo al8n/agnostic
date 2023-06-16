@@ -4,6 +4,9 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
+#[cfg(all(feature = "compat", not(feature = "net")))]
+compile_error!("`compat` feature is enabled, but `net` feature is disabled, `compact` feature must only be enabled with `net` feature");
+
 #[macro_use]
 mod macros;
 
@@ -21,23 +24,23 @@ pub mod tokio;
 #[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
 pub mod async_std;
 
-/// [`smol`] runtime adapter
-///
-/// [`smol`]: https://docs.rs/smol
-#[cfg(feature = "smol")]
-#[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
-pub mod smol;
+// /// [`smol`] runtime adapter
+// ///
+// /// [`smol`]: https://docs.rs/smol
+// #[cfg(feature = "smol")]
+// #[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
+// pub mod smol;
 
-/// [`monoio`] runtime adapter
-///
-/// [`monoio`]: https://docs.rs/monoio
-#[cfg(feature = "monoio")]
-#[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
-pub mod monoio;
+// /// [`monoio`] runtime adapter
+// ///
+// /// [`monoio`]: https://docs.rs/monoio
+// #[cfg(feature = "monoio")]
+// #[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
+// pub mod monoio;
 
 #[cfg(feature = "net")]
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
-mod net;
+pub mod net;
 
 use std::{
   future::Future,
@@ -72,6 +75,8 @@ pub trait Runtime: Send + Sync + 'static {
   type Timeout<F>: Future
   where
     F: Future;
+  #[cfg(feature = "net")]
+  type Net: net::Net;
 
   fn new() -> Self;
 

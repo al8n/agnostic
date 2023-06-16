@@ -19,7 +19,7 @@ type ReadyFuture<T> = std::future::Ready<io::Result<T>>;
 
 impl<T, R: Runtime> crate::net::ToSocketAddrs<R> for &T
 where
-  T: crate::net::ToSocketAddrs<R> + ?Sized,
+  T: crate::net::ToSocketAddrs<R> + ?Sized + Send + Sync,
 {
   type Iter = T::Iter;
   type Future = T::Future;
@@ -114,7 +114,7 @@ impl<R: Runtime> crate::net::ToSocketAddrs<R> for [SocketAddr] {
 impl<R: Runtime> crate::net::ToSocketAddrs<R> for (String, u16)
 where
   ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>:
-    Future<Output = io::Result<sealed::OneOrMore>>,
+    Future<Output = io::Result<sealed::OneOrMore>> + Send,
 {
   type Iter = sealed::OneOrMore;
   type Future = ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>;
@@ -127,7 +127,7 @@ where
 impl<R: Runtime> crate::net::ToSocketAddrs<R> for String
 where
   ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>:
-    Future<Output = io::Result<sealed::OneOrMore>>,
+    Future<Output = io::Result<sealed::OneOrMore>> + Send,
 {
   type Iter = <str as crate::net::ToSocketAddrs<R>>::Iter;
   type Future = <str as crate::net::ToSocketAddrs<R>>::Future;
@@ -140,7 +140,7 @@ where
 impl<R: Runtime> crate::net::ToSocketAddrs<R> for str
 where
   ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>:
-    Future<Output = io::Result<sealed::OneOrMore>>,
+    Future<Output = io::Result<sealed::OneOrMore>> + Send,
 {
   type Iter = sealed::OneOrMore;
 
@@ -166,7 +166,7 @@ where
 impl<R: Runtime> crate::net::ToSocketAddrs<R> for (&str, u16)
 where
   ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>:
-    Future<Output = io::Result<sealed::OneOrMore>>,
+    Future<Output = io::Result<sealed::OneOrMore>> + Send,
 {
   type Iter = sealed::OneOrMore;
   type Future = ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>;
