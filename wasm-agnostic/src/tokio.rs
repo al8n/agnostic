@@ -7,6 +7,7 @@ use agnostic::{Delay, Runtime};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::IntervalStream;
 
+pub mod lock;
 pub mod net;
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -96,6 +97,8 @@ impl Runtime for TokioWasmRuntime {
   type Delay<F> = TokioWasmDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = ::tokio::time::Timeout<F> where F: Future;
   type Net = self::net::TokioWasmNet;
+  type Mutex<T> = self::lock::TokioWasmMutex<T>;
+  type RwLock<T> = self::lock::TokioWasmRwLock<T>;
 
   fn new() -> Self {
     Self

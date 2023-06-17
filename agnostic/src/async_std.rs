@@ -12,6 +12,9 @@ use futures_util::FutureExt;
 #[cfg(feature = "async-std-net")]
 pub mod net;
 
+#[cfg(feature = "lock")]
+pub mod lock;
+
 struct DelayFuncHandle<F: Future> {
   handle: ::async_std::task::JoinHandle<Option<F::Output>>,
   reset_tx: channel::Sender<Duration>,
@@ -98,6 +101,12 @@ impl Runtime for AsyncStdRuntime {
   type Timeout<F> = Timeout<F> where F: Future;
   #[cfg(feature = "net")]
   type Net = net::AsyncStdNet;
+
+  #[cfg(feature = "lock")]
+  type Mutex<T> = lock::AsyncStdMutex<T>;
+
+  #[cfg(feature = "lock")]
+  type RwLock<T> = lock::AsyncStdRwLock<T>;
 
   fn new() -> Self {
     Self

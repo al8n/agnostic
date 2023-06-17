@@ -12,6 +12,9 @@ use futures_util::FutureExt;
 #[cfg(feature = "smol-net")]
 pub mod net;
 
+#[cfg(feature = "lock")]
+pub mod lock;
+
 struct DelayFuncHandle<F: Future> {
   handle: ::smol::Task<Option<F::Output>>,
   reset_tx: channel::Sender<Duration>,
@@ -98,6 +101,12 @@ impl Runtime for SmolRuntime {
   type Timeout<F> = Timeout<F> where F: Future;
   #[cfg(feature = "smol-net")]
   type Net = net::SmolNet;
+
+  #[cfg(feature = "lock")]
+  type Mutex<T> = lock::SmolMutex<T>;
+
+  #[cfg(feature = "lock")]
+  type RwLock<T> = lock::SmolRwLock<T>;
 
   fn new() -> Self {
     Self

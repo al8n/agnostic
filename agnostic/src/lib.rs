@@ -43,6 +43,10 @@ pub mod smol;
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
 pub mod net;
 
+#[cfg(feature = "lock")]
+#[cfg_attr(docsrs, doc(cfg(feature = "lock")))]
+pub mod lock;
+
 use std::{
   future::Future,
   time::{Duration, Instant},
@@ -78,6 +82,12 @@ pub trait Runtime: Send + Sync + 'static {
     F: Future;
   #[cfg(feature = "net")]
   type Net: net::Net;
+
+  #[cfg(feature = "lock")]
+  type Mutex<T>: lock::Mutex<T>;
+
+  #[cfg(feature = "lock")]
+  type RwLock<T>: lock::RwLock<T>;
 
   fn new() -> Self;
 

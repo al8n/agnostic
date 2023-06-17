@@ -3,6 +3,8 @@ use tokio_stream::wrappers::IntervalStream;
 
 use super::*;
 
+#[cfg(feature = "lock")]
+pub mod lock;
 #[cfg(feature = "tokio-net")]
 pub mod net;
 
@@ -94,6 +96,12 @@ impl Runtime for TokioRuntime {
   type Timeout<F> = ::tokio::time::Timeout<F> where F: Future;
   #[cfg(feature = "tokio-net")]
   type Net = self::net::TokioNet;
+
+  #[cfg(feature = "lock")]
+  type Mutex<T> = lock::TokioMutex<T>;
+
+  #[cfg(feature = "lock")]
+  type RwLock<T> = lock::TokioRwLock<T>;
 
   fn new() -> Self {
     Self
