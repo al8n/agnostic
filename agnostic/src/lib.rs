@@ -69,7 +69,7 @@ where
 }
 
 /// Runtime trait
-pub trait Runtime: Send + Sync + 'static {
+pub trait Runtime: Copy + Send + Sync + 'static {
   type JoinHandle<F>: Future;
   type Interval: Stream;
   type Sleep: Future;

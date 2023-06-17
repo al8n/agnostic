@@ -84,6 +84,7 @@ where
   }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct AsyncStdRuntime;
 
 impl core::fmt::Display for AsyncStdRuntime {
