@@ -21,7 +21,7 @@ default = []
 [dependencies]
 atomic = "0.5"
 async-trait = "0.1"
-agnostic = { version = "0.1.8", path = "../agnostic", default-features = false, features = ["wasm-net"] }
+agnostic = { version = "0.1.9", path = "../agnostic", default-features = false, features = ["net"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
 socket2 = "=0.4.7"
 tokio = { version = "=1.24.2", default-features = false, features = ["full"] }

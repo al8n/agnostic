@@ -3,6 +3,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 #![allow(clippy::needless_return)]
+#![allow(unreachable_code)]
 
 #[cfg(all(feature = "compat", not(feature = "net")))]
 compile_error!("`compat` feature is enabled, but `net` feature is disabled, `compact` feature must only be enabled with `net` feature");
@@ -75,12 +76,7 @@ pub trait Runtime: Send + Sync + 'static {
   type Timeout<F>: Future
   where
     F: Future;
-  #[cfg(any(
-    feature = "tokio-net",
-    feature = "async-std-net",
-    feature = "smol-net",
-    feature = "wasm-net"
-  ))]
+  #[cfg(feature = "net")]
   type Net: net::Net;
 
   fn new() -> Self;

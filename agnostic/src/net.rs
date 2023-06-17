@@ -160,7 +160,7 @@ pub trait UdpSocket {
   fn set_read_timeout(&self, timeout: Option<Duration>);
 
   fn read_timeout(&self) -> Option<Duration>;
- 
+
   fn set_read_buffer(&self, size: usize) -> io::Result<()>;
 
   fn set_write_buffer(&self, size: usize) -> io::Result<()>;
@@ -173,7 +173,7 @@ pub trait Net {
   type UdpSocket: UdpSocket;
 }
 
-#[cfg(all(unix, not(feature = "wasm-net")))]
+#[cfg(all(unix, feature = "socket2"))]
 #[inline]
 pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Result<()> {
   use socket2::Socket;
@@ -200,7 +200,7 @@ pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Re
   }
 }
 
-#[cfg(all(unix, not(feature = "wasm-net")))]
+#[cfg(all(unix, feature = "socket2"))]
 #[inline]
 pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Result<()> {
   use socket2::Socket;
@@ -228,7 +228,7 @@ pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::R
   }
 }
 
-#[cfg(all(windows, not(feature = "wasm-net")))]
+#[cfg(all(windows, feature = "socket2"))]
 #[inline]
 pub(crate) fn set_read_buffer(
   fd: std::os::windows::io::RawSocket,
@@ -259,7 +259,7 @@ pub(crate) fn set_read_buffer(
   }
 }
 
-#[cfg(all(windows, not(feature = "wasm-net")))]
+#[cfg(all(windows, feature = "socket2"))]
 #[inline]
 pub(crate) fn set_write_buffer(
   fd: std::os::windows::io::RawSocket,

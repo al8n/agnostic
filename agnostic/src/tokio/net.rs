@@ -491,13 +491,13 @@ impl crate::net::UdpSocket for TokioUdpSocket {
       panic!("unsupported platform");
     }
 
-    #[cfg(all(unix, not(feature = "wasm-net")))]
+    #[cfg(all(unix, feature = "socket2"))]
     {
       use std::os::fd::AsRawFd;
       return crate::net::set_read_buffer(self.socket.as_raw_fd(), size);
     }
 
-    #[cfg(all(windows, not(feature = "wasm-net")))]
+    #[cfg(all(windows, feature = "socket2"))]
     {
       use std::os::windows::io::AsRawSocket;
       return crate::net::set_read_buffer(self.socket.as_raw_socket(), size);
@@ -513,13 +513,13 @@ impl crate::net::UdpSocket for TokioUdpSocket {
       panic!("unsupported platform");
     }
 
-    #[cfg(all(unix, not(feature = "wasm-net")))]
+    #[cfg(all(unix, feature = "socket2"))]
     {
       use std::os::fd::AsRawFd;
       return crate::net::set_write_buffer(self.socket.as_raw_fd(), size);
     }
 
-    #[cfg(all(windows, not(feature = "wasm-net")))]
+    #[cfg(all(windows, feature = "socket2"))]
     {
       use std::os::windows::io::AsRawSocket;
       return crate::net::set_write_buffer(self.socket.as_raw_socket(), size);
