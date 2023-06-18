@@ -84,9 +84,9 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   where
     F: Future + Send + 'static,
     F::Output: Send;
-  type Timeout<F, T>: Future
+  type Timeout<F>: Future<Output = std::io::Result<F::Output>> + Send
   where
-    F: Future<Output = T>;
+    F: Future + Send;
   #[cfg(feature = "net")]
   type Net: net::Net;
 
@@ -146,13 +146,13 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
     F: Future + Send + 'static,
     F::Output: Send + Sync + 'static;
 
-  fn timeout<F, T>(&self, duration: Duration, future: F) -> Self::Timeout<F, T>
+  fn timeout<F>(&self, duration: Duration, future: F) -> Self::Timeout<F>
   where
-    F: Future<Output = T>;
+    F: Future + Send;
 
-  fn timeout_at<F, T>(&self, instant: Instant, future: F) -> Self::Timeout<F, T>
+  fn timeout_at<F>(&self, instant: Instant, future: F) -> Self::Timeout<F>
   where
-    F: Future<Output = T>;
+    F: Future + Send;
 }
 
 #[cfg(any(feature = "async-std", feature = "smol"))]
@@ -210,4 +210,11 @@ mod timer {
       }
     }
   }
+}
+
+pub mod io {
+  pub use futures_util::{AsyncRead, AsyncWrite};
+
+  #[cfg(feature = "tokio-compat")]
+  pub use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 }

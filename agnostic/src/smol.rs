@@ -123,7 +123,7 @@ impl Runtime for SmolRuntime {
   type Interval = Timer;
   type Sleep = Timer;
   type Delay<F> = SmolDelay<F> where F: Future + Send + 'static, F::Output: Send;
-  type Timeout<F, T> = Timeout<F> where F: Future<Output = T>;
+  type Timeout<F> = Timeout<F> where F: Future + Send;
   #[cfg(feature = "smol-net")]
   type Net = net::SmolNet;
 
@@ -210,16 +210,16 @@ impl Runtime for SmolRuntime {
     SmolDelay::new(delay, fut)
   }
 
-  fn timeout<F, T>(&self, duration: Duration, fut: F) -> Self::Timeout<F, T>
+  fn timeout<F>(&self, duration: Duration, fut: F) -> Self::Timeout<F>
   where
-    F: Future<Output = T>,
+    F: Future + Send,
   {
     Timeout::new(duration, fut)
   }
 
-  fn timeout_at<F, T>(&self, instant: Instant, fut: F) -> Self::Timeout<F, T>
+  fn timeout_at<F>(&self, instant: Instant, fut: F) -> Self::Timeout<F>
   where
-    F: Future<Output = T>,
+    F: Future + Send,
   {
     Timeout {
       timeout: Timer::at(instant),

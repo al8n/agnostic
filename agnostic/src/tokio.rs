@@ -1,3 +1,5 @@
+use std::task::Poll;
+
 use ::tokio::sync::mpsc;
 use tokio_stream::wrappers::IntervalStream;
 
@@ -108,6 +110,41 @@ where
   }
 }
 
+pin_project_lite::pin_project! {
+  pub struct TokioTimeout<F: Future> {
+    #[pin]
+    timeout: ::tokio::time::Timeout<F>,
+  }
+}
+
+impl<F: Future> From<::tokio::time::Timeout<F>> for TokioTimeout<F> {
+  fn from(timeout: ::tokio::time::Timeout<F>) -> Self {
+    Self { timeout }
+  }
+}
+
+impl<F: Future> From<TokioTimeout<F>> for ::tokio::time::Timeout<F> {
+  fn from(timeout: TokioTimeout<F>) -> Self {
+    timeout.timeout
+  }
+}
+
+impl<F: Future> Future for TokioTimeout<F> {
+  type Output = std::io::Result<F::Output>;
+
+  fn poll(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Self::Output> {
+    let this = self.project();
+    match this.timeout.poll(cx) {
+      Poll::Ready(Ok(t)) => Poll::Ready(Ok(t)),
+      Poll::Ready(Err(e)) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::TimedOut, e))),
+      Poll::Pending => Poll::Pending,
+    }
+  }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct TokioRuntime;
 
@@ -123,7 +160,7 @@ impl Runtime for TokioRuntime {
   type Interval = IntervalStream;
   type Sleep = ::tokio::time::Sleep;
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
-  type Timeout<F, T> = ::tokio::time::Timeout<F> where F: Future<Output = T>;
+  type Timeout<F> = TokioTimeout<F> where F: Future + Send;
   #[cfg(feature = "tokio-net")]
   type Net = self::net::TokioNet;
 
@@ -191,17 +228,21 @@ impl Runtime for TokioRuntime {
     TokioDelay::new(delay, fut)
   }
 
-  fn timeout<F, T>(&self, duration: Duration, fut: F) -> Self::Timeout<F, T>
+  fn timeout<F>(&self, duration: Duration, fut: F) -> Self::Timeout<F>
   where
-    F: Future<Output = T>,
+    F: Future + Send,
   {
-    ::tokio::time::timeout(duration, fut)
+    TokioTimeout {
+      timeout: ::tokio::time::timeout(duration, fut),
+    }
   }
 
-  fn timeout_at<F, T>(&self, instant: Instant, fut: F) -> Self::Timeout<F, T>
+  fn timeout_at<F>(&self, instant: Instant, fut: F) -> Self::Timeout<F>
   where
-    F: Future<Output = T>,
+    F: Future + Send,
   {
-    ::tokio::time::timeout_at(instant.into(), fut)
+    TokioTimeout {
+      timeout: ::tokio::time::timeout_at(instant.into(), fut),
+    }
   }
 }

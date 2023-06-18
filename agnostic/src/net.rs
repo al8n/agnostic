@@ -1,4 +1,9 @@
-use std::{io, net::SocketAddr, time::Duration};
+use std::{
+  io,
+  net::SocketAddr,
+  task::{Context, Poll},
+  time::Duration,
+};
 
 use super::Runtime;
 use futures_util::Future;
@@ -248,111 +253,67 @@ pub trait UdpSocket: Unpin + Send + Sync + 'static {
   fn set_read_buffer(&self, size: usize) -> io::Result<()>;
 
   fn set_write_buffer(&self, size: usize) -> io::Result<()>;
-}
 
-/// **NOTE:** Temporary solution because of methods in Rust's trait cannot be async,
-/// remove this when #[feature(async_fn_in_trait)] is stable
-#[repr(transparent)]
-pub struct AgnosticUdpSocket<T: UdpSocket> {
-  socket: T,
-}
-
-impl<T: UdpSocket> AgnosticUdpSocket<T> {
-  pub async fn bind<A: ToSocketAddrs<T::Runtime>>(addr: A) -> io::Result<Self>
-  where
-    Self: Sized,
-  {
-    T::bind(addr).await.map(|socket| Self { socket })
-  }
-
-  pub async fn bind_timeout<A: ToSocketAddrs<T::Runtime>>(
-    addr: A,
-    timeout: Duration,
-  ) -> io::Result<Self>
-  where
-    Self: Sized,
-  {
-    T::bind_timeout(addr, timeout)
-      .await
-      .map(|socket| Self { socket })
-  }
-
-  pub async fn connect<A: ToSocketAddrs<T::Runtime>>(&self, addr: A) -> io::Result<()> {
-    self.socket.connect(addr).await
-  }
-
-  pub async fn connect_timeout<A: ToSocketAddrs<T::Runtime>>(
+  /// Attempts to receive a single datagram on the socket.
+  ///
+  /// Note that on multiple calls to a `poll_*` method in the recv direction, only the
+  /// `Waker` from the `Context` passed to the most recent call will be scheduled to
+  /// receive a wakeup.
+  ///
+  /// # Return value
+  ///
+  /// The function returns:
+  ///
+  /// * `Poll::Pending` if the socket is not ready to read
+  /// * `Poll::Ready(Ok(addr))` reads data from `addr` into `ReadBuf` if the socket is ready
+  /// * `Poll::Ready(Err(e))` if an error is encountered.
+  ///
+  /// # Errors
+  ///
+  /// This function may encounter any standard I/O error except `WouldBlock`.
+  ///
+  /// # Notes
+  /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
+  /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
+  /// Because UDP is stateless and does not validate the origin of a packet,
+  /// the attacker does not need to be able to intercept traffic in order to interfere.
+  /// It is important to be aware of this when designing your application-level protocol.
+  ///
+  /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
+  fn poll_recv_from(
     &self,
-    addr: A,
-    timeout: Duration,
-  ) -> io::Result<()> {
-    self.socket.connect_timeout(addr, timeout).await
-  }
+    cx: &mut Context<'_>,
+    buf: &mut [u8],
+  ) -> Poll<io::Result<(usize, SocketAddr)>>;
 
-  pub async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-    self.socket.recv(buf).await
-  }
-
-  pub async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-    self.socket.recv_from(buf).await
-  }
-
-  pub async fn send(&self, buf: &[u8]) -> io::Result<usize> {
-    self.socket.send(buf).await
-  }
-
-  pub async fn send_to<A: ToSocketAddrs<T::Runtime>>(
+  /// Attempts to send data on the socket to a given address.
+  ///
+  /// Note that on multiple calls to a `poll_*` method in the send direction, only the
+  /// `Waker` from the `Context` passed to the most recent call will be scheduled to
+  /// receive a wakeup.
+  ///
+  /// # Return value
+  ///
+  /// The function returns:
+  ///
+  /// * `Poll::Pending` if the socket is not ready to write
+  /// * `Poll::Ready(Ok(n))` `n` is the number of bytes sent.
+  /// * `Poll::Ready(Err(e))` if an error is encountered.
+  ///
+  /// # Errors
+  ///
+  /// This function may encounter any standard I/O error except `WouldBlock`.
+  fn poll_send_to(
     &self,
+    cx: &mut Context<'_>,
     buf: &[u8],
-    target: A,
-  ) -> io::Result<usize> {
-    self.socket.send_to(buf, target).await
-  }
-
-  pub fn set_ttl(&self, ttl: u32) -> io::Result<()> {
-    self.socket.set_ttl(ttl)
-  }
-
-  pub fn ttl(&self) -> io::Result<u32> {
-    self.socket.ttl()
-  }
-
-  pub fn set_broadcast(&self, broadcast: bool) -> io::Result<()> {
-    self.socket.set_broadcast(broadcast)
-  }
-
-  pub fn broadcast(&self) -> io::Result<bool> {
-    self.socket.broadcast()
-  }
-
-  pub fn set_write_timeout(&self, timeout: Option<Duration>) {
-    self.socket.set_write_timeout(timeout)
-  }
-
-  pub fn write_timeout(&self) -> Option<Duration> {
-    self.socket.write_timeout()
-  }
-
-  pub fn set_read_timeout(&self, timeout: Option<Duration>) {
-    self.socket.set_read_timeout(timeout)
-  }
-
-  pub fn read_timeout(&self) -> Option<Duration> {
-    self.socket.read_timeout()
-  }
-
-  pub fn set_read_buffer(&self, size: usize) -> io::Result<()> {
-    self.socket.set_read_buffer(size)
-  }
-
-  pub fn set_write_buffer(&self, size: usize) -> io::Result<()> {
-    self.socket.set_write_buffer(size)
-  }
+    target: SocketAddr,
+  ) -> Poll<io::Result<usize>>;
 }
 
 #[cfg(feature = "net")]
 pub trait Net {
-  type TcpListener: TcpListener;
+  type TcpListener: TcpListener<Stream = Self::TcpStream>;
   type TcpStream: TcpStream;
   type UdpSocket: UdpSocket;
 }

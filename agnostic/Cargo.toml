@@ -30,7 +30,7 @@ net = ["atomic", "futures-util/io"]
 tokio-compat = ["tokio-util/compat", "dep:tokio"]
 
 tokio-net = ["tokio", "net", "tokio/net", "tokio-util", "tokio/io-util", "socket2"]
-tokio = ["dep:tokio", "tokio-stream", "tokio/rt", "tokio/sync", "tokio/macros", "tokio/time", "tokio-compat"]
+tokio = ["dep:tokio", "pin-project-lite", "tokio-stream", "tokio/rt", "tokio/sync", "tokio/macros", "tokio/time", "tokio-compat"]
 
 async-std-net = ["socket2", "async-std", "net"]
 async-std = ["dep:async-std", "async-io", "pin-project-lite"]

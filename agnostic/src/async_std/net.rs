@@ -9,7 +9,7 @@ use std::{
 
 use async_std::net::{TcpListener, TcpStream, UdpSocket};
 use atomic::{Atomic, Ordering};
-use futures_util::{AsyncReadExt, AsyncWriteExt};
+use futures_util::{AsyncReadExt, AsyncWriteExt, FutureExt};
 #[cfg(feature = "compat")]
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
 
@@ -836,5 +836,26 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
     let _ = size;
     Ok(())
+  }
+
+  fn poll_recv_from(
+    &self,
+    cx: &mut Context<'_>,
+    buf: &mut [u8],
+  ) -> Poll<io::Result<(usize, SocketAddr)>> {
+    let fut = self.socket.recv_from(buf);
+    futures_util::pin_mut!(fut);
+    fut.poll_unpin(cx)
+  }
+
+  fn poll_send_to(
+    &self,
+    cx: &mut Context<'_>,
+    buf: &[u8],
+    target: SocketAddr,
+  ) -> Poll<io::Result<usize>> {
+    let fut = self.socket.send_to(buf, target);
+    futures_util::pin_mut!(fut);
+    fut.poll_unpin(cx)
   }
 }
