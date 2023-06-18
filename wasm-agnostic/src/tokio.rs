@@ -1,16 +1,15 @@
 use std::{
   future::Future,
   time::{Duration, Instant},
+  task::Poll
 };
 
-use agnostic::{Delay, Runtime};
-use tokio::sync::mpsc;
+use ::tokio::sync::mpsc;
 use tokio_stream::wrappers::IntervalStream;
 
-pub mod net;
+use super::*;
 
-#[derive(Debug, Default, Copy, Clone)]
-pub struct TokioWasmRuntime;
+pub mod net;
 
 struct DelayFuncHandle<F: Future> {
   handle: ::tokio::task::JoinHandle<Option<F::Output>>,
@@ -114,18 +113,57 @@ where
   }
 }
 
-impl core::fmt::Display for TokioWasmRuntime {
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    write!(f, "wasm")
+pin_project_lite::pin_project! {
+  pub struct TokioWasmTimeout<F: Future> {
+    #[pin]
+    timeout: ::tokio::time::Timeout<F>,
   }
 }
 
+impl<F: Future> From<::tokio::time::Timeout<F>> for TokioWasmTimeout<F> {
+  fn from(timeout: ::tokio::time::Timeout<F>) -> Self {
+    Self { timeout }
+  }
+}
+
+impl<F: Future> From<TokioWasmTimeout<F>> for ::tokio::time::Timeout<F> {
+  fn from(timeout: TokioWasmTimeout<F>) -> Self {
+    timeout.timeout
+  }
+}
+
+impl<F: Future> Future for TokioWasmTimeout<F> {
+  type Output = std::io::Result<F::Output>;
+
+  fn poll(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Self::Output> {
+    let this = self.project();
+    match this.timeout.poll(cx) {
+      Poll::Ready(Ok(t)) => Poll::Ready(Ok(t)),
+      Poll::Ready(Err(e)) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::TimedOut, e))),
+      Poll::Pending => Poll::Pending,
+    }
+  }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct TokioWasmRuntime;
+
+impl core::fmt::Display for TokioWasmRuntime {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "tokio")
+  }
+}
+
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl Runtime for TokioWasmRuntime {
   type JoinHandle<T> = ::tokio::task::JoinHandle<T>;
   type Interval = IntervalStream;
   type Sleep = ::tokio::time::Sleep;
   type Delay<F> = TokioWasmDelay<F> where F: Future + Send + 'static, F::Output: Send;
-  type Timeout<F, T> = ::tokio::time::Timeout<F> where F: Future<Output = T>;
+  type Timeout<F> = TokioWasmTimeout<F> where F: Future + Send; 
   type Net = self::net::TokioWasmNet;
 
   fn new() -> Self {
@@ -184,17 +222,21 @@ impl Runtime for TokioWasmRuntime {
     TokioWasmDelay::new(delay, fut)
   }
 
-  fn timeout<F, T>(&self, duration: Duration, fut: F) -> Self::Timeout<F, T>
+  fn timeout<F>(&self, duration: Duration, fut: F) -> Self::Timeout<F>
   where
-    F: Future<Output = T>,
+    F: Future + Send,
   {
-    ::tokio::time::timeout(duration, fut)
+    TokioWasmTimeout {
+      timeout: ::tokio::time::timeout(duration, fut),
+    }
   }
 
-  fn timeout_at<F, T>(&self, instant: Instant, fut: F) -> Self::Timeout<F, T>
+  fn timeout_at<F>(&self, instant: Instant, fut: F) -> Self::Timeout<F>
   where
-    F: Future<Output = T>,
+    F: Future + Send,
   {
-    ::tokio::time::timeout_at(instant.into(), fut)
+    TokioWasmTimeout {
+      timeout: ::tokio::time::timeout_at(instant.into(), fut),
+    }
   }
 }

@@ -26,6 +26,7 @@ atomic = "0.5"
 async-trait = "0.1"
 agnostic = { version = "0.1.13", path = "../agnostic", default-features = false, features = ["net"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
+pin-project-lite = "0.2"
 socket2 = "=0.4.7"
 tokio = { version = "=1.24.2", default-features = false, features = ["full"] }
 tokio-stream = { version = "0.1", default-features = false, features = ["time"] }

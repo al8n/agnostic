@@ -440,6 +440,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     }
   }
 
+  #[cfg(feature = "nightly")]
   fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     &'a self,
     addr: A,
@@ -796,6 +797,26 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   fn set_write_buffer(&self, size: usize) -> io::Result<()> {
     use std::os::fd::AsRawFd;
     set_write_buffer(self.socket.as_raw_fd(), size)
+  }
+
+  fn poll_recv_from(
+    &self,
+    cx: &mut Context<'_>,
+    buf: &mut [u8],
+  ) -> Poll<io::Result<(usize, SocketAddr)>> {
+    let mut buf = tokio::io::ReadBuf::new(buf);
+    let addr = futures_util::ready!(UdpSocket::poll_recv_from(&self.socket, cx, &mut buf))?;
+    let len = buf.filled().len();
+    Poll::Ready(Ok((len, addr)))
+  }
+
+  fn poll_send_to(
+    &self,
+    cx: &mut Context<'_>,
+    buf: &[u8],
+    target: SocketAddr,
+  ) -> Poll<io::Result<usize>> {
+    self.socket.poll_send_to(cx, buf, target)
   }
 }
 
