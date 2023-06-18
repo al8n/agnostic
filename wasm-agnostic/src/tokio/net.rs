@@ -8,14 +8,13 @@ use std::{
 };
 
 use atomic::{Atomic, Ordering};
-
 use tokio::{
   io::{AsyncReadExt, AsyncWriteExt},
   net::{TcpListener, TcpStream, UdpSocket},
 };
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-use agnostic::{
+use crate::{
   net::{Net, ToSocketAddrs},
   Runtime,
 };
@@ -26,24 +25,25 @@ use super::TokioWasmRuntime;
 pub struct TokioWasmNet;
 
 impl Net for TokioWasmNet {
-  type TcpListener = TokioWasmTcpListener;
+  type TcpListener = TokioTcpListener;
 
-  type TcpStream = TokioWasmTcpStream;
+  type TcpStream = TokioTcpStream;
 
-  type UdpSocket = TokioWasmUdpSocket;
+  type UdpSocket = TokioUdpSocket;
 }
 
-pub struct TokioWasmTcpListener {
+pub struct TokioTcpListener {
   ln: TcpListener,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
 }
 
-#[async_trait::async_trait]
-impl agnostic::net::TcpListener for TokioWasmTcpListener {
-  type Stream = TokioWasmTcpStream;
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
+impl crate::net::TcpListener for TokioTcpListener {
+  type Stream = TokioTcpStream;
   type Runtime = TokioWasmRuntime;
 
+  #[cfg(not(feature = "nightly"))]
   async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
@@ -70,10 +70,42 @@ impl agnostic::net::TcpListener for TokioWasmTcpListener {
     })
   }
 
+  #[cfg(feature = "nightly")]
+  fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    addr: A,
+  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  where
+    Self: Sized,
+  {
+    async move {
+      let mut addrs = addr.to_socket_addrs(&TokioWasmRuntime).await?;
+
+      let res = if addrs.size_hint().0 <= 1 {
+        if let Some(addr) = addrs.next() {
+          TcpListener::bind(addr).await
+        } else {
+          return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid socket address",
+          ));
+        }
+      } else {
+        TcpListener::bind(addrs.collect::<Vec<_>>().as_slice()).await
+      };
+
+      res.map(|ln| Self {
+        ln,
+        write_timeout: Atomic::new(None),
+        read_timeout: Atomic::new(None),
+      })
+    }
+  }
+
+  #[cfg(not(feature = "nightly"))]
   async fn accept(&self) -> io::Result<(Self::Stream, SocketAddr)> {
     self.ln.accept().await.map(|(stream, addr)| {
       (
-        TokioWasmTcpStream {
+        TokioTcpStream {
           stream,
           write_timeout: Atomic::new(self.write_timeout.load(Ordering::SeqCst)),
           read_timeout: Atomic::new(self.read_timeout.load(Ordering::SeqCst)),
@@ -81,6 +113,22 @@ impl agnostic::net::TcpListener for TokioWasmTcpListener {
         addr,
       )
     })
+  }
+
+  #[cfg(feature = "nightly")]
+  fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send + '_ {
+    async move {
+      self.ln.accept().await.map(|(stream, addr)| {
+        (
+          TokioTcpStream {
+            stream,
+            write_timeout: Atomic::new(self.write_timeout.load(Ordering::SeqCst)),
+            read_timeout: Atomic::new(self.read_timeout.load(Ordering::SeqCst)),
+          },
+          addr,
+        )
+      })
+    }
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -104,13 +152,13 @@ impl agnostic::net::TcpListener for TokioWasmTcpListener {
   }
 }
 
-pub struct TokioWasmTcpStream {
+pub struct TokioTcpStream {
   stream: TcpStream,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
 }
 
-impl futures_util::AsyncRead for TokioWasmTcpStream {
+impl futures_util::AsyncRead for TokioTcpStream {
   fn poll_read(
     mut self: Pin<&mut Self>,
     cx: &mut Context<'_>,
@@ -134,7 +182,7 @@ impl futures_util::AsyncRead for TokioWasmTcpStream {
   }
 }
 
-impl futures_util::AsyncWrite for TokioWasmTcpStream {
+impl futures_util::AsyncWrite for TokioTcpStream {
   fn poll_write(
     mut self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
@@ -172,7 +220,7 @@ impl futures_util::AsyncWrite for TokioWasmTcpStream {
   }
 }
 
-impl tokio::io::AsyncRead for TokioWasmTcpStream {
+impl tokio::io::AsyncRead for TokioTcpStream {
   fn poll_read(
     self: Pin<&mut Self>,
     cx: &mut Context<'_>,
@@ -185,7 +233,7 @@ impl tokio::io::AsyncRead for TokioWasmTcpStream {
   }
 }
 
-impl tokio::io::AsyncWrite for TokioWasmTcpStream {
+impl tokio::io::AsyncWrite for TokioTcpStream {
   fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
     Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
       .poll_write(cx, buf)
@@ -200,10 +248,11 @@ impl tokio::io::AsyncWrite for TokioWasmTcpStream {
   }
 }
 
-#[async_trait::async_trait]
-impl agnostic::net::TcpStream for TokioWasmTcpStream {
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
+impl crate::net::TcpStream for TokioTcpStream {
   type Runtime = TokioWasmRuntime;
 
+  #[cfg(not(feature = "nightly"))]
   async fn connect<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
@@ -230,6 +279,55 @@ impl agnostic::net::TcpStream for TokioWasmTcpStream {
     })
   }
 
+  #[cfg(feature = "nightly")]
+  fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    addr: A,
+  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  where
+    Self: Sized,
+  {
+    async move {
+      let mut addrs = addr.to_socket_addrs(&TokioWasmRuntime).await?;
+
+      let res = if addrs.size_hint().0 <= 1 {
+        if let Some(addr) = addrs.next() {
+          TcpStream::connect(addr).await
+        } else {
+          return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid socket address",
+          ));
+        }
+      } else {
+        TcpStream::connect(&addrs.collect::<Vec<_>>().as_slice()).await
+      };
+
+      res.map(|stream| Self {
+        stream,
+        write_timeout: Atomic::new(None),
+        read_timeout: Atomic::new(None),
+      })
+    }
+  }
+
+  #[cfg(feature = "nightly")]
+  fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    addr: A,
+    timeout: Duration,
+  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  where
+    Self: Sized,
+  {
+    async move {
+      TokioWasmRuntime
+        .timeout(timeout, Self::connect(addr))
+        .await
+        .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
+        .and_then(|res| res)
+    }
+  }
+
+  #[cfg(not(feature = "nightly"))]
   async fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
     timeout: Duration,
@@ -285,16 +383,207 @@ impl agnostic::net::TcpStream for TokioWasmTcpStream {
   }
 }
 
-pub struct TokioWasmUdpSocket {
+pub struct TokioUdpSocket {
   socket: UdpSocket,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
 }
 
-#[async_trait::async_trait]
-impl agnostic::net::UdpSocket for TokioWasmUdpSocket {
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
+impl crate::net::UdpSocket for TokioUdpSocket {
   type Runtime = TokioWasmRuntime;
 
+  #[cfg(feature = "nightly")]
+  fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    addr: A,
+  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  where
+    Self: Sized,
+  {
+    async move {
+      let mut addrs = addr.to_socket_addrs(&TokioWasmRuntime).await?;
+
+      let res = if addrs.size_hint().0 <= 1 {
+        if let Some(addr) = addrs.next() {
+          UdpSocket::bind(addr).await
+        } else {
+          return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid socket address",
+          ));
+        }
+      } else {
+        UdpSocket::bind(&addrs.collect::<Vec<_>>().as_slice()).await
+      };
+      res.map(|socket| Self {
+        socket,
+        write_timeout: Atomic::new(None),
+        read_timeout: Atomic::new(None),
+      })
+    }
+  }
+
+  #[cfg(feature = "nightly")]
+  fn bind_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    addr: A,
+    timeout: Duration,
+  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  where
+    Self: Sized,
+  {
+    async move {
+      TokioWasmRuntime
+        .timeout(timeout, Self::bind(addr))
+        .await
+        .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
+        .and_then(|res| res)
+    }
+  }
+
+  fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    &'a self,
+    addr: A,
+  ) -> impl Future<Output = io::Result<()>> + Send + 'a {
+    async move {
+      let mut addrs = addr.to_socket_addrs(&TokioWasmRuntime).await?;
+
+      if addrs.size_hint().0 <= 1 {
+        if let Some(addr) = addrs.next() {
+          self.socket.connect(addr).await
+        } else {
+          return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid socket address",
+          ));
+        }
+      } else {
+        self
+          .socket
+          .connect(&addrs.collect::<Vec<_>>().as_slice())
+          .await
+      }
+    }
+  }
+
+  #[cfg(feature = "nightly")]
+  fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    &'a self,
+    addr: A,
+    timeout: Duration,
+  ) -> impl Future<Output = io::Result<()>> + Send + 'a {
+    async move {
+      TokioWasmRuntime
+        .timeout(timeout, self.connect(addr))
+        .await
+        .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
+        .and_then(|res| res)
+    }
+  }
+
+  #[cfg(feature = "nightly")]
+  fn recv<'a>(&'a self, buf: &'a mut [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a {
+    async move {
+      if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
+        if !timeout.is_zero() {
+          return match TokioWasmRuntime
+            .timeout(timeout, self.socket.recv(buf))
+            .await
+          {
+            Ok(timeout) => timeout,
+            Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
+          };
+        }
+      }
+      self.socket.recv(buf).await
+    }
+  }
+
+  #[cfg(feature = "nightly")]
+  fn recv_from<'a>(
+    &'a self,
+    buf: &'a mut [u8],
+  ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send + 'a {
+    async move {
+      if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
+        if !timeout.is_zero() {
+          return match TokioWasmRuntime
+            .timeout(timeout, self.socket.recv_from(buf))
+            .await
+          {
+            Ok(timeout) => timeout,
+            Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
+          };
+        }
+      }
+      self.socket.recv_from(buf).await
+    }
+  }
+
+  #[cfg(feature = "nightly")]
+  fn send<'a>(&'a self, buf: &'a [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a {
+    async move {
+      if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
+        if !timeout.is_zero() {
+          return match TokioWasmRuntime
+            .timeout(timeout, self.socket.send(buf))
+            .await
+          {
+            Ok(timeout) => timeout,
+            Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
+          };
+        }
+      }
+      self.socket.send(buf).await
+    }
+  }
+
+  #[cfg(feature = "nightly")]
+  fn send_to<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    &'a self,
+    buf: &'a [u8],
+    target: A,
+  ) -> impl Future<Output = io::Result<usize>> + Send + 'a {
+    async move {
+      let mut addrs = target.to_socket_addrs(&TokioWasmRuntime).await?;
+      if addrs.size_hint().0 <= 1 {
+        if let Some(addr) = addrs.next() {
+          if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
+            if !timeout.is_zero() {
+              return match TokioWasmRuntime
+                .timeout(timeout, self.socket.send_to(buf, addr))
+                .await
+              {
+                Ok(timeout) => timeout,
+                Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
+              };
+            }
+          }
+          self.socket.send_to(buf, addr).await
+        } else {
+          return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid socket address",
+          ));
+        }
+      } else {
+        let addrs = addrs.collect::<Vec<_>>();
+        if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
+          if !timeout.is_zero() {
+            return match TokioWasmRuntime
+              .timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
+              .await
+            {
+              Ok(timeout) => timeout,
+              Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
+            };
+          }
+        }
+        self.socket.send_to(buf, addrs.as_slice()).await
+      }
+    }
+  }
+
+  #[cfg(not(feature = "nightly"))]
   async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
@@ -320,6 +609,7 @@ impl agnostic::net::UdpSocket for TokioWasmUdpSocket {
     })
   }
 
+  #[cfg(not(feature = "nightly"))]
   async fn bind_timeout<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
     timeout: Duration,
@@ -334,6 +624,7 @@ impl agnostic::net::UdpSocket for TokioWasmUdpSocket {
       .and_then(|res| res)
   }
 
+  #[cfg(not(feature = "nightly"))]
   async fn connect<A: ToSocketAddrs<Self::Runtime>>(&self, addr: A) -> io::Result<()>
   where
     Self: Sized,
@@ -357,6 +648,7 @@ impl agnostic::net::UdpSocket for TokioWasmUdpSocket {
     }
   }
 
+  #[cfg(not(feature = "nightly"))]
   async fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
     &self,
     addr: A,
@@ -372,6 +664,7 @@ impl agnostic::net::UdpSocket for TokioWasmUdpSocket {
       .and_then(|res| res)
   }
 
+  #[cfg(not(feature = "nightly"))]
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
@@ -387,6 +680,7 @@ impl agnostic::net::UdpSocket for TokioWasmUdpSocket {
     self.socket.recv(buf).await
   }
 
+  #[cfg(not(feature = "nightly"))]
   async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
@@ -402,6 +696,7 @@ impl agnostic::net::UdpSocket for TokioWasmUdpSocket {
     self.socket.recv_from(buf).await
   }
 
+  #[cfg(not(feature = "nightly"))]
   async fn send(&self, buf: &[u8]) -> io::Result<usize> {
     if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
@@ -417,6 +712,7 @@ impl agnostic::net::UdpSocket for TokioWasmUdpSocket {
     self.socket.send(buf).await
   }
 
+  #[cfg(not(feature = "nightly"))]
   async fn send_to<A: ToSocketAddrs<Self::Runtime>>(
     &self,
     buf: &[u8],

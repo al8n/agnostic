@@ -1,6 +1,15 @@
 {
-  "rust-analyzer.linkedProjects": [ 
+  "rust-analyzer.linkedProjects": [
     "./agnostic/Cargo.toml",
     "./wasm-agnostic/Cargo.toml"
-  ]
+  ],
+  "rust-analyzer.cargo.allFeatures": false,
+  "rust-analyzer.cargo.features": [
+    "nightly",
+    "net",
+    "tokio-net",
+    "async-std-net",
+    "smol-net"
+  ],
+  "rust-analyzer.showUnlinkedFileNotification": false,
 }

@@ -29,7 +29,7 @@ where
   handle: Option<MonoioDelayHandle<F>>,
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl<F> Delay<F> for MonoioDelay<F>
 where
   F: Future + Send + 'static,

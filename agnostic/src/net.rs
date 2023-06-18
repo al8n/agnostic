@@ -25,16 +25,28 @@ pub trait ToSocketAddrs<R: Runtime>: Send + Sync {
   fn to_socket_addrs(&self, runtime: &R) -> Self::Future;
 }
 
-#[async_trait::async_trait]
-pub trait TcpListener {
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
+pub trait TcpListener: Unpin + Send + Sync + 'static {
   type Runtime: Runtime;
   type Stream: TcpStream<Runtime = Self::Runtime>;
 
+  #[cfg(not(feature = "nightly"))]
   async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized;
 
+  #[cfg(feature = "nightly")]
+  fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    addr: A,
+  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  where
+    Self: Sized;
+
+  #[cfg(not(feature = "nightly"))]
   async fn accept(&self) -> io::Result<(Self::Stream, SocketAddr)>;
+
+  #[cfg(feature = "nightly")]
+  fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send + '_;
 
   fn local_addr(&self) -> io::Result<SocketAddr>;
 
@@ -48,14 +60,14 @@ pub trait TcpListener {
 }
 
 #[doc(hidden)]
-#[cfg(not(any(feature = "compat", feature = "tokio")))]
+#[cfg(not(feature = "tokio-compat"))]
 pub trait IO: futures_util::io::AsyncRead + futures_util::io::AsyncWrite {}
 
-#[cfg(not(any(feature = "compat", feature = "tokio")))]
+#[cfg(not(feature = "tokio-compat"))]
 impl<T: futures_util::io::AsyncRead + futures_util::io::AsyncWrite> IO for T {}
 
 #[doc(hidden)]
-#[cfg(any(feature = "compat", feature = "tokio"))]
+#[cfg(feature = "tokio-compat")]
 pub trait IO:
   tokio::io::AsyncRead
   + tokio::io::AsyncWrite
@@ -64,7 +76,7 @@ pub trait IO:
 {
 }
 
-#[cfg(any(feature = "compat", feature = "tokio"))]
+#[cfg(feature = "tokio-compat")]
 impl<
     T: tokio::io::AsyncRead
       + tokio::io::AsyncWrite
@@ -74,18 +86,35 @@ impl<
 {
 }
 
-#[async_trait::async_trait]
-pub trait TcpStream: IO {
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
+pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
   type Runtime: Runtime;
 
+  #[cfg(not(feature = "nightly"))]
   async fn connect<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized;
 
+  #[cfg(feature = "nightly")]
+  fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    addr: A,
+  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  where
+    Self: Sized;
+
+  #[cfg(not(feature = "nightly"))]
   async fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
     timeout: Duration,
   ) -> io::Result<Self>
+  where
+    Self: Sized;
+
+  #[cfg(feature = "nightly")]
+  fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    addr: A,
+    timeout: Duration,
+  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
   where
     Self: Sized;
 
@@ -110,14 +139,23 @@ pub trait TcpStream: IO {
   fn read_timeout(&self) -> Option<Duration>;
 }
 
-#[async_trait::async_trait]
-pub trait UdpSocket {
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
+pub trait UdpSocket: Unpin + Send + Sync + 'static {
   type Runtime: Runtime;
 
+  #[cfg(not(feature = "nightly"))]
   async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized;
 
+  #[cfg(feature = "nightly")]
+  fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    addr: A,
+  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  where
+    Self: Sized;
+
+  #[cfg(not(feature = "nightly"))]
   async fn bind_timeout<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
     timeout: Duration,
@@ -125,25 +163,71 @@ pub trait UdpSocket {
   where
     Self: Sized;
 
+  #[cfg(feature = "nightly")]
+  fn bind_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    addr: A,
+    timeout: Duration,
+  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  where
+    Self: Sized;
+
+  #[cfg(not(feature = "nightly"))]
   async fn connect<A: ToSocketAddrs<Self::Runtime>>(&self, addr: A) -> io::Result<()>;
 
+  #[cfg(feature = "nightly")]
+  fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    &'a self,
+    addr: A,
+  ) -> impl Future<Output = io::Result<()>> + Send + 'a;
+
+  #[cfg(not(feature = "nightly"))]
   async fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
     &self,
     addr: A,
     timeout: Duration,
   ) -> io::Result<()>;
 
+  #[cfg(feature = "nightly")]
+  fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    &'a self,
+    addr: A,
+    timeout: Duration,
+  ) -> impl Future<Output = io::Result<()>> + Send + 'a;
+
+  #[cfg(not(feature = "nightly"))]
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize>;
 
+  #[cfg(feature = "nightly")]
+  fn recv<'a>(&'a self, buf: &'a mut [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a;
+
+  #[cfg(not(feature = "nightly"))]
   async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)>;
 
+  #[cfg(feature = "nightly")]
+  fn recv_from<'a>(
+    &'a self,
+    buf: &'a mut [u8],
+  ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send + 'a;
+
+  #[cfg(not(feature = "nightly"))]
   async fn send(&self, buf: &[u8]) -> io::Result<usize>;
 
+  #[cfg(feature = "nightly")]
+  fn send<'a>(&'a self, buf: &'a [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a;
+
+  #[cfg(not(feature = "nightly"))]
   async fn send_to<A: ToSocketAddrs<Self::Runtime>>(
     &self,
     buf: &[u8],
     target: A,
   ) -> io::Result<usize>;
+
+  #[cfg(feature = "nightly")]
+  fn send_to<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+    &'a self,
+    buf: &'a [u8],
+    target: A,
+  ) -> impl Future<Output = io::Result<usize>> + Send + 'a;
 
   fn set_ttl(&self, ttl: u32) -> io::Result<()>;
 
@@ -164,6 +248,106 @@ pub trait UdpSocket {
   fn set_read_buffer(&self, size: usize) -> io::Result<()>;
 
   fn set_write_buffer(&self, size: usize) -> io::Result<()>;
+}
+
+/// **NOTE:** Temporary solution because of methods in Rust's trait cannot be async,
+/// remove this when #[feature(async_fn_in_trait)] is stable
+#[repr(transparent)]
+pub struct AgnosticUdpSocket<T: UdpSocket> {
+  socket: T,
+}
+
+impl<T: UdpSocket> AgnosticUdpSocket<T> {
+  pub async fn bind<A: ToSocketAddrs<T::Runtime>>(addr: A) -> io::Result<Self>
+  where
+    Self: Sized,
+  {
+    T::bind(addr).await.map(|socket| Self { socket })
+  }
+
+  pub async fn bind_timeout<A: ToSocketAddrs<T::Runtime>>(
+    addr: A,
+    timeout: Duration,
+  ) -> io::Result<Self>
+  where
+    Self: Sized,
+  {
+    T::bind_timeout(addr, timeout)
+      .await
+      .map(|socket| Self { socket })
+  }
+
+  pub async fn connect<A: ToSocketAddrs<T::Runtime>>(&self, addr: A) -> io::Result<()> {
+    self.socket.connect(addr).await
+  }
+
+  pub async fn connect_timeout<A: ToSocketAddrs<T::Runtime>>(
+    &self,
+    addr: A,
+    timeout: Duration,
+  ) -> io::Result<()> {
+    self.socket.connect_timeout(addr, timeout).await
+  }
+
+  pub async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
+    self.socket.recv(buf).await
+  }
+
+  pub async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+    self.socket.recv_from(buf).await
+  }
+
+  pub async fn send(&self, buf: &[u8]) -> io::Result<usize> {
+    self.socket.send(buf).await
+  }
+
+  pub async fn send_to<A: ToSocketAddrs<T::Runtime>>(
+    &self,
+    buf: &[u8],
+    target: A,
+  ) -> io::Result<usize> {
+    self.socket.send_to(buf, target).await
+  }
+
+  pub fn set_ttl(&self, ttl: u32) -> io::Result<()> {
+    self.socket.set_ttl(ttl)
+  }
+
+  pub fn ttl(&self) -> io::Result<u32> {
+    self.socket.ttl()
+  }
+
+  pub fn set_broadcast(&self, broadcast: bool) -> io::Result<()> {
+    self.socket.set_broadcast(broadcast)
+  }
+
+  pub fn broadcast(&self) -> io::Result<bool> {
+    self.socket.broadcast()
+  }
+
+  pub fn set_write_timeout(&self, timeout: Option<Duration>) {
+    self.socket.set_write_timeout(timeout)
+  }
+
+  pub fn write_timeout(&self) -> Option<Duration> {
+    self.socket.write_timeout()
+  }
+
+  pub fn set_read_timeout(&self, timeout: Option<Duration>) {
+    self.socket.set_read_timeout(timeout)
+  }
+
+  pub fn read_timeout(&self) -> Option<Duration> {
+    self.socket.read_timeout()
+  }
+
+  pub fn set_read_buffer(&self, size: usize) -> io::Result<()> {
+    self.socket.set_read_buffer(size)
+  }
+
+  pub fn set_write_buffer(&self, size: usize) -> io::Result<()> {
+    self.socket.set_write_buffer(size)
+  }
 }
 
 #[cfg(feature = "net")]

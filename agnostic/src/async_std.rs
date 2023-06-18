@@ -12,9 +12,6 @@ use futures_util::FutureExt;
 #[cfg(feature = "async-std-net")]
 pub mod net;
 
-#[cfg(feature = "lock")]
-pub mod lock;
-
 struct DelayFuncHandle<F: Future> {
   handle: ::async_std::task::JoinHandle<Option<F::Output>>,
   reset_tx: channel::Sender<Duration>,
@@ -25,7 +22,7 @@ pub struct AsyncStdDelay<F: Future> {
   handle: Option<DelayFuncHandle<F>>,
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl<F> Delay<F> for AsyncStdDelay<F>
 where
   F: Future + Send + 'static,
@@ -63,6 +60,17 @@ where
     }
   }
 
+  #[cfg(feature = "nightly")]
+  fn reset(&mut self, dur: Duration) -> impl Future<Output = ()> + Send + '_ {
+    async move {
+      if let Some(handle) = &mut self.handle {
+        // if we fail to send a message, which means the rx has been dropped, and that thread has exited
+        let _ = handle.reset_tx.try_send(dur);
+      }
+    }
+  }
+
+  #[cfg(not(feature = "nightly"))]
   async fn reset(&mut self, dur: Duration) {
     if let Some(handle) = &mut self.handle {
       // if we fail to send a message, which means the rx has been dropped, and that thread has exited
@@ -70,6 +78,23 @@ where
     }
   }
 
+  #[cfg(feature = "nightly")]
+  fn cancel(&mut self) -> impl Future<Output = Option<F::Output>> + Send + '_ {
+    async move {
+      if let Some(handle) = self.handle.take() {
+        if handle.finished.load(Ordering::SeqCst) {
+          return handle.handle.await;
+        } else {
+          // if we fail to send a message, which means the rx has been dropped, and that thread has exited
+          handle.handle.cancel().await;
+          return None;
+        }
+      }
+      None
+    }
+  }
+
+  #[cfg(not(feature = "nightly"))]
   async fn cancel(&mut self) -> Option<F::Output> {
     if let Some(handle) = self.handle.take() {
       if handle.finished.load(Ordering::SeqCst) {
@@ -93,21 +118,15 @@ impl core::fmt::Display for AsyncStdRuntime {
   }
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl Runtime for AsyncStdRuntime {
   type JoinHandle<T> = ::async_std::task::JoinHandle<T>;
   type Interval = Timer;
   type Sleep = Timer;
   type Delay<F> = AsyncStdDelay<F> where F: Future + Send + 'static, F::Output: Send;
-  type Timeout<F> = Timeout<F> where F: Future;
+  type Timeout<F, T> = Timeout<F> where F: Future<Output = T>;
   #[cfg(feature = "net")]
   type Net = net::AsyncStdNet;
-
-  #[cfg(feature = "lock")]
-  type Mutex<T> = lock::AsyncStdMutex<T>;
-
-  #[cfg(feature = "lock")]
-  type RwLock<T> = lock::AsyncStdRwLock<T>;
 
   fn new() -> Self {
     Self
@@ -137,6 +156,10 @@ impl Runtime for AsyncStdRuntime {
     ::async_std::task::spawn_blocking(f)
   }
 
+  fn block_on<F: Future>(&self, f: F) -> F::Output {
+    ::async_std::task::block_on(f)
+  }
+
   fn interval(&self, interval: Duration) -> Self::Interval {
     Timer::interval(interval)
   }
@@ -161,16 +184,16 @@ impl Runtime for AsyncStdRuntime {
     AsyncStdDelay::new(delay, fut)
   }
 
-  fn timeout<F>(&self, duration: Duration, fut: F) -> Self::Timeout<F>
+  fn timeout<F, T>(&self, duration: Duration, fut: F) -> Self::Timeout<F, T>
   where
-    F: Future,
+    F: Future<Output = T>,
   {
     Timeout::new(duration, fut)
   }
 
-  fn timeout_at<F>(&self, instant: Instant, fut: F) -> Self::Timeout<F>
+  fn timeout_at<F, T>(&self, instant: Instant, fut: F) -> Self::Timeout<F, T>
   where
-    F: Future,
+    F: Future<Output = T>,
   {
     Timeout {
       timeout: Timer::at(instant),

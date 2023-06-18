@@ -3,8 +3,6 @@ use tokio_stream::wrappers::IntervalStream;
 
 use super::*;
 
-#[cfg(feature = "lock")]
-pub mod lock;
 #[cfg(feature = "tokio-net")]
 pub mod net;
 
@@ -18,7 +16,7 @@ pub struct TokioDelay<F: Future> {
   handle: Option<DelayFuncHandle<F>>,
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl<F> Delay<F> for TokioDelay<F>
 where
   F: Future + Send + 'static,
@@ -55,6 +53,7 @@ where
     }
   }
 
+  #[cfg(not(feature = "nightly"))]
   async fn reset(&mut self, dur: Duration) {
     if let Some(handle) = &mut self.handle {
       // if we fail to send a message, which means the rx has been dropped, and that thread has exited
@@ -62,6 +61,17 @@ where
     }
   }
 
+  #[cfg(feature = "nightly")]
+  fn reset(&mut self, dur: Duration) -> impl Future<Output = ()> + Send + '_ {
+    async move {
+      if let Some(handle) = &mut self.handle {
+        // if we fail to send a message, which means the rx has been dropped, and that thread has exited
+        let _ = handle.reset_tx.send(dur).await;
+      }
+    }
+  }
+
+  #[cfg(not(feature = "nightly"))]
   async fn cancel(&mut self) -> Option<F::Output> {
     if let Some(handle) = self.handle.take() {
       if handle.handle.is_finished() {
@@ -77,6 +87,25 @@ where
     }
     None
   }
+
+  #[cfg(feature = "nightly")]
+  fn cancel(&mut self) -> impl Future<Output = Option<F::Output>> + Send + '_ {
+    async move {
+      if let Some(handle) = self.handle.take() {
+        if handle.handle.is_finished() {
+          return match handle.handle.await {
+            Ok(rst) => rst,
+            Err(_) => None,
+          };
+        } else {
+          // if we fail to send a message, which means the rx has been dropped, and that thread has exited
+          let _ = handle.stop_tx.send(()).await;
+          return None;
+        }
+      }
+      None
+    }
+  }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -88,20 +117,15 @@ impl core::fmt::Display for TokioRuntime {
   }
 }
 
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl Runtime for TokioRuntime {
   type JoinHandle<T> = ::tokio::task::JoinHandle<T>;
   type Interval = IntervalStream;
   type Sleep = ::tokio::time::Sleep;
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
-  type Timeout<F> = ::tokio::time::Timeout<F> where F: Future;
+  type Timeout<F, T> = ::tokio::time::Timeout<F> where F: Future<Output = T>;
   #[cfg(feature = "tokio-net")]
   type Net = self::net::TokioNet;
-
-  #[cfg(feature = "lock")]
-  type Mutex<T> = lock::TokioMutex<T>;
-
-  #[cfg(feature = "lock")]
-  type RwLock<T> = lock::TokioRwLock<T>;
 
   fn new() -> Self {
     Self
@@ -139,6 +163,10 @@ impl Runtime for TokioRuntime {
     }
   }
 
+  fn block_on<F: Future>(&self, f: F) -> F::Output {
+    ::tokio::runtime::Handle::current().block_on(f)
+  }
+
   fn interval(&self, interval: Duration) -> Self::Interval {
     IntervalStream::new(::tokio::time::interval(interval))
   }
@@ -163,16 +191,16 @@ impl Runtime for TokioRuntime {
     TokioDelay::new(delay, fut)
   }
 
-  fn timeout<F>(&self, duration: Duration, fut: F) -> Self::Timeout<F>
+  fn timeout<F, T>(&self, duration: Duration, fut: F) -> Self::Timeout<F, T>
   where
-    F: Future,
+    F: Future<Output = T>,
   {
     ::tokio::time::timeout(duration, fut)
   }
 
-  fn timeout_at<F>(&self, instant: Instant, fut: F) -> Self::Timeout<F>
+  fn timeout_at<F, T>(&self, instant: Instant, fut: F) -> Self::Timeout<F, T>
   where
-    F: Future,
+    F: Future<Output = T>,
   {
     ::tokio::time::timeout_at(instant.into(), fut)
   }

@@ -1,5 +1,8 @@
 //! Agnostic is a trait for users who want to write async runtime-agnostic crate.
 #![deny(warnings)]
+#![cfg_attr(feature = "nightly", feature(return_position_impl_trait_in_trait))]
+#![cfg_attr(feature = "nightly", allow(clippy::manual_async_fn))]
+#![cfg_attr(feature = "nightly", allow(incomplete_features))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 #![allow(clippy::needless_return)]
@@ -43,10 +46,6 @@ pub mod smol;
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
 pub mod net;
 
-#[cfg(feature = "lock")]
-#[cfg_attr(docsrs, doc(cfg(feature = "lock")))]
-pub mod lock;
-
 use std::{
   future::Future,
   time::{Duration, Instant},
@@ -55,7 +54,7 @@ use std::{
 use futures_util::Stream;
 
 /// Simlilar to Go's `time.AfterFunc`
-#[async_trait::async_trait]
+#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 pub trait Delay<F>
 where
   F: Future + Send + 'static,
@@ -63,31 +62,33 @@ where
 {
   fn new(delay: Duration, fut: F) -> Self;
 
+  #[cfg(feature = "nightly")]
+  fn reset(&mut self, dur: Duration) -> impl Future<Output = ()> + Send + '_;
+
+  #[cfg(not(feature = "nightly"))]
   async fn reset(&mut self, dur: Duration);
 
+  #[cfg(feature = "nightly")]
+  fn cancel(&mut self) -> impl Future<Output = Option<F::Output>> + Send + '_;
+
+  #[cfg(not(feature = "nightly"))]
   async fn cancel(&mut self) -> Option<F::Output>;
 }
 
 /// Runtime trait
 pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   type JoinHandle<F>: Future;
-  type Interval: Stream;
-  type Sleep: Future;
+  type Interval: Stream + Send + Unpin;
+  type Sleep: Future + Send;
   type Delay<F>: Delay<F>
   where
     F: Future + Send + 'static,
     F::Output: Send;
-  type Timeout<F>: Future
+  type Timeout<F, T>: Future
   where
-    F: Future;
+    F: Future<Output = T>;
   #[cfg(feature = "net")]
   type Net: net::Net;
-
-  #[cfg(feature = "lock")]
-  type Mutex<T>: lock::Mutex<T>;
-
-  #[cfg(feature = "lock")]
-  type RwLock<T>: lock::RwLock<T>;
 
   fn new() -> Self;
 
@@ -130,6 +131,8 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
     self.spawn_blocking(f);
   }
 
+  fn block_on<F: Future>(&self, f: F) -> F::Output;
+
   fn interval(&self, interval: Duration) -> Self::Interval;
 
   fn interval_at(&self, start: Instant, period: Duration) -> Self::Interval;
@@ -143,13 +146,13 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
     F: Future + Send + 'static,
     F::Output: Send + Sync + 'static;
 
-  fn timeout<F>(&self, duration: Duration, future: F) -> Self::Timeout<F>
+  fn timeout<F, T>(&self, duration: Duration, future: F) -> Self::Timeout<F, T>
   where
-    F: Future;
+    F: Future<Output = T>;
 
-  fn timeout_at<F>(&self, instant: Instant, future: F) -> Self::Timeout<F>
+  fn timeout_at<F, T>(&self, instant: Instant, future: F) -> Self::Timeout<F, T>
   where
-    F: Future;
+    F: Future<Output = T>;
 }
 
 #[cfg(any(feature = "async-std", feature = "smol"))]
