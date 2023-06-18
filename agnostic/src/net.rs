@@ -135,6 +135,15 @@ pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
 
   fn nodelay(&self) -> io::Result<bool>;
 
+  fn set_timeout(&self, timeout: Option<Duration>) {
+    self.set_write_timeout(timeout);
+    self.set_read_timeout(timeout);
+  }
+
+  fn timeout(&self) -> (Option<Duration>, Option<Duration>) {
+    (self.read_timeout(), self.write_timeout())
+  }
+
   fn set_write_timeout(&self, timeout: Option<Duration>);
 
   fn write_timeout(&self) -> Option<Duration>;
@@ -241,6 +250,15 @@ pub trait UdpSocket: Unpin + Send + Sync + 'static {
   fn set_broadcast(&self, broadcast: bool) -> io::Result<()>;
 
   fn broadcast(&self) -> io::Result<bool>;
+
+  fn set_timeout(&self, timeout: Option<Duration>) {
+    self.set_write_timeout(timeout);
+    self.set_read_timeout(timeout);
+  }
+
+  fn timeout(&self) -> (Option<Duration>, Option<Duration>) {
+    (self.read_timeout(), self.write_timeout())
+  }
 
   fn set_write_timeout(&self, timeout: Option<Duration>);
 
