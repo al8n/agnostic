@@ -1,7 +1,7 @@
 use std::{
   future::Future,
+  task::Poll,
   time::{Duration, Instant},
-  task::Poll
 };
 
 use ::tokio::sync::mpsc;
@@ -163,7 +163,7 @@ impl Runtime for TokioWasmRuntime {
   type Interval = IntervalStream;
   type Sleep = ::tokio::time::Sleep;
   type Delay<F> = TokioWasmDelay<F> where F: Future + Send + 'static, F::Output: Send;
-  type Timeout<F> = TokioWasmTimeout<F> where F: Future + Send; 
+  type Timeout<F> = TokioWasmTimeout<F> where F: Future + Send;
   type Net = self::net::TokioWasmNet;
 
   fn new() -> Self {
