@@ -1,6 +1,6 @@
 [package]
 name = "wasm-agnostic"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "wasm-agnostic is a helpful crate for users who want to write async runtime-agnostic crate for wasm target."
@@ -17,12 +17,14 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
+
+# ebable zero cost async/await, only works on rust nightly compiler
 nightly = ["agnostic/nightly"]
 
 [dependencies]
 atomic = "0.5"
 async-trait = "0.1"
-agnostic = { version = "0.1.12", path = "../agnostic", default-features = false, features = ["net"] }
+agnostic = { version = "0.1.13", path = "../agnostic", default-features = false, features = ["net"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
 socket2 = "=0.4.7"
 tokio = { version = "=1.24.2", default-features = false, features = ["full"] }
