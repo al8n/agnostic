@@ -5,7 +5,7 @@ use std::{
   vec,
 };
 
-use crate::Runtime;
+use crate::{net::ToSocketAddrs, Runtime};
 
 #[doc(hidden)]
 pub enum ToSocketAddrsFuture<H> {
@@ -15,80 +15,80 @@ pub enum ToSocketAddrsFuture<H> {
 
 type ReadyFuture<T> = std::future::Ready<io::Result<T>>;
 
-impl<T, R: Runtime> crate::net::ToSocketAddrs<R> for &T
+impl<T, R: Runtime> ToSocketAddrs<R> for &T
 where
-  T: crate::net::ToSocketAddrs<R> + ?Sized + Send + Sync,
+  T: ToSocketAddrs<R> + ?Sized + Send + Sync,
 {
   type Iter = T::Iter;
   type Future = T::Future;
 
-  fn to_socket_addrs(&self, r: &R) -> Self::Future {
-    (**self).to_socket_addrs(r)
+  fn to_socket_addrs(&self) -> Self::Future {
+    (**self).to_socket_addrs()
   }
 }
 
-impl<R: Runtime> crate::net::ToSocketAddrs<R> for SocketAddr {
+impl<R: Runtime> ToSocketAddrs<R> for SocketAddr {
   type Iter = std::option::IntoIter<SocketAddr>;
   type Future = ReadyFuture<Self::Iter>;
 
-  fn to_socket_addrs(&self, _r: &R) -> Self::Future {
+  fn to_socket_addrs(&self) -> Self::Future {
     let iter = Some(*self).into_iter();
     std::future::ready(Ok(iter))
   }
 }
 
-impl<R: Runtime> crate::net::ToSocketAddrs<R> for SocketAddrV4 {
+impl<R: Runtime> ToSocketAddrs<R> for SocketAddrV4 {
   type Iter = std::option::IntoIter<SocketAddr>;
   type Future = ReadyFuture<Self::Iter>;
 
-  fn to_socket_addrs(&self, r: &R) -> Self::Future {
-    SocketAddr::V4(*self).to_socket_addrs(r)
+  fn to_socket_addrs(&self) -> Self::Future {
+    ToSocketAddrs::<R>::to_socket_addrs(&SocketAddr::V4(*self))
   }
 }
 
-impl<R: Runtime> crate::net::ToSocketAddrs<R> for SocketAddrV6 {
+impl<R: Runtime> ToSocketAddrs<R> for SocketAddrV6 {
   type Iter = std::option::IntoIter<SocketAddr>;
   type Future = ReadyFuture<Self::Iter>;
 
-  fn to_socket_addrs(&self, r: &R) -> Self::Future {
-    SocketAddr::V6(*self).to_socket_addrs(r)
+  fn to_socket_addrs(&self) -> Self::Future {
+    ToSocketAddrs::<R>::to_socket_addrs(&SocketAddr::V6(*self))
   }
 }
 
-impl<R: Runtime> crate::net::ToSocketAddrs<R> for (IpAddr, u16) {
+impl<R: Runtime> ToSocketAddrs<R> for (IpAddr, u16) {
   type Iter = std::option::IntoIter<SocketAddr>;
   type Future = ReadyFuture<Self::Iter>;
 
-  fn to_socket_addrs(&self, r: &R) -> Self::Future {
-    SocketAddr::from(*self).to_socket_addrs(r)
+  fn to_socket_addrs(&self) -> Self::Future {
+    ToSocketAddrs::<R>::to_socket_addrs(&SocketAddr::from(*self))
   }
 }
 
-impl<R: Runtime> crate::net::ToSocketAddrs<R> for (Ipv4Addr, u16) {
+impl<R: Runtime> ToSocketAddrs<R> for (Ipv4Addr, u16) {
   type Iter = std::option::IntoIter<SocketAddr>;
   type Future = ReadyFuture<Self::Iter>;
 
-  fn to_socket_addrs(&self, r: &R) -> Self::Future {
+  fn to_socket_addrs(&self) -> Self::Future {
     let (ip, port) = *self;
-    SocketAddrV4::new(ip, port).to_socket_addrs(r)
+    ToSocketAddrs::<R>::to_socket_addrs(&SocketAddrV4::new(ip, port))
   }
 }
 
-impl<R: Runtime> crate::net::ToSocketAddrs<R> for (Ipv6Addr, u16) {
+impl<R: Runtime> ToSocketAddrs<R> for (Ipv6Addr, u16) {
   type Iter = std::option::IntoIter<SocketAddr>;
   type Future = ReadyFuture<Self::Iter>;
 
-  fn to_socket_addrs(&self, r: &R) -> Self::Future {
+  fn to_socket_addrs(&self) -> Self::Future {
     let (ip, port) = *self;
-    SocketAddrV6::new(ip, port, 0, 0).to_socket_addrs(r)
+    ToSocketAddrs::<R>::to_socket_addrs(&SocketAddrV6::new(ip, port, 0, 0))
   }
 }
 
-impl<R: Runtime> crate::net::ToSocketAddrs<R> for [SocketAddr] {
+impl<R: Runtime> ToSocketAddrs<R> for [SocketAddr] {
   type Iter = std::vec::IntoIter<SocketAddr>;
   type Future = ReadyFuture<Self::Iter>;
 
-  fn to_socket_addrs(&self, _r: &R) -> Self::Future {
+  fn to_socket_addrs(&self) -> Self::Future {
     #[inline]
     fn slice_to_vec(addrs: &[SocketAddr]) -> Vec<SocketAddr> {
       addrs.to_vec()
@@ -109,7 +109,7 @@ impl<R: Runtime> crate::net::ToSocketAddrs<R> for [SocketAddr] {
   }
 }
 
-impl<R: Runtime> crate::net::ToSocketAddrs<R> for (String, u16)
+impl<R: Runtime> ToSocketAddrs<R> for (String, u16)
 where
   ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>:
     Future<Output = io::Result<sealed::OneOrMore>> + Send,
@@ -117,25 +117,25 @@ where
   type Iter = sealed::OneOrMore;
   type Future = ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>;
 
-  fn to_socket_addrs(&self, r: &R) -> Self::Future {
-    (self.0.as_str(), self.1).to_socket_addrs(r)
+  fn to_socket_addrs(&self) -> Self::Future {
+    ToSocketAddrs::<R>::to_socket_addrs(&(self.0.as_str(), self.1))
   }
 }
 
-impl<R: Runtime> crate::net::ToSocketAddrs<R> for String
+impl<R: Runtime> ToSocketAddrs<R> for String
 where
   ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>:
     Future<Output = io::Result<sealed::OneOrMore>> + Send,
 {
-  type Iter = <str as crate::net::ToSocketAddrs<R>>::Iter;
-  type Future = <str as crate::net::ToSocketAddrs<R>>::Future;
+  type Iter = <str as ToSocketAddrs<R>>::Iter;
+  type Future = <str as ToSocketAddrs<R>>::Future;
 
-  fn to_socket_addrs(&self, r: &R) -> Self::Future {
-    self[..].to_socket_addrs(r)
+  fn to_socket_addrs(&self) -> Self::Future {
+    ToSocketAddrs::<R>::to_socket_addrs(&self[..])
   }
 }
 
-impl<R: Runtime> crate::net::ToSocketAddrs<R> for str
+impl<R: Runtime> ToSocketAddrs<R> for str
 where
   ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>:
     Future<Output = io::Result<sealed::OneOrMore>> + Send,
@@ -144,7 +144,7 @@ where
 
   type Future = ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>;
 
-  fn to_socket_addrs(&self, r: &R) -> Self::Future {
+  fn to_socket_addrs(&self) -> Self::Future {
     // First check if the input parses as a socket address
     let res: Result<SocketAddr, _> = self.parse();
 
@@ -155,13 +155,13 @@ where
     // Run DNS lookup on the blocking pool
     let s = self.to_owned();
 
-    ToSocketAddrsFuture::Blocking(r.spawn_blocking(move || {
+    ToSocketAddrsFuture::Blocking(R::spawn_blocking(move || {
       std::net::ToSocketAddrs::to_socket_addrs(&s).map(sealed::OneOrMore::More)
     }))
   }
 }
 
-impl<R: Runtime> crate::net::ToSocketAddrs<R> for (&str, u16)
+impl<R: Runtime> ToSocketAddrs<R> for (&str, u16)
 where
   ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>:
     Future<Output = io::Result<sealed::OneOrMore>> + Send,
@@ -169,7 +169,7 @@ where
   type Iter = sealed::OneOrMore;
   type Future = ToSocketAddrsFuture<R::JoinHandle<io::Result<sealed::OneOrMore>>>;
 
-  fn to_socket_addrs(&self, r: &R) -> Self::Future {
+  fn to_socket_addrs(&self) -> Self::Future {
     let (host, port) = *self;
 
     // try to parse the host as a regular IP address first
@@ -188,7 +188,7 @@ where
     }
 
     let host = host.to_owned();
-    ToSocketAddrsFuture::Blocking(r.spawn_blocking(move || {
+    ToSocketAddrsFuture::Blocking(R::spawn_blocking(move || {
       std::net::ToSocketAddrs::to_socket_addrs(&(&host[..], port)).map(sealed::OneOrMore::More)
     }))
   }

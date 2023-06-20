@@ -47,7 +47,7 @@ impl crate::net::TcpListener for SmolTcpListener {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&SmolRuntime).await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -77,7 +77,7 @@ impl crate::net::TcpListener for SmolTcpListener {
     Self: Sized,
   {
     async move {
-      let mut addrs = addr.to_socket_addrs(&SmolRuntime).await?;
+      let mut addrs = addr.to_socket_addrs().await?;
 
       let res = if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
@@ -165,7 +165,7 @@ impl futures_util::AsyncRead for SmolTcpStream {
   ) -> Poll<io::Result<usize>> {
     if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
-        let timeout = SmolRuntime.timeout(d, self.stream.read(buf));
+        let timeout = SmolRuntime::timeout(d, self.stream.read(buf));
         futures_util::pin_mut!(timeout);
         match timeout.poll(cx) {
           Poll::Ready(rst) => match rst {
@@ -189,7 +189,7 @@ impl futures_util::AsyncWrite for SmolTcpStream {
   ) -> std::task::Poll<io::Result<usize>> {
     if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
-        let timeout = SmolRuntime.timeout(d, self.stream.write(buf));
+        let timeout = SmolRuntime::timeout(d, self.stream.write(buf));
         futures_util::pin_mut!(timeout);
         match timeout.poll(cx) {
           Poll::Ready(rst) => match rst {
@@ -264,7 +264,7 @@ impl crate::net::TcpStream for SmolTcpStream {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&SmolRuntime).await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -294,7 +294,7 @@ impl crate::net::TcpStream for SmolTcpStream {
     Self: Sized,
   {
     async move {
-      let mut addrs = addr.to_socket_addrs(&SmolRuntime).await?;
+      let mut addrs = addr.to_socket_addrs().await?;
 
       let res = if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
@@ -326,8 +326,7 @@ impl crate::net::TcpStream for SmolTcpStream {
     Self: Sized,
   {
     async move {
-      SmolRuntime
-        .timeout(timeout, Self::connect(addr))
+      SmolRuntime::timeout(timeout, Self::connect(addr))
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
         .and_then(|res| res)
@@ -342,8 +341,7 @@ impl crate::net::TcpStream for SmolTcpStream {
   where
     Self: Sized,
   {
-    SmolRuntime
-      .timeout(timeout, Self::connect(addr))
+    SmolRuntime::timeout(timeout, Self::connect(addr))
       .await
       .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
       .and_then(|res| res)
@@ -408,7 +406,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
     Self: Sized,
   {
     async move {
-      let mut addrs = addr.to_socket_addrs(&SmolRuntime).await?;
+      let mut addrs = addr.to_socket_addrs().await?;
 
       let res = if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
@@ -439,8 +437,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
     Self: Sized,
   {
     async move {
-      SmolRuntime
-        .timeout(timeout, Self::bind(addr))
+      SmolRuntime::timeout(timeout, Self::bind(addr))
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
         .and_then(|res| res)
@@ -452,7 +449,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
     addr: A,
   ) -> impl Future<Output = io::Result<()>> + Send + 'a {
     async move {
-      let mut addrs = addr.to_socket_addrs(&SmolRuntime).await?;
+      let mut addrs = addr.to_socket_addrs().await?;
 
       if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
@@ -479,8 +476,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
     timeout: Duration,
   ) -> impl Future<Output = io::Result<()>> + Send + 'a {
     async move {
-      SmolRuntime
-        .timeout(timeout, self.connect(addr))
+      SmolRuntime::timeout(timeout, self.connect(addr))
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
         .and_then(|res| res)
@@ -492,7 +488,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
     async move {
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match SmolRuntime.timeout(timeout, self.socket.recv(buf)).await {
+          return match SmolRuntime::timeout(timeout, self.socket.recv(buf)).await {
             Ok(timeout) => timeout,
             Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
           };
@@ -510,10 +506,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
     async move {
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match SmolRuntime
-            .timeout(timeout, self.socket.recv_from(buf))
-            .await
-          {
+          return match SmolRuntime::timeout(timeout, self.socket.recv_from(buf)).await {
             Ok(timeout) => timeout,
             Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
           };
@@ -528,7 +521,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
     async move {
       if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match SmolRuntime.timeout(timeout, self.socket.send(buf)).await {
+          return match SmolRuntime::timeout(timeout, self.socket.send(buf)).await {
             Ok(timeout) => timeout,
             Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
           };
@@ -545,15 +538,12 @@ impl crate::net::UdpSocket for SmolUdpSocket {
     target: A,
   ) -> impl Future<Output = io::Result<usize>> + Send + 'a {
     async move {
-      let mut addrs = target.to_socket_addrs(&SmolRuntime).await?;
+      let mut addrs = target.to_socket_addrs().await?;
       if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
           if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
             if !timeout.is_zero() {
-              return match SmolRuntime
-                .timeout(timeout, self.socket.send_to(buf, addr))
-                .await
-              {
+              return match SmolRuntime::timeout(timeout, self.socket.send_to(buf, addr)).await {
                 Ok(timeout) => timeout,
                 Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
               };
@@ -570,8 +560,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
         let addrs = addrs.collect::<Vec<_>>();
         if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
           if !timeout.is_zero() {
-            return match SmolRuntime
-              .timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
+            return match SmolRuntime::timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
               .await
             {
               Ok(timeout) => timeout,
@@ -589,7 +578,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&SmolRuntime).await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -618,8 +607,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
   where
     Self: Sized,
   {
-    SmolRuntime
-      .timeout(timeout, Self::bind(addr))
+    SmolRuntime::timeout(timeout, Self::bind(addr))
       .await
       .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
       .and_then(|res| res)
@@ -630,7 +618,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&SmolRuntime).await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
     if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -658,8 +646,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
   where
     Self: Sized,
   {
-    SmolRuntime
-      .timeout(timeout, self.connect(addr))
+    SmolRuntime::timeout(timeout, self.connect(addr))
       .await
       .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
       .and_then(|res| res)
@@ -669,7 +656,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
-        return match SmolRuntime.timeout(timeout, self.socket.recv(buf)).await {
+        return match SmolRuntime::timeout(timeout, self.socket.recv(buf)).await {
           Ok(timeout) => timeout,
           Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
         };
@@ -682,10 +669,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
   async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
-        return match SmolRuntime
-          .timeout(timeout, self.socket.recv_from(buf))
-          .await
-        {
+        return match SmolRuntime::timeout(timeout, self.socket.recv_from(buf)).await {
           Ok(timeout) => timeout,
           Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
         };
@@ -698,7 +682,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
   async fn send(&self, buf: &[u8]) -> io::Result<usize> {
     if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
-        return match SmolRuntime.timeout(timeout, self.socket.send(buf)).await {
+        return match SmolRuntime::timeout(timeout, self.socket.send(buf)).await {
           Ok(timeout) => timeout,
           Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
         };
@@ -713,15 +697,12 @@ impl crate::net::UdpSocket for SmolUdpSocket {
     buf: &[u8],
     target: A,
   ) -> io::Result<usize> {
-    let mut addrs = target.to_socket_addrs(&SmolRuntime).await?;
+    let mut addrs = target.to_socket_addrs().await?;
     if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
         if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
           if !timeout.is_zero() {
-            return match SmolRuntime
-              .timeout(timeout, self.socket.send_to(buf, addr))
-              .await
-            {
+            return match SmolRuntime::timeout(timeout, self.socket.send_to(buf, addr)).await {
               Ok(timeout) => timeout,
               Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
             };
@@ -738,8 +719,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
       let addrs = addrs.collect::<Vec<_>>();
       if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match SmolRuntime
-            .timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
+          return match SmolRuntime::timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
             .await
           {
             Ok(timeout) => timeout,

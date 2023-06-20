@@ -47,7 +47,7 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -77,7 +77,7 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
     Self: Sized,
   {
     async move {
-      let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+      let mut addrs = addr.to_socket_addrs().await?;
 
       let res = if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
@@ -165,7 +165,7 @@ impl futures_util::AsyncRead for AsyncStdTcpStream {
   ) -> Poll<io::Result<usize>> {
     if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
-        let timeout = AsyncStdRuntime.timeout(d, self.stream.read(buf));
+        let timeout = AsyncStdRuntime::timeout(d, self.stream.read(buf));
         futures_util::pin_mut!(timeout);
         match timeout.poll(cx) {
           Poll::Ready(rst) => match rst {
@@ -189,7 +189,7 @@ impl futures_util::AsyncWrite for AsyncStdTcpStream {
   ) -> std::task::Poll<io::Result<usize>> {
     if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
-        let timeout = AsyncStdRuntime.timeout(d, self.stream.write(buf));
+        let timeout = AsyncStdRuntime::timeout(d, self.stream.write(buf));
         futures_util::pin_mut!(timeout);
         match timeout.poll(cx) {
           Poll::Ready(rst) => match rst {
@@ -264,7 +264,7 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -294,7 +294,7 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
     Self: Sized,
   {
     async move {
-      let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+      let mut addrs = addr.to_socket_addrs().await?;
 
       let res = if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
@@ -326,8 +326,7 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
     Self: Sized,
   {
     async move {
-      AsyncStdRuntime
-        .timeout(timeout, Self::connect(addr))
+      AsyncStdRuntime::timeout(timeout, Self::connect(addr))
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
         .and_then(|res| res)
@@ -342,8 +341,7 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
   where
     Self: Sized,
   {
-    AsyncStdRuntime
-      .timeout(timeout, Self::connect(addr))
+    AsyncStdRuntime::timeout(timeout, Self::connect(addr))
       .await
       .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
       .and_then(|res| res)
@@ -408,7 +406,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     Self: Sized,
   {
     async move {
-      let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+      let mut addrs = addr.to_socket_addrs().await?;
 
       let res = if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
@@ -439,8 +437,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     Self: Sized,
   {
     async move {
-      AsyncStdRuntime
-        .timeout(timeout, Self::bind(addr))
+      AsyncStdRuntime::timeout(timeout, Self::bind(addr))
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
         .and_then(|res| res)
@@ -452,7 +449,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     addr: A,
   ) -> impl Future<Output = io::Result<()>> + Send + 'a {
     async move {
-      let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+      let mut addrs = addr.to_socket_addrs().await?;
 
       if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
@@ -479,8 +476,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     timeout: Duration,
   ) -> impl Future<Output = io::Result<()>> + Send + 'a {
     async move {
-      AsyncStdRuntime
-        .timeout(timeout, self.connect(addr))
+      AsyncStdRuntime::timeout(timeout, self.connect(addr))
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
         .and_then(|res| res)
@@ -492,10 +488,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     async move {
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match AsyncStdRuntime
-            .timeout(timeout, self.socket.recv(buf))
-            .await
-          {
+          return match AsyncStdRuntime::timeout(timeout, self.socket.recv(buf)).await {
             Ok(timeout) => timeout,
             Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
           };
@@ -513,10 +506,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     async move {
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match AsyncStdRuntime
-            .timeout(timeout, self.socket.recv_from(buf))
-            .await
-          {
+          return match AsyncStdRuntime::timeout(timeout, self.socket.recv_from(buf)).await {
             Ok(timeout) => timeout,
             Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
           };
@@ -531,10 +521,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     async move {
       if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match AsyncStdRuntime
-            .timeout(timeout, self.socket.send(buf))
-            .await
-          {
+          return match AsyncStdRuntime::timeout(timeout, self.socket.send(buf)).await {
             Ok(timeout) => timeout,
             Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
           };
@@ -551,15 +538,12 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     target: A,
   ) -> impl Future<Output = io::Result<usize>> + Send + 'a {
     async move {
-      let mut addrs = target.to_socket_addrs(&AsyncStdRuntime).await?;
+      let mut addrs = target.to_socket_addrs().await?;
       if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
           if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
             if !timeout.is_zero() {
-              return match AsyncStdRuntime
-                .timeout(timeout, self.socket.send_to(buf, addr))
-                .await
-              {
+              return match AsyncStdRuntime::timeout(timeout, self.socket.send_to(buf, addr)).await {
                 Ok(timeout) => timeout,
                 Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
               };
@@ -576,9 +560,11 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
         let addrs = addrs.collect::<Vec<_>>();
         if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
           if !timeout.is_zero() {
-            return match AsyncStdRuntime
-              .timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
-              .await
+            return match AsyncStdRuntime::timeout(
+              timeout,
+              self.socket.send_to(buf, addrs.as_slice()),
+            )
+            .await
             {
               Ok(timeout) => timeout,
               Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
@@ -595,7 +581,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
     let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -624,8 +610,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   where
     Self: Sized,
   {
-    AsyncStdRuntime
-      .timeout(timeout, Self::bind(addr))
+    AsyncStdRuntime::timeout(timeout, Self::bind(addr))
       .await
       .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
       .and_then(|res| res)
@@ -636,7 +621,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs(&AsyncStdRuntime).await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
     if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -664,8 +649,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   where
     Self: Sized,
   {
-    AsyncStdRuntime
-      .timeout(timeout, self.connect(addr))
+    AsyncStdRuntime::timeout(timeout, self.connect(addr))
       .await
       .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
       .and_then(|res| res)
@@ -675,10 +659,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
-        return match AsyncStdRuntime
-          .timeout(timeout, self.socket.recv(buf))
-          .await
-        {
+        return match AsyncStdRuntime::timeout(timeout, self.socket.recv(buf)).await {
           Ok(timeout) => timeout,
           Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
         };
@@ -691,10 +672,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
-        return match AsyncStdRuntime
-          .timeout(timeout, self.socket.recv_from(buf))
-          .await
-        {
+        return match AsyncStdRuntime::timeout(timeout, self.socket.recv_from(buf)).await {
           Ok(timeout) => timeout,
           Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
         };
@@ -707,10 +685,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   async fn send(&self, buf: &[u8]) -> io::Result<usize> {
     if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
-        return match AsyncStdRuntime
-          .timeout(timeout, self.socket.send(buf))
-          .await
-        {
+        return match AsyncStdRuntime::timeout(timeout, self.socket.send(buf)).await {
           Ok(timeout) => timeout,
           Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
         };
@@ -725,15 +700,12 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     buf: &[u8],
     target: A,
   ) -> io::Result<usize> {
-    let mut addrs = target.to_socket_addrs(&AsyncStdRuntime).await?;
+    let mut addrs = target.to_socket_addrs().await?;
     if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
         if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
           if !timeout.is_zero() {
-            return match AsyncStdRuntime
-              .timeout(timeout, self.socket.send_to(buf, addr))
-              .await
-            {
+            return match AsyncStdRuntime::timeout(timeout, self.socket.send_to(buf, addr)).await {
               Ok(timeout) => timeout,
               Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
             };
@@ -750,8 +722,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
       let addrs = addrs.collect::<Vec<_>>();
       if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match AsyncStdRuntime
-            .timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
+          return match AsyncStdRuntime::timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
             .await
           {
             Ok(timeout) => timeout,

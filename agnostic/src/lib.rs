@@ -87,70 +87,71 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   type Timeout<F>: Future<Output = std::io::Result<F::Output>> + Send
   where
     F: Future + Send;
+
   #[cfg(feature = "net")]
   type Net: net::Net;
 
   fn new() -> Self;
 
-  fn spawn<F>(&self, future: F) -> Self::JoinHandle<F::Output>
+  fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static;
 
-  fn spawn_detach<F>(&self, future: F)
+  fn spawn_detach<F>(future: F)
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static,
   {
-    self.spawn(future);
+    Self::spawn(future);
   }
 
-  fn spawn_local<F>(&self, future: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F: Future + 'static,
     F::Output: 'static;
 
-  fn spawn_local_detach<F>(&self, future: F)
+  fn spawn_local_detach<F>(future: F)
   where
     F: Future + 'static,
     F::Output: 'static,
   {
-    self.spawn_local(future);
+    Self::spawn_local(future);
   }
 
-  fn spawn_blocking<F, R>(&self, f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(f: F) -> Self::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static;
 
-  fn spawn_blocking_detach<F, R>(&self, f: F)
+  fn spawn_blocking_detach<F, R>(f: F)
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    self.spawn_blocking(f);
+    Self::spawn_blocking(f);
   }
 
-  fn block_on<F: Future>(&self, f: F) -> F::Output;
+  fn block_on<F: Future>(f: F) -> F::Output;
 
-  fn interval(&self, interval: Duration) -> Self::Interval;
+  fn interval(interval: Duration) -> Self::Interval;
 
-  fn interval_at(&self, start: Instant, period: Duration) -> Self::Interval;
+  fn interval_at(start: Instant, period: Duration) -> Self::Interval;
 
-  fn sleep(&self, duration: Duration) -> Self::Sleep;
+  fn sleep(duration: Duration) -> Self::Sleep;
 
-  fn sleep_until(&self, instant: Instant) -> Self::Sleep;
+  fn sleep_until(instant: Instant) -> Self::Sleep;
 
-  fn delay<F>(&self, duration: Duration, fut: F) -> Self::Delay<F>
+  fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
   where
     F: Future + Send + 'static,
     F::Output: Send + Sync + 'static;
 
-  fn timeout<F>(&self, duration: Duration, future: F) -> Self::Timeout<F>
+  fn timeout<F>(duration: Duration, future: F) -> Self::Timeout<F>
   where
     F: Future + Send;
 
-  fn timeout_at<F>(&self, instant: Instant, future: F) -> Self::Timeout<F>
+  fn timeout_at<F>(instant: Instant, future: F) -> Self::Timeout<F>
   where
     F: Future + Send;
 }
@@ -212,9 +213,13 @@ mod timer {
   }
 }
 
+/// Traits for IO
+#[cfg(feature = "io")]
+#[cfg_attr(docsrs, doc(cfg(feature = "io")))]
 pub mod io {
   pub use futures_util::{AsyncRead, AsyncWrite};
 
   #[cfg(feature = "tokio-compat")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "tokio-compat")))]
   pub use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 }

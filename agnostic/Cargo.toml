@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.1.13"
+version = "0.1.14"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "Agnostic is a helpful crate for users who want to write async runtime-agnostic crate."
@@ -21,7 +21,8 @@ default = []
 # ebable zero cost async/await, only works on rust nightly compiler
 nightly = []
 
-net = ["atomic", "futures-util/io"]
+net = ["atomic", "io"]
+io = ["futures-util/io"]
 
 # This feature must be used with net feature
 # by enable this feature, TcpStream will implement

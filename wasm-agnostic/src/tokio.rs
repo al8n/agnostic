@@ -170,7 +170,7 @@ impl Runtime for TokioWasmRuntime {
     Self
   }
 
-  fn spawn<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
+  fn spawn<F>(fut: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static,
@@ -178,7 +178,7 @@ impl Runtime for TokioWasmRuntime {
     ::tokio::spawn(fut)
   }
 
-  fn spawn_local<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(fut: F) -> Self::JoinHandle<F::Output>
   where
     F: Future + 'static,
     F::Output: 'static,
@@ -186,7 +186,7 @@ impl Runtime for TokioWasmRuntime {
     ::tokio::task::spawn_local(fut)
   }
 
-  fn spawn_blocking<F, R>(&self, f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(f: F) -> Self::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
@@ -194,27 +194,27 @@ impl Runtime for TokioWasmRuntime {
     ::tokio::task::spawn_blocking(f)
   }
 
-  fn block_on<F: Future>(&self, f: F) -> F::Output {
+  fn block_on<F: Future>(f: F) -> F::Output {
     ::tokio::runtime::Handle::current().block_on(f)
   }
 
-  fn interval(&self, interval: Duration) -> Self::Interval {
+  fn interval(interval: Duration) -> Self::Interval {
     IntervalStream::new(::tokio::time::interval(interval))
   }
 
-  fn interval_at(&self, start: Instant, period: Duration) -> Self::Interval {
+  fn interval_at(start: Instant, period: Duration) -> Self::Interval {
     IntervalStream::new(::tokio::time::interval_at(start.into(), period))
   }
 
-  fn sleep(&self, duration: Duration) -> Self::Sleep {
+  fn sleep(duration: Duration) -> Self::Sleep {
     ::tokio::time::sleep(duration)
   }
 
-  fn sleep_until(&self, instant: Instant) -> Self::Sleep {
+  fn sleep_until(instant: Instant) -> Self::Sleep {
     ::tokio::time::sleep_until(instant.into())
   }
 
-  fn delay<F>(&self, delay: Duration, fut: F) -> Self::Delay<F>
+  fn delay<F>(delay: Duration, fut: F) -> Self::Delay<F>
   where
     F: Future + Send + 'static,
     F::Output: Send,
@@ -222,7 +222,7 @@ impl Runtime for TokioWasmRuntime {
     TokioWasmDelay::new(delay, fut)
   }
 
-  fn timeout<F>(&self, duration: Duration, fut: F) -> Self::Timeout<F>
+  fn timeout<F>(duration: Duration, fut: F) -> Self::Timeout<F>
   where
     F: Future + Send,
   {
@@ -231,7 +231,7 @@ impl Runtime for TokioWasmRuntime {
     }
   }
 
-  fn timeout_at<F>(&self, instant: Instant, fut: F) -> Self::Timeout<F>
+  fn timeout_at<F>(instant: Instant, fut: F) -> Self::Timeout<F>
   where
     F: Future + Send,
   {

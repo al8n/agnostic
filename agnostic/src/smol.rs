@@ -127,14 +127,11 @@ impl Runtime for SmolRuntime {
   #[cfg(feature = "smol-net")]
   type Net = net::SmolNet;
 
-  // #[cfg(feature = "lock")]
-  // type RwLock<T> = lock::SmolRwLock<T>;
-
   fn new() -> Self {
     Self
   }
 
-  fn spawn<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
+  fn spawn<F>(fut: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static,
@@ -142,7 +139,7 @@ impl Runtime for SmolRuntime {
     ::smol::spawn(fut)
   }
 
-  fn spawn_detach<F>(&self, fut: F)
+  fn spawn_detach<F>(fut: F)
   where
     F: Future + Send + 'static,
     F::Output: Send + 'static,
@@ -150,7 +147,7 @@ impl Runtime for SmolRuntime {
     ::smol::spawn(fut).detach();
   }
 
-  fn spawn_local<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(fut: F) -> Self::JoinHandle<F::Output>
   where
     F: Future + 'static,
     F::Output: 'static,
@@ -158,7 +155,7 @@ impl Runtime for SmolRuntime {
     ::smol::LocalExecutor::new().spawn(fut)
   }
 
-  fn spawn_local_detach<F>(&self, fut: F)
+  fn spawn_local_detach<F>(fut: F)
   where
     F: Future + 'static,
     F::Output: 'static,
@@ -166,7 +163,7 @@ impl Runtime for SmolRuntime {
     ::smol::LocalExecutor::new().spawn(fut).detach();
   }
 
-  fn spawn_blocking<F, R>(&self, f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(f: F) -> Self::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
@@ -174,7 +171,7 @@ impl Runtime for SmolRuntime {
     ::smol::unblock(f)
   }
 
-  fn spawn_blocking_detach<F, R>(&self, f: F)
+  fn spawn_blocking_detach<F, R>(f: F)
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
@@ -182,27 +179,27 @@ impl Runtime for SmolRuntime {
     ::smol::unblock(f).detach();
   }
 
-  fn block_on<F: Future>(&self, f: F) -> F::Output {
+  fn block_on<F: Future>(f: F) -> F::Output {
     ::smol::block_on(f)
   }
 
-  fn interval(&self, interval: Duration) -> Self::Interval {
+  fn interval(interval: Duration) -> Self::Interval {
     Timer::interval(interval)
   }
 
-  fn interval_at(&self, start: Instant, period: Duration) -> Self::Interval {
+  fn interval_at(start: Instant, period: Duration) -> Self::Interval {
     Timer::interval_at(start, period)
   }
 
-  fn sleep(&self, duration: Duration) -> Self::Sleep {
+  fn sleep(duration: Duration) -> Self::Sleep {
     Timer::after(duration)
   }
 
-  fn sleep_until(&self, deadline: Instant) -> Self::Sleep {
+  fn sleep_until(deadline: Instant) -> Self::Sleep {
     Timer::at(deadline)
   }
 
-  fn delay<F>(&self, delay: Duration, fut: F) -> Self::Delay<F>
+  fn delay<F>(delay: Duration, fut: F) -> Self::Delay<F>
   where
     F: Future + Send + 'static,
     F::Output: Send,
@@ -210,14 +207,14 @@ impl Runtime for SmolRuntime {
     SmolDelay::new(delay, fut)
   }
 
-  fn timeout<F>(&self, duration: Duration, fut: F) -> Self::Timeout<F>
+  fn timeout<F>(duration: Duration, fut: F) -> Self::Timeout<F>
   where
     F: Future + Send,
   {
     Timeout::new(duration, fut)
   }
 
-  fn timeout_at<F>(&self, instant: Instant, fut: F) -> Self::Timeout<F>
+  fn timeout_at<F>(instant: Instant, fut: F) -> Self::Timeout<F>
   where
     F: Future + Send,
   {

@@ -27,7 +27,7 @@ pub trait ToSocketAddrs<R: Runtime>: Send + Sync {
   /// resolution performed.
   ///
   /// Note that this function may block a backend thread while resolution is performed.
-  fn to_socket_addrs(&self, runtime: &R) -> Self::Future;
+  fn to_socket_addrs(&self) -> Self::Future;
 }
 
 #[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
