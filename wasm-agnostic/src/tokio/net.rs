@@ -4,7 +4,7 @@ use std::{
   net::SocketAddr,
   pin::Pin,
   task::{Context, Poll},
-  time::Duration,
+  time::Duration, sync::atomic::AtomicBool,
 };
 
 use atomic::{Atomic, Ordering};
@@ -25,22 +25,33 @@ use super::TokioWasmRuntime;
 pub struct TokioWasmNet;
 
 impl Net for TokioWasmNet {
-  type TcpListener = TokioTcpListener;
+  type TcpListener = TokioWasmTcpListener;
 
-  type TcpStream = TokioTcpStream;
+  type TcpStream = TokioWasmTcpStream;
 
-  type UdpSocket = TokioUdpSocket;
+  type UdpSocket = TokioWasmUdpSocket;
 }
 
-pub struct TokioTcpListener {
+pub struct TokioWasmTcpListener {
+  closed: AtomicBool,
   ln: TcpListener,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
 }
 
+impl TokioWasmTcpListener {
+  fn check_closed(&self) -> io::Result<()> {
+    if self.closed.load(Ordering::SeqCst) {
+      Err(io::Error::new(io::ErrorKind::ConnectionAborted, "listener closed"))
+    } else {
+      Ok(())
+    }
+  }
+}
+
 #[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
-impl crate::net::TcpListener for TokioTcpListener {
-  type Stream = TokioTcpStream;
+impl crate::net::TcpListener for TokioWasmTcpListener {
+  type Stream = TokioWasmTcpStream;
   type Runtime = TokioWasmRuntime;
 
   #[cfg(not(feature = "nightly"))]
@@ -65,6 +76,7 @@ impl crate::net::TcpListener for TokioTcpListener {
 
     res.map(|ln| Self {
       ln,
+      closed: AtomicBool::new(false),
       write_timeout: Atomic::new(None),
       read_timeout: Atomic::new(None),
     })
@@ -97,16 +109,19 @@ impl crate::net::TcpListener for TokioTcpListener {
         ln,
         write_timeout: Atomic::new(None),
         read_timeout: Atomic::new(None),
+        closed: AtomicBool::new(false),
       })
     }
   }
 
   #[cfg(not(feature = "nightly"))]
   async fn accept(&self) -> io::Result<(Self::Stream, SocketAddr)> {
+    self.check_closed()?;
     self.ln.accept().await.map(|(stream, addr)| {
       (
-        TokioTcpStream {
+        TokioWasmTcpStream {
           stream,
+          closed: AtomicBool::new(false),
           write_timeout: Atomic::new(self.write_timeout.load(Ordering::SeqCst)),
           read_timeout: Atomic::new(self.read_timeout.load(Ordering::SeqCst)),
         },
@@ -118,16 +133,32 @@ impl crate::net::TcpListener for TokioTcpListener {
   #[cfg(feature = "nightly")]
   fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send + '_ {
     async move {
+      self.check_closed()?;
       self.ln.accept().await.map(|(stream, addr)| {
         (
-          TokioTcpStream {
+          TokioWasmTcpStream {
             stream,
+            closed: AtomicBool::new(false),
             write_timeout: Atomic::new(self.write_timeout.load(Ordering::SeqCst)),
             read_timeout: Atomic::new(self.read_timeout.load(Ordering::SeqCst)),
           },
           addr,
         )
       })
+    }
+  }
+
+  #[cfg(not(feature = "nightly"))]
+  async fn close(&self) -> io::Result<()> {
+    self.closed.store(true, Ordering::SeqCst);
+    Ok(())
+  }
+
+  #[cfg(feature = "nightly")]
+  fn close(&self) -> impl Future<Output = io::Result<()>> + Send + '_ {
+    async move {
+      self.closed.store(true, Ordering::SeqCst);
+      Ok(())
     }
   }
 
@@ -152,13 +183,14 @@ impl crate::net::TcpListener for TokioTcpListener {
   }
 }
 
-pub struct TokioTcpStream {
+pub struct TokioWasmTcpStream {
+  closed: AtomicBool,
   stream: TcpStream,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
 }
 
-impl futures_util::AsyncRead for TokioTcpStream {
+impl futures_util::AsyncRead for TokioWasmTcpStream {
   fn poll_read(
     mut self: Pin<&mut Self>,
     cx: &mut Context<'_>,
@@ -182,12 +214,19 @@ impl futures_util::AsyncRead for TokioTcpStream {
   }
 }
 
-impl futures_util::AsyncWrite for TokioTcpStream {
+impl futures_util::AsyncWrite for TokioWasmTcpStream {
   fn poll_write(
     mut self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
     buf: &[u8],
   ) -> std::task::Poll<io::Result<usize>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::ConnectionAborted,
+        "connection closed",
+      )));
+    }
+
     if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
         let timeout = TokioWasmRuntime::timeout(d, self.stream.write(buf));
@@ -209,6 +248,12 @@ impl futures_util::AsyncWrite for TokioTcpStream {
     mut self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
   ) -> std::task::Poll<io::Result<()>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::ConnectionAborted,
+        "connection closed",
+      )));
+    }
     Pin::new(&mut (&mut self.stream).compat_write()).poll_flush(cx)
   }
 
@@ -216,16 +261,28 @@ impl futures_util::AsyncWrite for TokioTcpStream {
     mut self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
   ) -> std::task::Poll<io::Result<()>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::ConnectionAborted,
+        "connection closed",
+      )));
+    }
     Pin::new(&mut (&mut self.stream).compat_write()).poll_close(cx)
   }
 }
 
-impl tokio::io::AsyncRead for TokioTcpStream {
+impl tokio::io::AsyncRead for TokioWasmTcpStream {
   fn poll_read(
     self: Pin<&mut Self>,
     cx: &mut Context<'_>,
     buf: &mut tokio::io::ReadBuf<'_>,
   ) -> Poll<io::Result<()>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::ConnectionAborted,
+        "connection closed",
+      )));
+    }
     Pin::new(&mut tokio_util::compat::FuturesAsyncReadCompatExt::compat(
       self.get_mut(),
     ))
@@ -233,23 +290,41 @@ impl tokio::io::AsyncRead for TokioTcpStream {
   }
 }
 
-impl tokio::io::AsyncWrite for TokioTcpStream {
+impl tokio::io::AsyncWrite for TokioWasmTcpStream {
   fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::ConnectionAborted,
+        "connection closed",
+      )));
+    }
     Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
       .poll_write(cx, buf)
   }
 
   fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::ConnectionAborted,
+        "connection closed",
+      )));
+    }
     Pin::new(&mut self.stream).poll_flush(cx)
   }
 
   fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::ConnectionAborted,
+        "connection closed",
+      )));
+    }
     Pin::new(&mut self.stream).poll_shutdown(cx)
   }
 }
 
 #[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
-impl crate::net::TcpStream for TokioTcpStream {
+impl crate::net::TcpStream for TokioWasmTcpStream {
   type Runtime = TokioWasmRuntime;
 
   #[cfg(not(feature = "nightly"))]
@@ -276,6 +351,7 @@ impl crate::net::TcpStream for TokioTcpStream {
       stream,
       write_timeout: Atomic::new(None),
       read_timeout: Atomic::new(None),
+      closed: AtomicBool::new(false),
     })
   }
 
@@ -306,6 +382,7 @@ impl crate::net::TcpStream for TokioTcpStream {
         stream,
         write_timeout: Atomic::new(None),
         read_timeout: Atomic::new(None),
+        closed: AtomicBool::new(false),
       })
     }
   }
@@ -338,6 +415,20 @@ impl crate::net::TcpStream for TokioTcpStream {
       .await
       .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
       .and_then(|res| res)
+  }
+
+  #[cfg(not(feature = "nightly"))]
+  async fn close(&self) -> io::Result<()> {
+    self.closed.store(true, Ordering::SeqCst);
+    Ok(())
+  }
+
+  #[cfg(feature = "nightly")]
+  fn close(&self) -> impl Future<Output = io::Result<()>> + Send + '_ {
+    async move {
+      self.closed.store(true, Ordering::SeqCst);
+      Ok(())
+    }
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -381,14 +472,26 @@ impl crate::net::TcpStream for TokioTcpStream {
   }
 }
 
-pub struct TokioUdpSocket {
+pub struct TokioWasmUdpSocket {
+  closed: AtomicBool,
   socket: UdpSocket,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
 }
 
+impl TokioWasmUdpSocket {
+  #[inline]
+  fn check_closed(&self) -> io::Result<()> {
+    if self.closed.load(Ordering::SeqCst) {
+      Err(io::Error::new(io::ErrorKind::NotConnected, "socket is closed"))
+    } else {
+      Ok(())
+    }
+  }
+}
+
 #[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
-impl crate::net::UdpSocket for TokioUdpSocket {
+impl crate::net::UdpSocket for TokioWasmUdpSocket {
   type Runtime = TokioWasmRuntime;
 
   #[cfg(feature = "nightly")]
@@ -415,6 +518,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
       };
       res.map(|socket| Self {
         socket,
+        closed: AtomicBool::new(false),
         write_timeout: Atomic::new(None),
         read_timeout: Atomic::new(None),
       })
@@ -443,6 +547,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     addr: A,
   ) -> impl Future<Output = io::Result<()>> + Send + 'a {
     async move {
+      self.check_closed()?;
       let mut addrs = addr.to_socket_addrs().await?;
 
       if addrs.size_hint().0 <= 1 {
@@ -480,6 +585,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   #[cfg(feature = "nightly")]
   fn recv<'a>(&'a self, buf: &'a mut [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a {
     async move {
+      self.check_closed()?;
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
           return match TokioWasmRuntime::timeout(timeout, self.socket.recv(buf)).await {
@@ -498,6 +604,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     buf: &'a mut [u8],
   ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send + 'a {
     async move {
+      self.check_closed()?;
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
           return match TokioWasmRuntime::timeout(timeout, self.socket.recv_from(buf)).await {
@@ -513,6 +620,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   #[cfg(feature = "nightly")]
   fn send<'a>(&'a self, buf: &'a [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a {
     async move {
+      self.check_closed()?;
       if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
           return match TokioWasmRuntime::timeout(timeout, self.socket.send(buf)).await {
@@ -532,13 +640,13 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     target: A,
   ) -> impl Future<Output = io::Result<usize>> + Send + 'a {
     async move {
+      self.check_closed()?;
       let mut addrs = target.to_socket_addrs().await?;
       if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
           if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
             if !timeout.is_zero() {
-              return match TokioWasmRuntime::timeout(timeout, self.socket.send_to(buf, addr)).await
-              {
+              return match TokioWasmRuntime::timeout(timeout, self.socket.send_to(buf, addr)).await {
                 Ok(timeout) => timeout,
                 Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
               };
@@ -555,11 +663,8 @@ impl crate::net::UdpSocket for TokioUdpSocket {
         let addrs = addrs.collect::<Vec<_>>();
         if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
           if !timeout.is_zero() {
-            return match TokioWasmRuntime::timeout(
-              timeout,
-              self.socket.send_to(buf, addrs.as_slice()),
-            )
-            .await
+            return match TokioWasmRuntime::timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
+              .await
             {
               Ok(timeout) => timeout,
               Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
@@ -568,6 +673,20 @@ impl crate::net::UdpSocket for TokioUdpSocket {
         }
         self.socket.send_to(buf, addrs.as_slice()).await
       }
+    }
+  }
+
+  #[cfg(not(feature = "nightly"))]
+  async fn close(&self) -> io::Result<()> {
+    self.closed.store(true, Ordering::SeqCst);
+    Ok(())
+  }
+
+  #[cfg(feature = "nightly")]
+  fn close(&self) -> impl Future<Output = io::Result<()>> + Send + '_ {
+    async move {
+      self.closed.store(true, Ordering::SeqCst);
+      Ok(())
     }
   }
 
@@ -592,6 +711,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     };
     res.map(|socket| Self {
       socket,
+      closed: AtomicBool::new(false),
       write_timeout: Atomic::new(None),
       read_timeout: Atomic::new(None),
     })
@@ -616,6 +736,8 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   where
     Self: Sized,
   {
+    self.check_closed()?;
+
     let mut addrs = addr.to_socket_addrs().await?;
 
     if addrs.size_hint().0 <= 1 {
@@ -652,6 +774,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
 
   #[cfg(not(feature = "nightly"))]
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
+    self.check_closed()?;
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
         return match TokioWasmRuntime::timeout(timeout, self.socket.recv(buf)).await {
@@ -665,6 +788,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
 
   #[cfg(not(feature = "nightly"))]
   async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+    self.check_closed()?;
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
         return match TokioWasmRuntime::timeout(timeout, self.socket.recv_from(buf)).await {
@@ -678,6 +802,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
 
   #[cfg(not(feature = "nightly"))]
   async fn send(&self, buf: &[u8]) -> io::Result<usize> {
+    self.check_closed()?;
     if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
         return match TokioWasmRuntime::timeout(timeout, self.socket.send(buf)).await {
@@ -695,6 +820,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     buf: &[u8],
     target: A,
   ) -> io::Result<usize> {
+    self.check_closed()?;
     let mut addrs = target.to_socket_addrs().await?;
     if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -717,11 +843,8 @@ impl crate::net::UdpSocket for TokioUdpSocket {
       let addrs = addrs.collect::<Vec<_>>();
       if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match TokioWasmRuntime::timeout(
-            timeout,
-            self.socket.send_to(buf, addrs.as_slice()),
-          )
-          .await
+          return match TokioWasmRuntime::timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
+            .await
           {
             Ok(timeout) => timeout,
             Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
@@ -765,13 +888,46 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   }
 
   fn set_read_buffer(&self, size: usize) -> io::Result<()> {
-    use std::os::fd::AsRawFd;
-    set_read_buffer(self.socket.as_raw_fd(), size)
+    #[cfg(not(any(unix, windows)))]
+    {
+      panic!("unsupported platform");
+    }
+
+    #[cfg(all(unix, feature = "socket2"))]
+    {
+      use std::os::fd::AsRawFd;
+      return crate::net::set_read_buffer(self.socket.as_raw_fd(), size);
+    }
+
+    #[cfg(all(windows, feature = "socket2"))]
+    {
+      use std::os::windows::io::AsRawSocket;
+      return crate::net::set_read_buffer(self.socket.as_raw_socket(), size);
+    }
+
+    let _ = size;
+    Ok(())
   }
 
   fn set_write_buffer(&self, size: usize) -> io::Result<()> {
-    use std::os::fd::AsRawFd;
-    set_write_buffer(self.socket.as_raw_fd(), size)
+    #[cfg(not(any(unix, windows)))]
+    {
+      panic!("unsupported platform");
+    }
+
+    #[cfg(all(unix, feature = "socket2"))]
+    {
+      use std::os::fd::AsRawFd;
+      return crate::net::set_write_buffer(self.socket.as_raw_fd(), size);
+    }
+
+    #[cfg(all(windows, feature = "socket2"))]
+    {
+      use std::os::windows::io::AsRawSocket;
+      return crate::net::set_write_buffer(self.socket.as_raw_socket(), size);
+    }
+    let _ = size;
+    Ok(())
   }
 
   fn poll_recv_from(
@@ -779,6 +935,12 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     cx: &mut Context<'_>,
     buf: &mut [u8],
   ) -> Poll<io::Result<(usize, SocketAddr)>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "socket is closed",
+      )));
+    }
     let mut buf = tokio::io::ReadBuf::new(buf);
     let addr = futures_util::ready!(UdpSocket::poll_recv_from(&self.socket, cx, &mut buf))?;
     let len = buf.filled().len();
@@ -791,9 +953,16 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     buf: &[u8],
     target: SocketAddr,
   ) -> Poll<io::Result<usize>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "socket is closed",
+      )));
+    }
     self.socket.poll_send_to(cx, buf, target)
   }
 }
+
 
 #[inline]
 pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Result<()> {

@@ -4,7 +4,7 @@ use std::{
   net::SocketAddr,
   pin::Pin,
   task::{Context, Poll},
-  time::Duration,
+  time::Duration, sync::atomic::AtomicBool,
 };
 
 use async_std::net::{TcpListener, TcpStream, UdpSocket};
@@ -31,10 +31,81 @@ impl Net for AsyncStdNet {
   type UdpSocket = AsyncStdUdpSocket;
 }
 
+#[cfg(feature = "tokio-compat")]
+impl tokio::io::AsyncRead for AsyncStdTcpStream {
+  fn poll_read(
+    self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+    buf: &mut tokio::io::ReadBuf<'_>,
+  ) -> Poll<io::Result<()>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "socket is closed",
+      )));
+    }
+    Pin::new(&mut tokio_util::compat::FuturesAsyncReadCompatExt::compat(
+      self.get_mut(),
+    ))
+    .poll_read(cx, buf)
+  }
+}
+
+#[cfg(feature = "tokio-compat")]
+impl tokio::io::AsyncWrite for AsyncStdTcpStream {
+  fn poll_write(
+    self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+    buf: &[u8],
+  ) -> Poll<Result<usize, io::Error>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "socket is closed",
+      )));
+    }
+    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+      .poll_write(cx, buf)
+  }
+
+  fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "socket is closed",
+      )));
+    }
+    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+      .poll_flush(cx)
+  }
+
+  fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "socket is closed",
+      )));
+    }
+    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+      .poll_shutdown(cx)
+  }
+}
+
 pub struct AsyncStdTcpListener {
+  closed: AtomicBool,
   ln: TcpListener,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
+}
+
+impl AsyncStdTcpListener {
+  fn check_closed(&self) -> io::Result<()> {
+    if self.closed.load(Ordering::SeqCst) {
+      Err(io::Error::new(io::ErrorKind::ConnectionAborted, "listener closed"))
+    } else {
+      Ok(())
+    }
+  }
 }
 
 #[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
@@ -64,6 +135,7 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
 
     res.map(|ln| Self {
       ln,
+      closed: AtomicBool::new(false),
       write_timeout: Atomic::new(None),
       read_timeout: Atomic::new(None),
     })
@@ -96,16 +168,19 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
         ln,
         write_timeout: Atomic::new(None),
         read_timeout: Atomic::new(None),
+        closed: AtomicBool::new(false),
       })
     }
   }
 
   #[cfg(not(feature = "nightly"))]
   async fn accept(&self) -> io::Result<(Self::Stream, SocketAddr)> {
+    self.check_closed()?;
     self.ln.accept().await.map(|(stream, addr)| {
       (
         AsyncStdTcpStream {
           stream,
+          closed: AtomicBool::new(false),
           write_timeout: Atomic::new(self.write_timeout.load(Ordering::SeqCst)),
           read_timeout: Atomic::new(self.read_timeout.load(Ordering::SeqCst)),
         },
@@ -117,16 +192,32 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
   #[cfg(feature = "nightly")]
   fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send + '_ {
     async move {
+      self.check_closed()?;
       self.ln.accept().await.map(|(stream, addr)| {
         (
           AsyncStdTcpStream {
             stream,
+            closed: AtomicBool::new(false),
             write_timeout: Atomic::new(self.write_timeout.load(Ordering::SeqCst)),
             read_timeout: Atomic::new(self.read_timeout.load(Ordering::SeqCst)),
           },
           addr,
         )
       })
+    }
+  }
+
+  #[cfg(not(feature = "nightly"))]
+  async fn close(&self) -> io::Result<()> {
+    self.closed.store(true, Ordering::SeqCst);
+    Ok(())
+  }
+
+  #[cfg(feature = "nightly")]
+  fn close(&self) -> impl Future<Output = io::Result<()>> + Send + '_ {
+    async move {
+      self.closed.store(true, Ordering::SeqCst);
+      Ok(())
     }
   }
 
@@ -152,6 +243,7 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
 }
 
 pub struct AsyncStdTcpStream {
+  closed: AtomicBool,
   stream: TcpStream,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
@@ -163,6 +255,13 @@ impl futures_util::AsyncRead for AsyncStdTcpStream {
     cx: &mut Context<'_>,
     buf: &mut [u8],
   ) -> Poll<io::Result<usize>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "closed",
+      )));
+    }
+
     if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
         let timeout = AsyncStdRuntime::timeout(d, self.stream.read(buf));
@@ -187,6 +286,13 @@ impl futures_util::AsyncWrite for AsyncStdTcpStream {
     cx: &mut std::task::Context<'_>,
     buf: &[u8],
   ) -> std::task::Poll<io::Result<usize>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "closed",
+      )));
+    }
+
     if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
         let timeout = AsyncStdRuntime::timeout(d, self.stream.write(buf));
@@ -208,6 +314,12 @@ impl futures_util::AsyncWrite for AsyncStdTcpStream {
     mut self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
   ) -> std::task::Poll<io::Result<()>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "closed",
+      )));
+    }
     Pin::new(&mut (&mut self.stream)).poll_flush(cx)
   }
 
@@ -215,43 +327,13 @@ impl futures_util::AsyncWrite for AsyncStdTcpStream {
     mut self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
   ) -> std::task::Poll<io::Result<()>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "closed",
+      )));
+    }
     Pin::new(&mut (&mut self.stream)).poll_close(cx)
-  }
-}
-
-#[cfg(feature = "tokio-compat")]
-impl tokio::io::AsyncRead for AsyncStdTcpStream {
-  fn poll_read(
-    self: Pin<&mut Self>,
-    cx: &mut Context<'_>,
-    buf: &mut tokio::io::ReadBuf<'_>,
-  ) -> Poll<io::Result<()>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncReadCompatExt::compat(
-      self.get_mut(),
-    ))
-    .poll_read(cx, buf)
-  }
-}
-
-#[cfg(feature = "tokio-compat")]
-impl tokio::io::AsyncWrite for AsyncStdTcpStream {
-  fn poll_write(
-    self: Pin<&mut Self>,
-    cx: &mut Context<'_>,
-    buf: &[u8],
-  ) -> Poll<Result<usize, io::Error>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
-      .poll_write(cx, buf)
-  }
-
-  fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
-      .poll_flush(cx)
-  }
-
-  fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
-      .poll_shutdown(cx)
   }
 }
 
@@ -283,6 +365,7 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
       stream,
       write_timeout: Atomic::new(None),
       read_timeout: Atomic::new(None),
+      closed: AtomicBool::new(false),
     })
   }
 
@@ -313,6 +396,7 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
         stream,
         write_timeout: Atomic::new(None),
         read_timeout: Atomic::new(None),
+        closed: AtomicBool::new(false),
       })
     }
   }
@@ -345,6 +429,20 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
       .await
       .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
       .and_then(|res| res)
+  }
+
+  #[cfg(not(feature = "nightly"))]
+  async fn close(&self) -> io::Result<()> {
+    self.closed.store(true, Ordering::SeqCst);
+    Ok(())
+  }
+
+  #[cfg(feature = "nightly")]
+  fn close(&self) -> impl Future<Output = io::Result<()>> + Send + '_ {
+    async move {
+      self.closed.store(true, Ordering::SeqCst);
+      Ok(())
+    }
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -389,9 +487,21 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
 }
 
 pub struct AsyncStdUdpSocket {
+  closed: AtomicBool,
   socket: UdpSocket,
   write_timeout: Atomic<Option<Duration>>,
   read_timeout: Atomic<Option<Duration>>,
+}
+
+impl AsyncStdUdpSocket {
+  #[inline]
+  fn check_closed(&self) -> io::Result<()> {
+    if self.closed.load(Ordering::SeqCst) {
+      Err(io::Error::new(io::ErrorKind::NotConnected, "socket is closed"))
+    } else {
+      Ok(())
+    }
+  }
 }
 
 #[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
@@ -422,6 +532,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
       };
       res.map(|socket| Self {
         socket,
+        closed: AtomicBool::new(false),
         write_timeout: Atomic::new(None),
         read_timeout: Atomic::new(None),
       })
@@ -444,11 +555,13 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
+  #[cfg(feature = "nightly")]
   fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     &'a self,
     addr: A,
   ) -> impl Future<Output = io::Result<()>> + Send + 'a {
     async move {
+      self.check_closed()?;
       let mut addrs = addr.to_socket_addrs().await?;
 
       if addrs.size_hint().0 <= 1 {
@@ -486,6 +599,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   #[cfg(feature = "nightly")]
   fn recv<'a>(&'a self, buf: &'a mut [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a {
     async move {
+      self.check_closed()?;
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
           return match AsyncStdRuntime::timeout(timeout, self.socket.recv(buf)).await {
@@ -504,6 +618,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     buf: &'a mut [u8],
   ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send + 'a {
     async move {
+      self.check_closed()?;
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
           return match AsyncStdRuntime::timeout(timeout, self.socket.recv_from(buf)).await {
@@ -519,6 +634,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   #[cfg(feature = "nightly")]
   fn send<'a>(&'a self, buf: &'a [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a {
     async move {
+      self.check_closed()?;
       if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
           return match AsyncStdRuntime::timeout(timeout, self.socket.send(buf)).await {
@@ -538,6 +654,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     target: A,
   ) -> impl Future<Output = io::Result<usize>> + Send + 'a {
     async move {
+      self.check_closed()?;
       let mut addrs = target.to_socket_addrs().await?;
       if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
@@ -560,11 +677,8 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
         let addrs = addrs.collect::<Vec<_>>();
         if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
           if !timeout.is_zero() {
-            return match AsyncStdRuntime::timeout(
-              timeout,
-              self.socket.send_to(buf, addrs.as_slice()),
-            )
-            .await
+            return match AsyncStdRuntime::timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
+              .await
             {
               Ok(timeout) => timeout,
               Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
@@ -573,6 +687,20 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
         }
         self.socket.send_to(buf, addrs.as_slice()).await
       }
+    }
+  }
+
+  #[cfg(not(feature = "nightly"))]
+  async fn close(&self) -> io::Result<()> {
+    self.closed.store(true, Ordering::SeqCst);
+    Ok(())
+  }
+
+  #[cfg(feature = "nightly")]
+  fn close(&self) -> impl Future<Output = io::Result<()>> + Send + '_ {
+    async move {
+      self.closed.store(true, Ordering::SeqCst);
+      Ok(())
     }
   }
 
@@ -597,6 +725,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     };
     res.map(|socket| Self {
       socket,
+      closed: AtomicBool::new(false),
       write_timeout: Atomic::new(None),
       read_timeout: Atomic::new(None),
     })
@@ -621,6 +750,8 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   where
     Self: Sized,
   {
+    self.check_closed()?;
+
     let mut addrs = addr.to_socket_addrs().await?;
 
     if addrs.size_hint().0 <= 1 {
@@ -657,6 +788,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
 
   #[cfg(not(feature = "nightly"))]
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
+    self.check_closed()?;
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
         return match AsyncStdRuntime::timeout(timeout, self.socket.recv(buf)).await {
@@ -670,6 +802,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
 
   #[cfg(not(feature = "nightly"))]
   async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+    self.check_closed()?;
     if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
         return match AsyncStdRuntime::timeout(timeout, self.socket.recv_from(buf)).await {
@@ -683,6 +816,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
 
   #[cfg(not(feature = "nightly"))]
   async fn send(&self, buf: &[u8]) -> io::Result<usize> {
+    self.check_closed()?;
     if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
       if !timeout.is_zero() {
         return match AsyncStdRuntime::timeout(timeout, self.socket.send(buf)).await {
@@ -700,6 +834,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     buf: &[u8],
     target: A,
   ) -> io::Result<usize> {
+    self.check_closed()?;
     let mut addrs = target.to_socket_addrs().await?;
     if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
@@ -814,6 +949,12 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     cx: &mut Context<'_>,
     buf: &mut [u8],
   ) -> Poll<io::Result<(usize, SocketAddr)>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "socket is closed",
+      )));
+    }
     let fut = self.socket.recv_from(buf);
     futures_util::pin_mut!(fut);
     fut.poll_unpin(cx)
@@ -825,6 +966,12 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     buf: &[u8],
     target: SocketAddr,
   ) -> Poll<io::Result<usize>> {
+    if self.closed.load(Ordering::SeqCst) {
+      return Poll::Ready(Err(io::Error::new(
+        io::ErrorKind::NotConnected,
+        "socket is closed",
+      )));
+    }
     let fut = self.socket.send_to(buf, target);
     futures_util::pin_mut!(fut);
     fut.poll_unpin(cx)

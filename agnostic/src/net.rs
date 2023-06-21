@@ -53,6 +53,12 @@ pub trait TcpListener: Unpin + Send + Sync + 'static {
   #[cfg(feature = "nightly")]
   fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send + '_;
 
+  #[cfg(not(feature = "nightly"))]
+  async fn close(&self) -> io::Result<()>;
+
+  #[cfg(feature = "nightly")]
+  fn close(&self) -> impl Future<Output = io::Result<()>> + Send + '_;
+
   fn local_addr(&self) -> io::Result<SocketAddr>;
 
   fn set_write_timeout(&self, timeout: Option<Duration>);
@@ -151,6 +157,12 @@ pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
   fn set_read_timeout(&self, timeout: Option<Duration>);
 
   fn read_timeout(&self) -> Option<Duration>;
+
+  #[cfg(not(feature = "nightly"))]
+  async fn close(&self) -> io::Result<()>;
+
+  #[cfg(feature = "nightly")]
+  fn close(&self) -> impl Future<Output = io::Result<()>> + Send + '_;
 }
 
 #[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
@@ -327,6 +339,12 @@ pub trait UdpSocket: Unpin + Send + Sync + 'static {
     buf: &[u8],
     target: SocketAddr,
   ) -> Poll<io::Result<usize>>;
+
+  #[cfg(not(feature = "nightly"))]
+  async fn close(&self) -> io::Result<()>;
+
+  #[cfg(feature = "nightly")]
+  fn close(&self) -> impl Future<Output = io::Result<()>> + Send + '_;
 }
 
 #[cfg(feature = "net")]
