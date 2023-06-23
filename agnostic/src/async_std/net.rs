@@ -444,6 +444,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
+  #[cfg(feature = "nightly")]
   fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     &'a self,
     addr: A,

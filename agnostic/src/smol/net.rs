@@ -444,6 +444,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
     }
   }
 
+  #[cfg(feature = "nightly")]
   fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     &'a self,
     addr: A,
