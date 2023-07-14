@@ -1,6 +1,6 @@
 [package]
 name = "wasm-agnostic"
-version = "0.1.6"
+version = "0.1.15"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "wasm-agnostic is a helpful crate for users who want to write async runtime-agnostic crate for wasm target."
@@ -24,7 +24,7 @@ nightly = ["agnostic/nightly"]
 [dependencies]
 atomic = "0.5"
 async-trait = "0.1"
-agnostic = { version = "0.1.13", path = "../agnostic", default-features = false, features = ["net"] }
+agnostic = { version = "0.1.15", path = "../agnostic", default-features = false, features = ["net"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
 pin-project-lite = "0.2"
 socket2 = "=0.4.7"
