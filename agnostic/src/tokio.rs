@@ -5,7 +5,7 @@ use tokio_stream::wrappers::IntervalStream;
 
 use super::*;
 
-#[cfg(feature = "tokio-net")]
+#[cfg(feature = "net")]
 pub mod net;
 
 struct DelayFuncHandle<F: Future> {
@@ -163,6 +163,7 @@ impl Runtime for TokioRuntime {
   type Timeout<F> = TokioTimeout<F> where F: Future + Send;
   #[cfg(feature = "tokio-net")]
   type Net = self::net::TokioNet;
+  type File = ::tokio::fs::File;
 
   fn new() -> Self {
     Self

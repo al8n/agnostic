@@ -830,4 +830,8 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     futures_util::pin_mut!(fut);
     fut.poll_unpin(cx)
   }
+
+  fn local_addr(&self) -> io::Result<SocketAddr> {
+    self.socket.local_addr()
+  }
 }

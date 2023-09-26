@@ -327,6 +327,8 @@ pub trait UdpSocket: Unpin + Send + Sync + 'static {
     buf: &[u8],
     target: SocketAddr,
   ) -> Poll<io::Result<usize>>;
+
+  fn local_addr(&self) -> io::Result<SocketAddr>;
 }
 
 #[cfg(feature = "net")]

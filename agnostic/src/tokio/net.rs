@@ -819,4 +819,8 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   ) -> Poll<io::Result<usize>> {
     self.socket.poll_send_to(cx, buf, target)
   }
+
+  fn local_addr(&self) -> io::Result<SocketAddr> {
+    self.socket.local_addr()
+  }
 }

@@ -9,7 +9,7 @@ use ::smol::channel;
 use async_io::Timer;
 use futures_util::FutureExt;
 
-#[cfg(feature = "smol-net")]
+#[cfg(feature = "net")]
 pub mod net;
 
 struct DelayFuncHandle<F: Future> {

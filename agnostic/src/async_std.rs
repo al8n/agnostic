@@ -9,7 +9,7 @@ use ::async_std::channel;
 use async_io::Timer;
 use futures_util::FutureExt;
 
-#[cfg(feature = "async-std-net")]
+#[cfg(feature = "net")]
 pub mod net;
 
 struct DelayFuncHandle<F: Future> {

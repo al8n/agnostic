@@ -449,10 +449,10 @@ impl crate::net::UdpSocket for TokioUdpSocket {
         if let Some(addr) = addrs.next() {
           self.socket.connect(addr).await
         } else {
-          return Err(io::Error::new(
+          Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "invalid socket address",
-          ));
+          ))
         }
       } else {
         self
@@ -546,10 +546,10 @@ impl crate::net::UdpSocket for TokioUdpSocket {
           }
           self.socket.send_to(buf, addr).await
         } else {
-          return Err(io::Error::new(
+          Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "invalid socket address",
-          ));
+          ))
         }
       } else {
         let addrs = addrs.collect::<Vec<_>>();
@@ -792,6 +792,10 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     target: SocketAddr,
   ) -> Poll<io::Result<usize>> {
     self.socket.poll_send_to(cx, buf, target)
+  }
+
+  fn local_addr(&self) -> io::Result<SocketAddr> {
+    self.socket.local_addr()
   }
 }
 

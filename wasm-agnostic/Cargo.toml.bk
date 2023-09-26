@@ -24,15 +24,15 @@ nightly = ["agnostic/nightly"]
 [dependencies]
 atomic = "0.5"
 async-trait = "0.1"
-agnostic = { version = "0.1.15", path = "../agnostic", default-features = false, features = ["net"] }
+agnostic = { path = "../agnostic", default-features = false, features = ["net"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
 pin-project-lite = "0.2"
-socket2 = "=0.4.7"
-tokio = { version = "=1.24.2", default-features = false, features = ["full"] }
+socket2 = "0.5"
+tokio = { version = "1.32", default-features = false, features = ["full"] }
 tokio-stream = { version = "0.1", default-features = false, features = ["time"] }
 tokio-util = { version = "0.7", default-features = false, features = ["compat"] }
 
-[patch.crates-io]
-socket2 = { git = "https://github.com/wasix-org/socket2.git", branch = "v0.4.7" }
-libc = { git = "https://github.com/wasix-org/libc.git" }
-tokio = { git = "https://github.com/wasix-org/tokio.git", branch = "wasix-1.24.2" }
+# [patch.crates-io]
+# socket2 = { git = "https://github.com/wasix-org/socket2.git" }
+# libc = { git = "https://github.com/wasix-org/libc.git" }
+# tokio = { git = "https://github.com/wasix-org/tokio.git" }

@@ -165,6 +165,7 @@ impl Runtime for TokioWasmRuntime {
   type Delay<F> = TokioWasmDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = TokioWasmTimeout<F> where F: Future + Send;
   type Net = self::net::TokioWasmNet;
+  type File = ::tokio::fs::File;
 
   fn new() -> Self {
     Self
