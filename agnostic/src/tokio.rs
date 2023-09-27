@@ -161,9 +161,8 @@ impl Runtime for TokioRuntime {
   type Sleep = ::tokio::time::Sleep;
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = TokioTimeout<F> where F: Future + Send;
-  #[cfg(feature = "tokio-net")]
+  #[cfg(feature = "net")]
   type Net = self::net::TokioNet;
-  type File = ::tokio::fs::File;
 
   fn new() -> Self {
     Self

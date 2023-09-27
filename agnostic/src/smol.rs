@@ -124,7 +124,7 @@ impl Runtime for SmolRuntime {
   type Sleep = Timer;
   type Delay<F> = SmolDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = Timeout<F> where F: Future + Send;
-  #[cfg(feature = "smol-net")]
+  #[cfg(feature = "net")]
   type Net = net::SmolNet;
 
   fn new() -> Self {
