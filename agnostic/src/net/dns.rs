@@ -205,7 +205,7 @@ impl<R: Runtime> RuntimeProvider for AsyncRuntimeProvider<R> {
     &self,
     addr: SocketAddr,
   ) -> std::pin::Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>> {
-    Box::pin(AsyncDnsTcp::connect(addr))
+    AsyncDnsTcp::connect(addr).boxed()
   }
 
   fn bind_udp(
@@ -213,7 +213,7 @@ impl<R: Runtime> RuntimeProvider for AsyncRuntimeProvider<R> {
     local_addr: SocketAddr,
     _server_addr: SocketAddr,
   ) -> std::pin::Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>> {
-    Box::pin(AsyncDnsUdp::bind(local_addr))
+    AsyncDnsUdp::bind(local_addr).boxed()
   }
 }
 

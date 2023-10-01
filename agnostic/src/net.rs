@@ -11,6 +11,7 @@ use futures_util::Future;
 mod to_socket_addr;
 
 /// Agnostic async DNS provider.
+#[cfg(feature = "dns")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dns")))]
 pub mod dns;
 
