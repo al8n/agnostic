@@ -1,5 +1,5 @@
-use super::{UdpSocket, Runtime};
-use futures_util::{select_biased, future::FutureExt};
+use super::{Runtime, UdpSocket};
+use futures_util::{future::FutureExt, select_biased};
 use std::{future::Future, io, marker::PhantomData, net::SocketAddr, pin::Pin, time::Duration};
 
 use trust_dns_proto::Time;
