@@ -28,26 +28,25 @@ jobs:
   # Check formatting
   rustfmt:
     name: rustfmt
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
     - name: Install Rust
-      run: rustup update stable && rustup default stable
+      # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+      run: rustup update stable --no-self-update && rustup default stable
     - name: Check formatting
       run: cargo fmt --all -- --check
       working-directory: agnostic
 
-  # # Apply clippy lints
-  # clippy:
-  #   name: clippy
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@v3
-  #   - name: Apply clippy lints
-  #     run: cargo clippy --all-features
-
-  net:
-    name: net
+  # Apply clippy lints
+  clippy:
+    name: clippy
     strategy:
       matrix:
         os:
@@ -56,16 +55,18 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Rust
-        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-        run: rustup update stable --no-self-update && rustup default stable
-      - name: Test
-        run: cargo build --no-default-features --features net
-        working-directory: agnostic
+    - uses: actions/checkout@v3
+    - name: Install Rust
+      # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+      run: rustup update stable --no-self-update && rustup default stable
+    - name: Install cargo-hack
+      run: cargo install cargo-hack
+    - name: Apply clippy lints
+      run: cargo hack clippy --all-targets --each-feature
+      working-directory: agnostic
 
-  dns:
-    name: dns
+  build:
+    name: clippy
     strategy:
       matrix:
         os:
@@ -74,117 +75,23 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Rust
-        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-        run: rustup update stable --no-self-update && rustup default stable
-      - name: Test
-        run: cargo build --no-default-features --features dns
-        working-directory: agnostic
-
-  io:
-    name: agnostic-resolver
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install Rust
-        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-        run: rustup update stable --no-self-update && rustup default stable
-      - name: Test
-        run: cargo build --no-default-features --features io
-        working-directory: agnostic
-
-  tokio:
-    name: tokio
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install Rust
-        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-        run: rustup update stable --no-self-update && rustup default stable
-      - name: Test
-        run: cargo build --no-default-features --features tokio,dns
-        working-directory: agnostic
-
-  smol:
-    name: smol
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install Rust
-        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-        run: rustup update stable --no-self-update && rustup default stable
-      - name: Test
-        run: cargo build --no-default-features --features smol,dns
-        working-directory: agnostic
-
-  async-std:
-    name: async-std
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install Rust
-        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-        run: rustup update stable --no-self-update && rustup default stable
-      - name: Test
-        run: cargo build --no-default-features --features async-std,dns
-        working-directory: agnostic
-
-  all:
-    name: all-features
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install Rust
-        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-        run: rustup update stable --no-self-update && rustup default stable
-      - name: Build
-        run: cargo build --all-features
-        working-directory: agnostic
+    - uses: actions/checkout@v3
+    - name: Install Rust
+      # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+      run: rustup update stable --no-self-update && rustup default stable
+    - name: Install cargo-hack
+      run: cargo install cargo-hack
+    - name: Apply clippy lints
+      run: cargo hack build --each-feature
+      working-directory: agnostic
 
   coverage:
     name: coverage
     runs-on: ubuntu-latest
     needs:
       - rustfmt
-      # - clippy
-      - net
-      - dns
-      - io
-      - tokio
-      - smol
-      - async-std
-      - all
+      - clippy
+      - build
     steps:
       - uses: actions/checkout@v3
       - name: Install latest nightly
