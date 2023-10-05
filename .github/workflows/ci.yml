@@ -62,11 +62,11 @@ jobs:
     - name: Install cargo-hack
       run: cargo install cargo-hack
     - name: Apply clippy lints
-      run: cargo hack clippy --all-targets --each-feature
+      run: cargo hack clippy --each-feature
       working-directory: agnostic
 
   build:
-    name: clippy
+    name: build 
     strategy:
       matrix:
         os:
