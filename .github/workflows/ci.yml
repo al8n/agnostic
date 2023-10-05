@@ -1,0 +1,218 @@
+name: CI
+
+on:
+  push:
+    # Ignore bors branches, since they are covered by `clippy_bors.yml`
+    branches:
+      - main
+    # Don't run Clippy tests, when only textfiles were modified
+    paths-ignore:
+      - 'README'
+      - 'COPYRIGHT'
+      - 'LICENSE-*'
+      - '**.md'
+      - '**.txt'
+  pull_request:
+    # Don't run Clippy tests, when only textfiles were modified
+    paths-ignore:
+      - 'README'
+      - 'COPYRIGHT'
+      - 'LICENSE-*'
+      - '**.md'
+      - '**.txt'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Check formatting
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Rust
+      run: rustup update stable && rustup default stable
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+      working-directory: agnostic
+
+  # # Apply clippy lints
+  # clippy:
+  #   name: clippy
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - name: Apply clippy lints
+  #     run: cargo clippy --all-features
+
+  net:
+    name: net
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update stable --no-self-update && rustup default stable
+      - name: Test
+        run: cargo build --no-default-features --features net
+        working-directory: agnostic
+
+  dns:
+    name: dns
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update stable --no-self-update && rustup default stable
+      - name: Test
+        run: cargo build --no-default-features --features dns
+        working-directory: agnostic
+
+  io:
+    name: agnostic-resolver
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update stable --no-self-update && rustup default stable
+      - name: Test
+        run: cargo build --no-default-features --features io
+        working-directory: agnostic
+
+  tokio:
+    name: tokio
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update stable --no-self-update && rustup default stable
+      - name: Test
+        run: cargo build --no-default-features --features tokio,dns
+        working-directory: agnostic
+
+  smol:
+    name: smol
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update stable --no-self-update && rustup default stable
+      - name: Test
+        run: cargo build --no-default-features --features smol,dns
+        working-directory: agnostic
+
+  async-std:
+    name: async-std
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update stable --no-self-update && rustup default stable
+      - name: Test
+        run: cargo build --no-default-features --features async-std,dns
+        working-directory: agnostic
+
+  all:
+    name: all-features
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update stable --no-self-update && rustup default stable
+      - name: Build
+        run: cargo build --all-features
+        working-directory: agnostic
+
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    needs:
+      - rustfmt
+      # - clippy
+      - net
+      - dns
+      - io
+      - tokio
+      - smol
+      - async-std
+      - all
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-tarpaulin
+          version: latest
+      - name: Cache ~/.cargo
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo
+          key: ${{ runner.os }}-coverage-dotcargo
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-coverage-cargo-build-target
+      - name: Run tarpaulin
+        uses: actions-rs/cargo@v1
+        with:
+          command: tarpaulin
+          args: --all-features --run-types tests --run-types doctests --workspace --out xml
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v3.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true

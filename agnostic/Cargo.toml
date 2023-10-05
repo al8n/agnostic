@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.1.20"
+version = "0.1.21"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "Agnostic is a helpful crate for users who want to write async runtime-agnostic crate."
@@ -18,8 +18,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = []
 
-# ebable zero cost async/await, only works on rust nightly compiler
-nightly = []
+# # ebable zero cost async/await, only works on rust nightly compiler
+# nightly = []
 
 dns = ["net", "trust-dns-resolver", "trust-dns-proto", "thiserror"]
 dns-wasi = ["net", "resolv-conf", "trust-dns-resolver", "trust-dns-proto", "thiserror"]

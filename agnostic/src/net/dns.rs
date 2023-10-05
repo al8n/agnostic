@@ -42,6 +42,12 @@ pub struct AsyncRuntimeProvider<R: Runtime> {
   runtime: AsyncSpawn<R>,
 }
 
+impl<R: Runtime> Default for AsyncRuntimeProvider<R> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl<R: Runtime> AsyncRuntimeProvider<R> {
   pub fn new() -> Self {
     Self {
@@ -224,6 +230,12 @@ pub struct AsyncConnectionProvider<R: Runtime> {
   connection_provider: GenericConnector<AsyncRuntimeProvider<R>>,
 }
 
+impl<R: Runtime> Default for AsyncConnectionProvider<R> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl<R: Runtime> AsyncConnectionProvider<R> {
   pub fn new() -> Self {
     Self {
@@ -258,7 +270,7 @@ impl<R: Runtime> ConnectionProvider for AsyncConnectionProvider<R> {
 
 pub use dns_util::read_resolv_conf;
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(unix)]
 mod dns_util {
   use std::{io, path::Path};
 
@@ -270,7 +282,7 @@ mod dns_util {
   }
 }
 
-#[cfg(target_family = "wasm")]
+#[cfg(not(unix))]
 mod dns_util {
   use std::{
     fs::File,
