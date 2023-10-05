@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.1.18"
+version = "0.1.19"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "Agnostic is a helpful crate for users who want to write async runtime-agnostic crate."
@@ -22,6 +22,7 @@ default = []
 nightly = []
 
 dns = ["net", "trust-dns-resolver", "trust-dns-proto", "thiserror"]
+dns-wasi = ["net", "resolv-conf", "trust-dns-resolver", "trust-dns-proto", "thiserror"]
 net = ["atomic", "io", "socket2", "tokio?/net", "tokio?/io-util", "tokio?/io-std", "async-std?/default"]
 io = ["futures-util/io"]
 
@@ -40,6 +41,10 @@ monoio = ["dep:monoio", "async-channel", "monoio-compat"]
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 socket2 = { version = "0.5", optional = true }
+trust-dns-resolver = { version = "0.23", default-features = false, optional = true, features = ["system-config"] }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+trust-dns-resolver = { version = "0.23", default-features = false, optional = true }
 
 [dependencies]
 atomic = { version = "0.5", optional = true }
@@ -59,8 +64,8 @@ monoio = { version = "0.1", optional = true, features = ["sync"] }
 monoio-compat = { version = "0.1", optional = true }
 async-channel = { version = "1.8", optional = true }
 
-trust-dns-resolver = { version = "0.23", default-features = false, optional = true }
 trust-dns-proto = { version = "0.23", default-features = false, optional = true }
+resolv-conf = { version = "0.7", default-features = false, optional = true }
 thiserror = { version = "1", optional = true }
 
 [dev-dependencies]
