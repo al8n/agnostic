@@ -42,6 +42,7 @@ pub mod smol;
 // #[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
 // pub mod monoio;
 
+/// Network related traits
 #[cfg(feature = "net")]
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
 pub mod net;
