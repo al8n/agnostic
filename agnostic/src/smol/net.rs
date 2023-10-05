@@ -7,9 +7,9 @@ use std::{
   time::Duration,
 };
 
-use async_std::net::{TcpListener, TcpStream, UdpSocket};
 use atomic::{Atomic, Ordering};
 use futures_util::{AsyncReadExt, AsyncWriteExt, FutureExt};
+use smol::net::{TcpListener, TcpStream, UdpSocket};
 #[cfg(feature = "compat")]
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
 

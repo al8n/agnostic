@@ -345,7 +345,10 @@ mod dns_util {
     }
     if nameservers.is_empty() {
       #[cfg(feature = "tracing")]
-      tracing::warn!(target = "agnostic.read_resolv_conf", "no nameservers found in resolv conf");
+      tracing::warn!(
+        target = "agnostic.read_resolv_conf",
+        "no nameservers found in resolv conf"
+      );
     }
 
     // search

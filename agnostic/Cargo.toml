@@ -21,8 +21,8 @@ default = []
 # # ebable zero cost async/await, only works on rust nightly compiler
 # nightly = []
 
-dns = ["net", "trust-dns-resolver", "trust-dns-proto", "thiserror"]
-dns-wasi = ["net", "resolv-conf", "trust-dns-resolver", "trust-dns-proto", "thiserror"]
+dns = ["net", "trust-dns-resolver", "resolv-conf", "trust-dns-proto", "thiserror"]
+
 net = ["atomic", "io", "socket2", "tokio?/net", "tokio?/io-util", "tokio?/io-std", "async-std?/default"]
 io = ["futures-util/io"]
 
