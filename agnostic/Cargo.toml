@@ -36,6 +36,8 @@ tokio = ["dep:tokio", "pin-project-lite", "tokio-stream", "tokio/rt", "tokio/syn
 async-std = ["dep:async-std", "async-io", "pin-project-lite"]
 smol = ["dep:smol", "pin-project-lite", "async-io"]
 
+tracing = ["dep:tracing"]
+
 # Note: this crate does not support net features for monoio
 # monoio = ["dep:monoio", "async-channel", "monoio-compat"]
 
@@ -71,6 +73,8 @@ async-channel = { version = "1.8", optional = true }
 trust-dns-proto = { version = "0.23", default-features = false, optional = true }
 resolv-conf = { version = "0.7", default-features = false, optional = true }
 thiserror = { version = "1", optional = true }
+
+tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.32", features = ["full"] }

@@ -344,7 +344,8 @@ mod dns_util {
       });
     }
     if nameservers.is_empty() {
-      tracing::warn!("no nameservers found in config");
+      #[cfg(feature = "tracing")]
+      tracing::warn!(target = "agnostic.read_resolv_conf", "no nameservers found in resolv conf");
     }
 
     // search

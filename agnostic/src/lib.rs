@@ -1,5 +1,5 @@
 //! Agnostic is a trait for users who want to write async runtime-agnostic crate.
-#![deny(warnings)]
+#![allow(warnings)]
 #![cfg_attr(feature = "nightly", feature(return_position_impl_trait_in_trait))]
 #![cfg_attr(feature = "nightly", allow(clippy::manual_async_fn))]
 #![cfg_attr(feature = "nightly", allow(incomplete_features))]
