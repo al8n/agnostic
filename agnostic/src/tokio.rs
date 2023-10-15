@@ -18,7 +18,6 @@ pub struct TokioDelay<F: Future> {
   handle: Option<DelayFuncHandle<F>>,
 }
 
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl<F> Delay<F> for TokioDelay<F>
 where
   F: Future + Send + 'static,
@@ -53,17 +52,8 @@ where
         stop_tx,
       }),
     }
-  }
+  } 
 
-  #[cfg(not(feature = "nightly"))]
-  async fn reset(&mut self, dur: Duration) {
-    if let Some(handle) = &mut self.handle {
-      // if we fail to send a message, which means the rx has been dropped, and that thread has exited
-      let _ = handle.reset_tx.send(dur).await;
-    }
-  }
-
-  #[cfg(feature = "nightly")]
   fn reset(&mut self, dur: Duration) -> impl Future<Output = ()> + Send + '_ {
     async move {
       if let Some(handle) = &mut self.handle {
@@ -73,24 +63,6 @@ where
     }
   }
 
-  #[cfg(not(feature = "nightly"))]
-  async fn cancel(&mut self) -> Option<F::Output> {
-    if let Some(handle) = self.handle.take() {
-      if handle.handle.is_finished() {
-        return match handle.handle.await {
-          Ok(rst) => rst,
-          Err(_) => None,
-        };
-      } else {
-        // if we fail to send a message, which means the rx has been dropped, and that thread has exited
-        let _ = handle.stop_tx.send(()).await;
-        return None;
-      }
-    }
-    None
-  }
-
-  #[cfg(feature = "nightly")]
   fn cancel(&mut self) -> impl Future<Output = Option<F::Output>> + Send + '_ {
     async move {
       if let Some(handle) = self.handle.take() {
@@ -154,7 +126,6 @@ impl core::fmt::Display for TokioRuntime {
   }
 }
 
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl Runtime for TokioRuntime {
   type JoinHandle<T> = ::tokio::task::JoinHandle<T>;
   type Interval = IntervalStream;

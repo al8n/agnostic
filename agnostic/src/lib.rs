@@ -35,13 +35,6 @@ pub mod async_std;
 #[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
 pub mod smol;
 
-// /// [`monoio`] runtime adapter
-// ///
-// /// [`monoio`]: https://docs.rs/monoio
-// #[cfg(not(all(feature = "monoio", feature = "net")))]
-// #[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
-// pub mod monoio;
-
 /// Network related traits
 #[cfg(feature = "net")]
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
@@ -55,7 +48,6 @@ use std::{
 use futures_util::Stream;
 
 /// Simlilar to Go's `time.AfterFunc`
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 pub trait Delay<F>
 where
   F: Future + Send + 'static,
@@ -63,17 +55,9 @@ where
 {
   fn new(delay: Duration, fut: F) -> Self;
 
-  #[cfg(feature = "nightly")]
-  fn reset(&mut self, dur: Duration) -> impl Future<Output = ()> + Send + '_;
+  fn reset(&mut self, dur: Duration) -> impl Future<Output = ()> + Send + '_; 
 
-  #[cfg(not(feature = "nightly"))]
-  async fn reset(&mut self, dur: Duration);
-
-  #[cfg(feature = "nightly")]
   fn cancel(&mut self) -> impl Future<Output = Option<F::Output>> + Send + '_;
-
-  #[cfg(not(feature = "nightly"))]
-  async fn cancel(&mut self) -> Option<F::Output>;
 }
 
 /// Runtime trait

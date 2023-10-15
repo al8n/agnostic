@@ -37,39 +37,10 @@ pub struct AsyncStdTcpListener {
   read_timeout: Atomic<Option<Duration>>,
 }
 
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl crate::net::TcpListener for AsyncStdTcpListener {
   type Stream = AsyncStdTcpStream;
-  type Runtime = AsyncStdRuntime;
+  type Runtime = AsyncStdRuntime; 
 
-  #[cfg(not(feature = "nightly"))]
-  async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
-  where
-    Self: Sized,
-  {
-    let mut addrs = addr.to_socket_addrs().await?;
-
-    let res = if addrs.size_hint().0 <= 1 {
-      if let Some(addr) = addrs.next() {
-        TcpListener::bind(addr).await
-      } else {
-        return Err(io::Error::new(
-          io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ));
-      }
-    } else {
-      TcpListener::bind(addrs.collect::<Vec<_>>().as_slice()).await
-    };
-
-    res.map(|ln| Self {
-      ln,
-      write_timeout: Atomic::new(None),
-      read_timeout: Atomic::new(None),
-    })
-  }
-
-  #[cfg(feature = "nightly")]
   fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     addr: A,
   ) -> impl Future<Output = io::Result<Self>> + Send + 'a
@@ -100,21 +71,6 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
     }
   }
 
-  #[cfg(not(feature = "nightly"))]
-  async fn accept(&self) -> io::Result<(Self::Stream, SocketAddr)> {
-    self.ln.accept().await.map(|(stream, addr)| {
-      (
-        AsyncStdTcpStream {
-          stream,
-          write_timeout: Atomic::new(self.write_timeout.load(Ordering::SeqCst)),
-          read_timeout: Atomic::new(self.read_timeout.load(Ordering::SeqCst)),
-        },
-        addr,
-      )
-    })
-  }
-
-  #[cfg(feature = "nightly")]
   fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send + '_ {
     async move {
       self.ln.accept().await.map(|(stream, addr)| {
@@ -255,38 +211,9 @@ impl tokio::io::AsyncWrite for AsyncStdTcpStream {
   }
 }
 
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl crate::net::TcpStream for AsyncStdTcpStream {
-  type Runtime = AsyncStdRuntime;
+  type Runtime = AsyncStdRuntime; 
 
-  #[cfg(not(feature = "nightly"))]
-  async fn connect<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
-  where
-    Self: Sized,
-  {
-    let mut addrs = addr.to_socket_addrs().await?;
-
-    let res = if addrs.size_hint().0 <= 1 {
-      if let Some(addr) = addrs.next() {
-        TcpStream::connect(addr).await
-      } else {
-        return Err(io::Error::new(
-          io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ));
-      }
-    } else {
-      TcpStream::connect(&addrs.collect::<Vec<_>>().as_slice()).await
-    };
-
-    res.map(|stream| Self {
-      stream,
-      write_timeout: Atomic::new(None),
-      read_timeout: Atomic::new(None),
-    })
-  }
-
-  #[cfg(feature = "nightly")]
   fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     addr: A,
   ) -> impl Future<Output = io::Result<Self>> + Send + 'a
@@ -317,7 +244,6 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
     }
   }
 
-  #[cfg(feature = "nightly")]
   fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     addr: A,
     timeout: Duration,
@@ -331,20 +257,6 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
         .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
         .and_then(|res| res)
     }
-  }
-
-  #[cfg(not(feature = "nightly"))]
-  async fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
-    addr: A,
-    timeout: Duration,
-  ) -> io::Result<Self>
-  where
-    Self: Sized,
-  {
-    AsyncStdRuntime::timeout(timeout, Self::connect(addr))
-      .await
-      .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
-      .and_then(|res| res)
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -394,11 +306,9 @@ pub struct AsyncStdUdpSocket {
   read_timeout: Atomic<Option<Duration>>,
 }
 
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl crate::net::UdpSocket for AsyncStdUdpSocket {
   type Runtime = AsyncStdRuntime;
 
-  #[cfg(feature = "nightly")]
   fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     addr: A,
   ) -> impl Future<Output = io::Result<Self>> + Send + 'a
@@ -428,7 +338,6 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  #[cfg(feature = "nightly")]
   fn bind_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     addr: A,
     timeout: Duration,
@@ -444,7 +353,6 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  #[cfg(feature = "nightly")]
   fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     &'a self,
     addr: A,
@@ -470,7 +378,6 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  #[cfg(feature = "nightly")]
   fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     &'a self,
     addr: A,
@@ -484,7 +391,6 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  #[cfg(feature = "nightly")]
   fn recv<'a>(&'a self, buf: &'a mut [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a {
     async move {
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
@@ -499,7 +405,6 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  #[cfg(feature = "nightly")]
   fn recv_from<'a>(
     &'a self,
     buf: &'a mut [u8],
@@ -517,7 +422,6 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  #[cfg(feature = "nightly")]
   fn send<'a>(&'a self, buf: &'a [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a {
     async move {
       if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
@@ -532,7 +436,6 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  #[cfg(feature = "nightly")]
   fn send_to<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
     &'a self,
     buf: &'a [u8],
@@ -575,165 +478,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
         self.socket.send_to(buf, addrs.as_slice()).await
       }
     }
-  }
-
-  #[cfg(not(feature = "nightly"))]
-  async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
-  where
-    Self: Sized,
-  {
-    let mut addrs = addr.to_socket_addrs().await?;
-
-    let res = if addrs.size_hint().0 <= 1 {
-      if let Some(addr) = addrs.next() {
-        UdpSocket::bind(addr).await
-      } else {
-        return Err(io::Error::new(
-          io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ));
-      }
-    } else {
-      UdpSocket::bind(&addrs.collect::<Vec<_>>().as_slice()).await
-    };
-    res.map(|socket| Self {
-      socket,
-      write_timeout: Atomic::new(None),
-      read_timeout: Atomic::new(None),
-    })
-  }
-
-  #[cfg(not(feature = "nightly"))]
-  async fn bind_timeout<A: ToSocketAddrs<Self::Runtime>>(
-    addr: A,
-    timeout: Duration,
-  ) -> io::Result<Self>
-  where
-    Self: Sized,
-  {
-    AsyncStdRuntime::timeout(timeout, Self::bind(addr))
-      .await
-      .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
-      .and_then(|res| res)
-  }
-
-  #[cfg(not(feature = "nightly"))]
-  async fn connect<A: ToSocketAddrs<Self::Runtime>>(&self, addr: A) -> io::Result<()>
-  where
-    Self: Sized,
-  {
-    let mut addrs = addr.to_socket_addrs().await?;
-
-    if addrs.size_hint().0 <= 1 {
-      if let Some(addr) = addrs.next() {
-        self.socket.connect(addr).await
-      } else {
-        return Err(io::Error::new(
-          io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ));
-      }
-    } else {
-      self
-        .socket
-        .connect(&addrs.collect::<Vec<_>>().as_slice())
-        .await
-    }
-  }
-
-  #[cfg(not(feature = "nightly"))]
-  async fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
-    &self,
-    addr: A,
-    timeout: Duration,
-  ) -> io::Result<()>
-  where
-    Self: Sized,
-  {
-    AsyncStdRuntime::timeout(timeout, self.connect(addr))
-      .await
-      .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
-      .and_then(|res| res)
-  }
-
-  #[cfg(not(feature = "nightly"))]
-  async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-    if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
-      if !timeout.is_zero() {
-        return match AsyncStdRuntime::timeout(timeout, self.socket.recv(buf)).await {
-          Ok(timeout) => timeout,
-          Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
-        };
-      }
-    }
-    self.socket.recv(buf).await
-  }
-
-  #[cfg(not(feature = "nightly"))]
-  async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-    if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
-      if !timeout.is_zero() {
-        return match AsyncStdRuntime::timeout(timeout, self.socket.recv_from(buf)).await {
-          Ok(timeout) => timeout,
-          Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
-        };
-      }
-    }
-    self.socket.recv_from(buf).await
-  }
-
-  #[cfg(not(feature = "nightly"))]
-  async fn send(&self, buf: &[u8]) -> io::Result<usize> {
-    if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
-      if !timeout.is_zero() {
-        return match AsyncStdRuntime::timeout(timeout, self.socket.send(buf)).await {
-          Ok(timeout) => timeout,
-          Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
-        };
-      }
-    }
-    self.socket.send(buf).await
-  }
-
-  #[cfg(not(feature = "nightly"))]
-  async fn send_to<A: ToSocketAddrs<Self::Runtime>>(
-    &self,
-    buf: &[u8],
-    target: A,
-  ) -> io::Result<usize> {
-    let mut addrs = target.to_socket_addrs().await?;
-    if addrs.size_hint().0 <= 1 {
-      if let Some(addr) = addrs.next() {
-        if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
-          if !timeout.is_zero() {
-            return match AsyncStdRuntime::timeout(timeout, self.socket.send_to(buf, addr)).await {
-              Ok(timeout) => timeout,
-              Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
-            };
-          }
-        }
-        self.socket.send_to(buf, addr).await
-      } else {
-        return Err(io::Error::new(
-          io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ));
-      }
-    } else {
-      let addrs = addrs.collect::<Vec<_>>();
-      if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
-        if !timeout.is_zero() {
-          return match AsyncStdRuntime::timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
-            .await
-          {
-            Ok(timeout) => timeout,
-            Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
-          };
-        }
-      }
-      self.socket.send_to(buf, addrs.as_slice()).await
-    }
-  }
+  } 
 
   fn set_ttl(&self, ttl: u32) -> io::Result<()> {
     self.socket.set_ttl(ttl)
