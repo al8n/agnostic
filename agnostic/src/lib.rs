@@ -54,6 +54,13 @@ use std::{
 
 use futures_util::Stream;
 
+pub trait Sleep: Future + Send {
+  /// Resets the Sleep instance to a new deadline.
+  ///
+  /// The behavior of this function may different in different runtime implementations.
+  fn reset(self: std::pin::Pin<&mut Self>, deadline: Instant);
+}
+
 /// Simlilar to Go's `time.AfterFunc`
 #[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 pub trait Delay<F>
@@ -80,7 +87,7 @@ where
 pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   type JoinHandle<F>: Future;
   type Interval: Stream + Send + Unpin;
-  type Sleep: Future + Send;
+  type Sleep: Sleep;
   type Delay<F>: Delay<F>
   where
     F: Future + Send + 'static,
@@ -159,7 +166,23 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
 
 #[cfg(any(feature = "async-std", feature = "smol"))]
 mod timer {
-  use std::{future::Future, io, task::Poll, time::Duration};
+  use super::{Runtime, Sleep};
+  use std::{
+    future::Future,
+    io,
+    task::Poll,
+    time::{Duration, Instant},
+  };
+
+  impl Sleep for async_io::Timer {
+    /// Sets the timer to emit an event once at the given time instant.
+    ///
+    /// Note that resetting a timer is different from creating a new sleep by [`sleep()`][`Runtime::sleep()`] because
+    /// `reset()` does not remove the waker associated with the task.
+    fn reset(mut self: std::pin::Pin<&mut Self>, deadline: Instant) {
+      self.as_mut().set_at(deadline)
+    }
+  }
 
   pin_project_lite::pin_project! {
     /// Future returned by the `FutureExt::timeout` method.

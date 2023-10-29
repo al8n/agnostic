@@ -8,6 +8,40 @@ use super::*;
 #[cfg(feature = "net")]
 pub mod net;
 
+impl super::Sleep for ::tokio::time::Sleep {
+  /// Resets the `Sleep` instance to a new deadline.
+  ///
+  /// Calling this function allows changing the instant at which the `Sleep`
+  /// future completes without having to create new associated state.
+  ///
+  /// This function can be called both before and after the future has
+  /// completed.
+  ///
+  /// To call this method, you will usually combine the call with
+  /// [`Pin::as_mut`], which lets you call the method without consuming the
+  /// `Sleep` itself.
+  ///
+  /// # Example
+  ///
+  /// ```
+  /// use std::time::{Duration, Instant};
+  /// use agnostic::tokio::TokioRuntime;
+  ///
+  /// # #[tokio::main(flavor = "current_thread")]
+  /// # async fn main() {
+  /// let sleep = TokioRuntime::sleep(Duration::from_millis(10));
+  /// tokio::pin!(sleep);
+  ///
+  /// sleep.as_mut().reset(Instant::now() + Duration::from_millis(20));
+  /// # }
+  /// ```
+  ///
+  /// [`Pin::as_mut`]: fn@std::pin::Pin::as_mut
+  fn reset(mut self: std::pin::Pin<&mut Self>, deadline: Instant) {
+    self.as_mut().reset(deadline.into())
+  }
+}
+
 struct DelayFuncHandle<F: Future> {
   handle: ::tokio::task::JoinHandle<Option<F::Output>>,
   reset_tx: mpsc::Sender<Duration>,
