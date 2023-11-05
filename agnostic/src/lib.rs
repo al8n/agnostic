@@ -1,8 +1,5 @@
 //! Agnostic is a trait for users who want to write async runtime-agnostic crate.
 #![allow(warnings)]
-#![cfg_attr(feature = "nightly", feature(return_position_impl_trait_in_trait))]
-#![cfg_attr(feature = "nightly", allow(clippy::manual_async_fn))]
-#![cfg_attr(feature = "nightly", allow(incomplete_features))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 #![allow(clippy::needless_return)]
@@ -35,13 +32,6 @@ pub mod async_std;
 #[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
 pub mod smol;
 
-// /// [`monoio`] runtime adapter
-// ///
-// /// [`monoio`]: https://docs.rs/monoio
-// #[cfg(not(all(feature = "monoio", feature = "net")))]
-// #[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
-// pub mod monoio;
-
 /// Network related traits
 #[cfg(feature = "net")]
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
@@ -62,7 +52,6 @@ pub trait Sleep: Future + Send {
 }
 
 /// Simlilar to Go's `time.AfterFunc`
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 pub trait Delay<F>
 where
   F: Future + Send + 'static,
@@ -70,17 +59,9 @@ where
 {
   fn new(delay: Duration, fut: F) -> Self;
 
-  #[cfg(feature = "nightly")]
   fn reset(&mut self, dur: Duration) -> impl Future<Output = ()> + Send + '_;
 
-  #[cfg(not(feature = "nightly"))]
-  async fn reset(&mut self, dur: Duration);
-
-  #[cfg(feature = "nightly")]
   fn cancel(&mut self) -> impl Future<Output = Option<F::Output>> + Send + '_;
-
-  #[cfg(not(feature = "nightly"))]
-  async fn cancel(&mut self) -> Option<F::Output>;
 }
 
 /// Runtime trait

@@ -35,27 +35,16 @@ pub trait ToSocketAddrs<R: Runtime>: Send + Sync {
   fn to_socket_addrs(&self) -> Self::Future;
 }
 
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 pub trait TcpListener: Unpin + Send + Sync + 'static {
   type Runtime: Runtime;
   type Stream: TcpStream<Runtime = Self::Runtime>;
 
-  #[cfg(not(feature = "nightly"))]
-  async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
-  where
-    Self: Sized;
-
-  #[cfg(feature = "nightly")]
-  fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn bind<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
-  #[cfg(not(feature = "nightly"))]
-  async fn accept(&self) -> io::Result<(Self::Stream, SocketAddr)>;
-
-  #[cfg(feature = "nightly")]
   fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send + '_;
 
   fn local_addr(&self) -> io::Result<SocketAddr>;
@@ -96,35 +85,19 @@ impl<
 {
 }
 
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
   type Runtime: Runtime;
 
-  #[cfg(not(feature = "nightly"))]
-  async fn connect<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
-  where
-    Self: Sized;
-
-  #[cfg(feature = "nightly")]
-  fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn connect<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
-  #[cfg(not(feature = "nightly"))]
-  async fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
+  fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
     timeout: Duration,
-  ) -> io::Result<Self>
-  where
-    Self: Sized;
-
-  #[cfg(feature = "nightly")]
-  fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    addr: A,
-    timeout: Duration,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
@@ -158,95 +131,47 @@ pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
   fn read_timeout(&self) -> Option<Duration>;
 }
 
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 pub trait UdpSocket: Unpin + Send + Sync + 'static {
   type Runtime: Runtime;
 
-  #[cfg(not(feature = "nightly"))]
-  async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
-  where
-    Self: Sized;
-
-  #[cfg(feature = "nightly")]
-  fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn bind<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
-  #[cfg(not(feature = "nightly"))]
-  async fn bind_timeout<A: ToSocketAddrs<Self::Runtime>>(
+  fn bind_timeout<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
     timeout: Duration,
-  ) -> io::Result<Self>
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
-  #[cfg(feature = "nightly")]
-  fn bind_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn connect<A: ToSocketAddrs<Self::Runtime>>(
+    &self,
     addr: A,
-    timeout: Duration,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
-  where
-    Self: Sized;
+  ) -> impl Future<Output = io::Result<()>> + Send;
 
-  #[cfg(not(feature = "nightly"))]
-  async fn connect<A: ToSocketAddrs<Self::Runtime>>(&self, addr: A) -> io::Result<()>;
-
-  #[cfg(feature = "nightly")]
-  fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    &'a self,
-    addr: A,
-  ) -> impl Future<Output = io::Result<()>> + Send + 'a;
-
-  #[cfg(not(feature = "nightly"))]
-  async fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
+  fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
     &self,
     addr: A,
     timeout: Duration,
-  ) -> io::Result<()>;
+  ) -> impl Future<Output = io::Result<()>> + Send;
 
-  #[cfg(feature = "nightly")]
-  fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    &'a self,
-    addr: A,
-    timeout: Duration,
-  ) -> impl Future<Output = io::Result<()>> + Send + 'a;
+  fn recv(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
 
-  #[cfg(not(feature = "nightly"))]
-  async fn recv(&self, buf: &mut [u8]) -> io::Result<usize>;
+  fn recv_from(
+    &self,
+    buf: &mut [u8],
+  ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send;
 
-  #[cfg(feature = "nightly")]
-  fn recv<'a>(&'a self, buf: &'a mut [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a;
+  fn send(&self, buf: &[u8]) -> impl Future<Output = io::Result<usize>> + Send;
 
-  #[cfg(not(feature = "nightly"))]
-  async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)>;
-
-  #[cfg(feature = "nightly")]
-  fn recv_from<'a>(
-    &'a self,
-    buf: &'a mut [u8],
-  ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send + 'a;
-
-  #[cfg(not(feature = "nightly"))]
-  async fn send(&self, buf: &[u8]) -> io::Result<usize>;
-
-  #[cfg(feature = "nightly")]
-  fn send<'a>(&'a self, buf: &'a [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a;
-
-  #[cfg(not(feature = "nightly"))]
-  async fn send_to<A: ToSocketAddrs<Self::Runtime>>(
+  fn send_to<A: ToSocketAddrs<Self::Runtime>>(
     &self,
     buf: &[u8],
     target: A,
-  ) -> io::Result<usize>;
-
-  #[cfg(feature = "nightly")]
-  fn send_to<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    &'a self,
-    buf: &'a [u8],
-    target: A,
-  ) -> impl Future<Output = io::Result<usize>> + Send + 'a;
+  ) -> impl Future<Output = io::Result<usize>> + Send;
 
   fn set_ttl(&self, ttl: u32) -> io::Result<()>;
 

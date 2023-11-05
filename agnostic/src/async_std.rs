@@ -22,7 +22,6 @@ pub struct AsyncStdDelay<F: Future> {
   handle: Option<DelayFuncHandle<F>>,
 }
 
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl<F> Delay<F> for AsyncStdDelay<F>
 where
   F: Future + Send + 'static,
@@ -60,7 +59,6 @@ where
     }
   }
 
-  #[cfg(feature = "nightly")]
   fn reset(&mut self, dur: Duration) -> impl Future<Output = ()> + Send + '_ {
     async move {
       if let Some(handle) = &mut self.handle {
@@ -70,15 +68,6 @@ where
     }
   }
 
-  #[cfg(not(feature = "nightly"))]
-  async fn reset(&mut self, dur: Duration) {
-    if let Some(handle) = &mut self.handle {
-      // if we fail to send a message, which means the rx has been dropped, and that thread has exited
-      let _ = handle.reset_tx.send(dur).await;
-    }
-  }
-
-  #[cfg(feature = "nightly")]
   fn cancel(&mut self) -> impl Future<Output = Option<F::Output>> + Send + '_ {
     async move {
       if let Some(handle) = self.handle.take() {
@@ -93,20 +82,6 @@ where
       None
     }
   }
-
-  #[cfg(not(feature = "nightly"))]
-  async fn cancel(&mut self) -> Option<F::Output> {
-    if let Some(handle) = self.handle.take() {
-      if handle.finished.load(Ordering::SeqCst) {
-        return handle.handle.await;
-      } else {
-        // if we fail to send a message, which means the rx has been dropped, and that thread has exited
-        handle.handle.cancel().await;
-        return None;
-      }
-    }
-    None
-  }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -118,7 +93,6 @@ impl core::fmt::Display for AsyncStdRuntime {
   }
 }
 
-#[cfg_attr(not(feature = "nightly"), async_trait::async_trait)]
 impl Runtime for AsyncStdRuntime {
   type JoinHandle<T> = ::async_std::task::JoinHandle<T>;
   type Interval = Timer;
