@@ -2,8 +2,8 @@ use super::{Runtime, UdpSocket};
 use futures_util::{future::FutureExt, select_biased};
 use std::{future::Future, io, marker::PhantomData, net::SocketAddr, pin::Pin, time::Duration};
 
-use trust_dns_proto::Time;
-use trust_dns_resolver::{
+use hickory_proto::Time;
+use hickory_resolver::{
   name_server::{ConnectionProvider, GenericConnector, RuntimeProvider, Spawn},
   AsyncResolver,
 };
@@ -28,7 +28,7 @@ impl<R: Runtime> Copy for AsyncSpawn<R> {}
 impl<R: Runtime> Spawn for AsyncSpawn<R> {
   fn spawn_bg<F>(&mut self, future: F)
   where
-    F: Future<Output = Result<(), trust_dns_proto::error::ProtoError>> + Send + 'static,
+    F: Future<Output = Result<(), hickory_proto::error::ProtoError>> + Send + 'static,
   {
     R::spawn_detach(async move {
       let _ = future.await;
@@ -116,7 +116,7 @@ where
 #[doc(hidden)]
 pub struct AsyncDnsTcp<R: Runtime>(<R::Net as super::Net>::TcpStream);
 
-impl<R: Runtime> trust_dns_proto::tcp::DnsTcpStream for AsyncDnsTcp<R> {
+impl<R: Runtime> hickory_proto::tcp::DnsTcpStream for AsyncDnsTcp<R> {
   type Time = AgnosticTime<R>;
 }
 
@@ -173,7 +173,7 @@ impl<R: Runtime> AsyncDnsUdp<R> {
   }
 }
 
-impl<R: Runtime> trust_dns_proto::udp::DnsUdpSocket for AsyncDnsUdp<R> {
+impl<R: Runtime> hickory_proto::udp::DnsUdpSocket for AsyncDnsUdp<R> {
   type Time = AgnosticTime<R>;
 
   fn poll_recv_from(
@@ -261,8 +261,8 @@ impl<R: Runtime> ConnectionProvider for AsyncConnectionProvider<R> {
 
   fn new_connection(
     &self,
-    config: &trust_dns_resolver::config::NameServerConfig,
-    options: &trust_dns_resolver::config::ResolverOpts,
+    config: &hickory_resolver::config::NameServerConfig,
+    options: &hickory_resolver::config::ResolverOpts,
   ) -> Self::FutureConn {
     self.connection_provider.new_connection(config, options)
   }
@@ -274,26 +274,32 @@ pub use dns_util::read_resolv_conf;
 mod dns_util {
   use std::{io, path::Path};
 
-  use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
+  use hickory_resolver::{
+    config::{ResolverConfig, ResolverOpts},
+    error::ResolveResult,
+  };
 
   /// Read the DNS configuration from a file.
   pub fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {
-    std::fs::read_to_string(path).and_then(trust_dns_resolver::system_conf::parse_resolv_conf)
+    std::fs::read_to_string(path).and_then(|conf| {
+      hickory_resolver::system_conf::parse_resolv_conf(conf)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, "Error parsing resolv.conf"))
+    })
   }
 }
 
 #[cfg(not(unix))]
 mod dns_util {
+  use hickory_resolver::{
+    config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts},
+    Name,
+  };
   use std::{
     fs::File,
     io::{self, Read},
     net::SocketAddr,
     path::Path,
     time::Duration,
-  };
-  use trust_dns_resolver::{
-    config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts},
-    Name,
   };
 
   const DEFAULT_PORT: u16 = 53;
@@ -304,6 +310,7 @@ mod dns_util {
     let mut file = File::open(path)?;
     file.read_to_string(&mut data)?;
     parse_resolv_conf(&data)
+      .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, "Error parsing resolv.conf"))
   }
 
   fn parse_resolv_conf<T: AsRef<[u8]>>(data: T) -> io::Result<(ResolverConfig, ResolverOpts)> {
