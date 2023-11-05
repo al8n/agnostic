@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.1.22"
+version = "0.2.0"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "Agnostic is a helpful crate for users who want to write async runtime-agnostic crate."
@@ -61,8 +61,6 @@ async-io = { version = "2.1", optional = true }
 pin-project-lite = { version = "0.2", optional = true }
 smol = { version = "1.3", default-features = false, optional = true }
 
-# monoio = { version = "0.1", optional = true, features = ["sync"] }
-# monoio-compat = { version = "0.1", optional = true }
 async-channel = { version = "2", optional = true }
 
 trust-dns-proto = { version = "0.23", default-features = false, optional = true }
