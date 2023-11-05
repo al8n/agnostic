@@ -37,11 +37,11 @@ pub trait ToSocketAddrs<R: Runtime>: Send + Sync {
 
 pub trait TcpListener: Unpin + Send + Sync + 'static {
   type Runtime: Runtime;
-  type Stream: TcpStream<Runtime = Self::Runtime>; 
+  type Stream: TcpStream<Runtime = Self::Runtime>;
 
-  fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn bind<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
@@ -86,18 +86,18 @@ impl<
 }
 
 pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
-  type Runtime: Runtime; 
+  type Runtime: Runtime;
 
-  fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn connect<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
-  fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
     timeout: Duration,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
@@ -132,46 +132,46 @@ pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
 }
 
 pub trait UdpSocket: Unpin + Send + Sync + 'static {
-  type Runtime: Runtime; 
+  type Runtime: Runtime;
 
-  fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn bind<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
-  fn bind_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn bind_timeout<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
     timeout: Duration,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
-  fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    &'a self,
+  fn connect<A: ToSocketAddrs<Self::Runtime>>(
+    &self,
     addr: A,
-  ) -> impl Future<Output = io::Result<()>> + Send + 'a;
+  ) -> impl Future<Output = io::Result<()>> + Send;
 
-  fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    &'a self,
+  fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
+    &self,
     addr: A,
     timeout: Duration,
-  ) -> impl Future<Output = io::Result<()>> + Send + 'a;
+  ) -> impl Future<Output = io::Result<()>> + Send;
 
-  fn recv<'a>(&'a self, buf: &'a mut [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a;
+  fn recv(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
 
-  fn recv_from<'a>(
-    &'a self,
-    buf: &'a mut [u8],
-  ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send + 'a;
+  fn recv_from(
+    &self,
+    buf: &mut [u8],
+  ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send;
 
-  fn send<'a>(&'a self, buf: &'a [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a;
+  fn send(&self, buf: &[u8]) -> impl Future<Output = io::Result<usize>> + Send;
 
-  fn send_to<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    &'a self,
-    buf: &'a [u8],
+  fn send_to<A: ToSocketAddrs<Self::Runtime>>(
+    &self,
+    buf: &[u8],
     target: A,
-  ) -> impl Future<Output = io::Result<usize>> + Send + 'a;
+  ) -> impl Future<Output = io::Result<usize>> + Send;
 
   fn set_ttl(&self, ttl: u32) -> io::Result<()>;
 

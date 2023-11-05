@@ -52,7 +52,7 @@ where
         stop_tx,
       }),
     }
-  } 
+  }
 
   fn reset(&mut self, dur: Duration) -> impl Future<Output = ()> + Send + '_ {
     async move {

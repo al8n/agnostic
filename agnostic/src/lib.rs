@@ -1,8 +1,5 @@
 //! Agnostic is a trait for users who want to write async runtime-agnostic crate.
 #![allow(warnings)]
-#![cfg_attr(feature = "nightly", feature(return_position_impl_trait_in_trait))]
-#![cfg_attr(feature = "nightly", allow(clippy::manual_async_fn))]
-#![cfg_attr(feature = "nightly", allow(incomplete_features))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 #![allow(clippy::needless_return)]
@@ -55,7 +52,7 @@ where
 {
   fn new(delay: Duration, fut: F) -> Self;
 
-  fn reset(&mut self, dur: Duration) -> impl Future<Output = ()> + Send + '_; 
+  fn reset(&mut self, dur: Duration) -> impl Future<Output = ()> + Send + '_;
 
   fn cancel(&mut self) -> impl Future<Output = Option<F::Output>> + Send + '_;
 }

@@ -66,7 +66,7 @@ where
         let _ = handle.reset_tx.try_send(dur);
       }
     }
-  } 
+  }
 
   fn cancel(&mut self) -> impl Future<Output = Option<F::Output>> + Send + '_ {
     async move {

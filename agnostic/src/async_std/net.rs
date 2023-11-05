@@ -39,11 +39,9 @@ pub struct AsyncStdTcpListener {
 
 impl crate::net::TcpListener for AsyncStdTcpListener {
   type Stream = AsyncStdTcpStream;
-  type Runtime = AsyncStdRuntime; 
+  type Runtime = AsyncStdRuntime;
 
-  fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    addr: A,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized,
   {
@@ -212,11 +210,11 @@ impl tokio::io::AsyncWrite for AsyncStdTcpStream {
 }
 
 impl crate::net::TcpStream for AsyncStdTcpStream {
-  type Runtime = AsyncStdRuntime; 
+  type Runtime = AsyncStdRuntime;
 
-  fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn connect<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized,
   {
@@ -244,10 +242,10 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
     }
   }
 
-  fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
     timeout: Duration,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized,
   {
@@ -309,9 +307,7 @@ pub struct AsyncStdUdpSocket {
 impl crate::net::UdpSocket for AsyncStdUdpSocket {
   type Runtime = AsyncStdRuntime;
 
-  fn bind<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    addr: A,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized,
   {
@@ -338,10 +334,10 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  fn bind_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
+  fn bind_timeout<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
     timeout: Duration,
-  ) -> impl Future<Output = io::Result<Self>> + Send + 'a
+  ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized,
   {
@@ -353,10 +349,10 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  fn connect<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    &'a self,
+  fn connect<A: ToSocketAddrs<Self::Runtime>>(
+    &self,
     addr: A,
-  ) -> impl Future<Output = io::Result<()>> + Send + 'a {
+  ) -> impl Future<Output = io::Result<()>> + Send {
     async move {
       let mut addrs = addr.to_socket_addrs().await?;
 
@@ -378,11 +374,11 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  fn connect_timeout<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    &'a self,
+  fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
+    &self,
     addr: A,
     timeout: Duration,
-  ) -> impl Future<Output = io::Result<()>> + Send + 'a {
+  ) -> impl Future<Output = io::Result<()>> + Send {
     async move {
       AsyncStdRuntime::timeout(timeout, self.connect(addr))
         .await
@@ -391,7 +387,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  fn recv<'a>(&'a self, buf: &'a mut [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a {
+  fn recv(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send {
     async move {
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
@@ -405,10 +401,10 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  fn recv_from<'a>(
-    &'a self,
-    buf: &'a mut [u8],
-  ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send + 'a {
+  fn recv_from(
+    &self,
+    buf: &mut [u8],
+  ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send {
     async move {
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
@@ -422,7 +418,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  fn send<'a>(&'a self, buf: &'a [u8]) -> impl Future<Output = io::Result<usize>> + Send + 'a {
+  fn send(&self, buf: &[u8]) -> impl Future<Output = io::Result<usize>> + Send {
     async move {
       if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
@@ -436,11 +432,11 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  fn send_to<'a, A: ToSocketAddrs<Self::Runtime> + 'a>(
-    &'a self,
-    buf: &'a [u8],
+  fn send_to<A: ToSocketAddrs<Self::Runtime>>(
+    &self,
+    buf: &[u8],
     target: A,
-  ) -> impl Future<Output = io::Result<usize>> + Send + 'a {
+  ) -> impl Future<Output = io::Result<usize>> + Send {
     async move {
       let mut addrs = target.to_socket_addrs().await?;
       if addrs.size_hint().0 <= 1 {
@@ -478,7 +474,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
         self.socket.send_to(buf, addrs.as_slice()).await
       }
     }
-  } 
+  }
 
   fn set_ttl(&self, ttl: u32) -> io::Result<()> {
     self.socket.set_ttl(ttl)
