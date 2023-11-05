@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "Agnostic is a helpful crate for users who want to write async runtime-agnostic crate."
@@ -20,6 +20,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = []
 
 dns = ["net", "hickory-resolver", "resolv-conf", "hickory-proto", "thiserror"]
+dns-over-quic = ["dns", "hickory-resolver/dns-over-quic", "hickory-proto/dns-over-quic"]
 
 net = ["atomic", "io", "socket2", "tokio?/net", "tokio?/io-util", "tokio?/io-std", "async-std?/default"]
 io = ["futures-util/io"]

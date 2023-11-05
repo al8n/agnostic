@@ -194,6 +194,13 @@ impl<R: Runtime> hickory_proto::udp::DnsUdpSocket for AsyncDnsUdp<R> {
   }
 }
 
+#[cfg(feature = "dns-over-quic")]
+impl<R: Runtime> hickory_proto::udp::QuicLocalAddr for AsyncDnsUdp<R> {
+  fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
+    <<R::Net as super::Net>::UdpSocket as super::UdpSocket>::local_addr(&self.0)
+  }
+}
+
 impl<R: Runtime> RuntimeProvider for AsyncRuntimeProvider<R> {
   type Handle = AsyncSpawn<R>;
 
