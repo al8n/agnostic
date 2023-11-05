@@ -61,8 +61,13 @@ jobs:
       run: rustup update --no-self-update && rustup default nightly && rustup component add clippy
     - name: Install cargo-hack
       run: cargo install cargo-hack
-    - name: Apply clippy lints
-      run: cargo hack clippy --each-feature
+    - name: Apply clippy lints (unix)
+      run: cargo hack build --each-feature
+      if: matrix.os != 'windows-latest'
+      working-directory: agnostic
+    - name: Apply clippy lints (windows)
+      run: cargo hack build --each-feature --exclude-features dns-over-openssl,dnssec-openssl
+      if: matrix.os == 'windows-latest'
       working-directory: agnostic
 
   build:
@@ -81,8 +86,13 @@ jobs:
       run: rustup update --no-self-update && rustup default nightly
     - name: Install cargo-hack
       run: cargo install cargo-hack
-    - name: Apply clippy lints
+    - name: Build (unix)
       run: cargo hack build --each-feature
+      if: matrix.os != 'windows-latest'
+      working-directory: agnostic
+    - name: Build (windows)
+      run: cargo hack build --each-feature --exclude-features dns-over-openssl,dnssec-openssl
+      if: matrix.os == 'windows-latest'
       working-directory: agnostic
 
   coverage:

@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "Agnostic is a helpful crate for users who want to write async runtime-agnostic crate."
@@ -20,7 +20,17 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = []
 
 dns = ["net", "hickory-resolver", "resolv-conf", "hickory-proto", "thiserror"]
-dns-over-quic = ["dns", "hickory-resolver/dns-over-quic", "hickory-proto/dns-over-quic"]
+dns-over-quic = ["dns", "hickory-resolver/dns-over-quic", "hickory-proto/dns-over-quic", "dns-over-rustls"]
+dns-over-h3 = ["dns", "hickory-resolver/dns-over-h3", "dns-over-rustls", "hickory-proto/dns-over-h3"]
+dns-over-https-rustls = ["dns", "hickory-resolver/dns-over-https-rustls", "hickory-proto/dns-over-https-rustls", "dns-over-rustls"]
+dns-over-rustls = ["dns", "hickory-resolver/dns-over-rustls", "hickory-proto/dns-over-rustls"]
+dns-over-openssl = ["dns", "hickory-resolver/dns-over-openssl", "hickory-proto/dns-over-openssl"]
+dns-over-native-tls = ["dns", "hickory-resolver/dns-over-native-tls", "hickory-proto/dns-over-native-tls"]
+dns-webpki-roots = ["dns", "hickory-proto/webpki-roots", "hickory-resolver/webpki-roots"]
+dns-native-certs = ["dns", "hickory-proto/native-certs", "hickory-resolver/native-certs"]
+dnssec-openssl = ["dns", "hickory-proto/dnssec-openssl", "hickory-resolver/dnssec-openssl"]
+dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring", "hickory-resolver/dnssec-ring"]
+dnssec = ["dns", "hickory-proto/dnssec", "hickory-resolver/dnssec"]
 
 net = ["atomic", "io", "socket2", "tokio?/net", "tokio?/io-util", "tokio?/io-std", "async-std?/default"]
 io = ["futures-util/io"]
