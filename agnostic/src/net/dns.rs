@@ -7,6 +7,7 @@ use hickory_resolver::{
   name_server::{ConnectionProvider, GenericConnector, RuntimeProvider, Spawn},
   AsyncResolver,
 };
+pub use hickory_resolver::config::*;
 
 /// Agnostic aysnc DNS resolver
 pub type Dns<R> = AsyncResolver<AsyncConnectionProvider<R>>;
