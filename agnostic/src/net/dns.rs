@@ -3,11 +3,11 @@ use futures_util::{future::FutureExt, select_biased};
 use std::{future::Future, io, marker::PhantomData, net::SocketAddr, pin::Pin, time::Duration};
 
 use hickory_proto::Time;
+pub use hickory_resolver::config::*;
 use hickory_resolver::{
   name_server::{ConnectionProvider, GenericConnector, RuntimeProvider, Spawn},
   AsyncResolver,
 };
-pub use hickory_resolver::config::*;
 
 /// Agnostic aysnc DNS resolver
 pub type Dns<R> = AsyncResolver<AsyncConnectionProvider<R>>;
