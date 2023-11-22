@@ -85,8 +85,66 @@ impl<
 {
 }
 
+#[doc(hidden)]
+#[cfg(not(feature = "tokio-compat"))]
+pub trait IORead: futures_util::io::AsyncRead {}
+
+#[cfg(not(feature = "tokio-compat"))]
+impl<T: futures_util::io::AsyncRead> IORead for T {}
+
+#[doc(hidden)]
+#[cfg(feature = "tokio-compat")]
+pub trait IORead: tokio::io::AsyncRead + futures_util::io::AsyncRead {}
+
+#[cfg(feature = "tokio-compat")]
+impl<T: tokio::io::AsyncRead + futures_util::io::AsyncRead> IORead for T {}
+
+#[doc(hidden)]
+#[cfg(not(feature = "tokio-compat"))]
+pub trait IOWrite: futures_util::io::AsyncWrite {}
+
+#[cfg(not(feature = "tokio-compat"))]
+impl<T: futures_util::io::AsyncWrite> IOWrite for T {}
+
+#[doc(hidden)]
+#[cfg(feature = "tokio-compat")]
+pub trait IOWrite: tokio::io::AsyncWrite + futures_util::io::AsyncWrite {}
+
+#[cfg(feature = "tokio-compat")]
+impl<T: tokio::io::AsyncWrite + futures_util::io::AsyncWrite> IOWrite for T {}
+
+pub trait TcpStreamOwnedReadHalf: IORead + Unpin + Send + Sync + 'static {
+  type Runtime: Runtime;
+
+  fn set_read_timeout(&self, timeout: Option<Duration>);
+
+  fn read_timeout(&self) -> Option<Duration>;
+
+  fn local_addr(&self) -> io::Result<SocketAddr>;
+
+  fn peer_addr(&self) -> io::Result<SocketAddr>;
+}
+
+pub trait TcpStreamOwnedWriteHalf: IOWrite + Unpin + Send + Sync + 'static {
+  type Runtime: Runtime;
+
+  fn set_write_timeout(&self, timeout: Option<Duration>);
+
+  fn write_timeout(&self) -> Option<Duration>;
+
+  fn forget(self);
+
+  fn local_addr(&self) -> io::Result<SocketAddr>;
+
+  fn peer_addr(&self) -> io::Result<SocketAddr>;
+}
+
 pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
   type Runtime: Runtime;
+  type OwnedReadHalf: TcpStreamOwnedReadHalf;
+  type OwnedWriteHalf: TcpStreamOwnedWriteHalf;
+  /// Error indicating that two halves were not from the same socket, and thus could not be reunited.
+  type ReuniteError: std::error::Error + Unpin + Send + Sync + 'static;
 
   fn connect<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
@@ -129,6 +187,16 @@ pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
   fn set_read_timeout(&self, timeout: Option<Duration>);
 
   fn read_timeout(&self) -> Option<Duration>;
+
+  fn into_split(self) -> (Self::OwnedReadHalf, Self::OwnedWriteHalf);
+
+  /// Attempts to put the two halves of a TcpStream back together and recover the original socket. Succeeds only if the two halves originated from the same call to [`into_split`][TcpStream::into_split].
+  fn reunite(
+    read: Self::OwnedReadHalf,
+    write: Self::OwnedWriteHalf,
+  ) -> Result<Self, Self::ReuniteError>
+  where
+    Self: Sized;
 }
 
 pub trait UdpSocket: Unpin + Send + Sync + 'static {

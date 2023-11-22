@@ -2,7 +2,9 @@ use std::{
   future::Future,
   io,
   net::SocketAddr,
+  ops::Deref,
   pin::Pin,
+  sync::Arc,
   task::{Context, Poll},
   time::Duration,
 };
@@ -15,7 +17,7 @@ use tokio::{
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
 use crate::{
-  net::{Net, ToSocketAddrs},
+  net::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs},
   Runtime,
 };
 
@@ -142,7 +144,7 @@ impl futures_util::AsyncWrite for TokioTcpStream {
     cx: &mut std::task::Context<'_>,
     buf: &[u8],
   ) -> std::task::Poll<io::Result<usize>> {
-    if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
+    if let Some(d) = self.write_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
         let timeout = TokioRuntime::timeout(d, self.stream.write(buf));
         tokio::pin!(timeout);
@@ -202,8 +204,155 @@ impl tokio::io::AsyncWrite for TokioTcpStream {
   }
 }
 
+pub struct TokioTcpStreamOwnedReadHalf {
+  stream: ::tokio::net::tcp::OwnedReadHalf,
+  read_timeout: Atomic<Option<Duration>>,
+}
+
+impl futures_util::io::AsyncRead for TokioTcpStreamOwnedReadHalf {
+  fn poll_read(
+    mut self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+    buf: &mut [u8],
+  ) -> Poll<io::Result<usize>> {
+    if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
+      if !d.is_zero() {
+        let timeout = TokioRuntime::timeout(d, self.stream.read(buf));
+        tokio::pin!(timeout);
+        match timeout.poll(cx) {
+          Poll::Ready(rst) => match rst {
+            Ok(rst) => return Poll::Ready(rst),
+            Err(e) => return Poll::Ready(Err(io::Error::new(io::ErrorKind::TimedOut, e))),
+          },
+          Poll::Pending => return Poll::Pending,
+        }
+      }
+    }
+
+    Pin::new(&mut (&mut self.stream).compat()).poll_read(cx, buf)
+  }
+}
+
+impl tokio::io::AsyncRead for TokioTcpStreamOwnedReadHalf {
+  fn poll_read(
+    self: Pin<&mut Self>,
+    cx: &mut Context<'_>,
+    buf: &mut tokio::io::ReadBuf<'_>,
+  ) -> Poll<io::Result<()>> {
+    Pin::new(&mut tokio_util::compat::FuturesAsyncReadCompatExt::compat(
+      self.get_mut(),
+    ))
+    .poll_read(cx, buf)
+  }
+}
+
+pub struct TokioTcpStreamOwnedWriteHalf {
+  stream: ::tokio::net::tcp::OwnedWriteHalf,
+  write_timeout: Atomic<Option<Duration>>,
+}
+
+impl futures_util::io::AsyncWrite for TokioTcpStreamOwnedWriteHalf {
+  fn poll_write(
+    mut self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+    buf: &[u8],
+  ) -> std::task::Poll<io::Result<usize>> {
+    if let Some(d) = self.write_timeout.load(Ordering::Relaxed) {
+      if !d.is_zero() {
+        let timeout = TokioRuntime::timeout(d, self.stream.write(buf));
+        tokio::pin!(timeout);
+        match timeout.poll(cx) {
+          Poll::Ready(rst) => match rst {
+            Ok(rst) => return Poll::Ready(rst),
+            Err(e) => return Poll::Ready(Err(io::Error::new(io::ErrorKind::TimedOut, e))),
+          },
+          Poll::Pending => return Poll::Pending,
+        }
+      }
+    }
+
+    Pin::new(&mut (&mut self.stream).compat_write()).poll_write(cx, buf)
+  }
+
+  fn poll_flush(
+    mut self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<io::Result<()>> {
+    Pin::new(&mut (&mut self.stream).compat_write()).poll_flush(cx)
+  }
+
+  fn poll_close(
+    mut self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<io::Result<()>> {
+    Pin::new(&mut (&mut self.stream).compat_write()).poll_close(cx)
+  }
+}
+
+impl ::tokio::io::AsyncWrite for TokioTcpStreamOwnedWriteHalf {
+  fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+      .poll_write(cx, buf)
+  }
+
+  fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    Pin::new(&mut self.stream).poll_flush(cx)
+  }
+
+  fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    Pin::new(&mut self.stream).poll_shutdown(cx)
+  }
+}
+
+impl TcpStreamOwnedReadHalf for TokioTcpStreamOwnedReadHalf {
+  type Runtime = TokioRuntime;
+
+  fn set_read_timeout(&self, timeout: Option<Duration>) {
+    self.read_timeout.store(timeout, Ordering::Release);
+  }
+
+  fn read_timeout(&self) -> Option<Duration> {
+    self.read_timeout.load(Ordering::Acquire)
+  }
+
+  fn local_addr(&self) -> io::Result<SocketAddr> {
+    self.stream.local_addr()
+  }
+
+  fn peer_addr(&self) -> io::Result<SocketAddr> {
+    self.stream.peer_addr()
+  }
+}
+
+impl TcpStreamOwnedWriteHalf for TokioTcpStreamOwnedWriteHalf {
+  type Runtime = TokioRuntime;
+
+  fn set_write_timeout(&self, timeout: Option<Duration>) {
+    self.write_timeout.store(timeout, Ordering::Release);
+  }
+
+  fn write_timeout(&self) -> Option<Duration> {
+    self.write_timeout.load(Ordering::Acquire)
+  }
+
+  fn forget(self) {
+    self.stream.forget()
+  }
+
+  fn local_addr(&self) -> io::Result<SocketAddr> {
+    self.stream.local_addr()
+  }
+
+  fn peer_addr(&self) -> io::Result<SocketAddr> {
+    self.stream.peer_addr()
+  }
+}
+
 impl crate::net::TcpStream for TokioTcpStream {
   type Runtime = TokioRuntime;
+  type OwnedReadHalf = TokioTcpStreamOwnedReadHalf;
+  type OwnedWriteHalf = TokioTcpStreamOwnedWriteHalf;
+  type ReuniteError = ::tokio::net::tcp::ReuniteError;
 
   fn connect<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
@@ -288,6 +437,31 @@ impl crate::net::TcpStream for TokioTcpStream {
 
   fn read_timeout(&self) -> Option<Duration> {
     self.read_timeout.load(Ordering::SeqCst)
+  }
+
+  fn into_split(self) -> (Self::OwnedReadHalf, Self::OwnedWriteHalf) {
+    let (read, write) = self.stream.into_split();
+    (
+      TokioTcpStreamOwnedReadHalf {
+        stream: read,
+        read_timeout: self.read_timeout,
+      },
+      TokioTcpStreamOwnedWriteHalf {
+        stream: write,
+        write_timeout: self.write_timeout,
+      },
+    )
+  }
+
+  fn reunite(
+    read: Self::OwnedReadHalf,
+    write: Self::OwnedWriteHalf,
+  ) -> Result<Self, Self::ReuniteError> {
+    read.stream.reunite(write.stream).map(|stream| Self {
+      stream,
+      write_timeout: write.write_timeout,
+      read_timeout: read.read_timeout,
+    })
   }
 }
 
