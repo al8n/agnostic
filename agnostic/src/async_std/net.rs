@@ -21,6 +21,9 @@ use crate::{
 
 use super::AsyncStdRuntime;
 
+#[cfg(feature = "quinn")]
+pub use quinn_::AsyncStdQuinnRuntime;
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct AsyncStdNet;
 
@@ -30,6 +33,38 @@ impl Net for AsyncStdNet {
   type TcpStream = AsyncStdTcpStream;
 
   type UdpSocket = AsyncStdUdpSocket;
+
+  #[cfg(feature = "quinn")]
+  type Quinn = AsyncStdQuinnRuntime;
+}
+
+#[cfg(feature = "quinn")]
+mod quinn_ {
+  use quinn::{Runtime, AsyncStdRuntime};
+
+  #[derive(Debug)]
+  #[repr(transparent)]
+  pub struct AsyncStdQuinnRuntime(AsyncStdRuntime);
+
+  impl Default for AsyncStdQuinnRuntime {
+    fn default() -> Self {
+      Self(AsyncStdRuntime)
+    }
+  }
+
+  impl Runtime for AsyncStdQuinnRuntime {
+    fn new_timer(&self, i: std::time::Instant) -> std::pin::Pin<Box<dyn quinn::AsyncTimer>> {
+      self.0.new_timer(i)
+    }
+
+    fn spawn(&self, future: std::pin::Pin<Box<dyn async_std::prelude::Future<Output = ()> + Send>>) {
+      self.0.spawn(future)
+    }
+
+    fn wrap_udp_socket(&self, t: std::net::UdpSocket) -> std::io::Result<Box<dyn quinn::AsyncUdpSocket>> {
+      self.0.wrap_udp_socket(t)
+    }
+  }
 }
 
 pub struct AsyncStdTcpListener {

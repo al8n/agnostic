@@ -334,6 +334,9 @@ pub trait Net {
   type TcpListener: TcpListener<Stream = Self::TcpStream>;
   type TcpStream: TcpStream;
   type UdpSocket: UdpSocket;
+
+  #[cfg(feature = "quinn")]
+  type Quinn: quinn::Runtime + Default;
 }
 
 #[cfg(all(unix, feature = "socket2"))]

@@ -12,6 +12,10 @@ use futures_util::FutureExt;
 #[cfg(feature = "net")]
 pub mod net;
 
+// TODO: remove this when quinn support SmolRuntime
+#[cfg(all(feature = "quinn", feature = "net"))]
+mod quinn_;
+
 struct DelayFuncHandle<F: Future> {
   handle: ::smol::Task<Option<F::Output>>,
   reset_tx: channel::Sender<Duration>,

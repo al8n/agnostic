@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "Agnostic is a helpful crate for users who want to write async runtime-agnostic crate."
@@ -32,6 +32,8 @@ dnssec-openssl = ["dns", "hickory-proto/dnssec-openssl", "hickory-resolver/dnsse
 dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring", "hickory-resolver/dnssec-ring"]
 dnssec = ["dns", "hickory-proto/dnssec", "hickory-resolver/dnssec"]
 
+quinn = ["quinn/native-certs", "quinn/tls-rustls", "quinn/log", "quinn-udp", "net"]
+
 net = ["atomic", "io", "socket2", "tokio?/net", "tokio?/io-util", "tokio?/io-std", "async-std?/default"]
 io = ["futures-util/io"]
 
@@ -41,8 +43,8 @@ io = ["futures-util/io"]
 # But if you are using tokio, this feature can be ignored.
 tokio-compat = ["tokio-util/compat", "dep:tokio"]
 
-tokio = ["dep:tokio", "pin-project-lite", "tokio-stream", "tokio/rt", "tokio/sync", "tokio/macros", "tokio/time", "tokio-compat"]
-async-std = ["dep:async-std", "async-io", "pin-project-lite"]
+tokio = ["dep:tokio", "quinn?/runtime-tokio", "pin-project-lite", "tokio-stream", "tokio/rt", "tokio/sync", "tokio/macros", "tokio/time", "tokio-compat"]
+async-std = ["dep:async-std", "quinn?/runtime-async-std", "async-io", "pin-project-lite"]
 smol = ["dep:smol", "pin-project-lite", "async-io"]
 
 tracing = ["dep:tracing"]
@@ -77,6 +79,9 @@ async-channel = { version = "2", optional = true }
 hickory-proto = { version = "0.24", default-features = false, optional = true }
 resolv-conf = { version = "0.7", default-features = false, optional = true }
 thiserror = { version = "1", optional = true }
+
+quinn = { version = "0.10", optional = true, default-features = false }
+quinn-udp = { version = "0.4", optional = true, default-features = false }
 
 tracing = { version = "0.1", optional = true }
 

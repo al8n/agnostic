@@ -21,6 +21,8 @@ use crate::{
 
 use super::SmolRuntime;
 
+pub use super::quinn_::SmolRuntime as SmolQuinnRuntime;
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SmolNet;
 
@@ -30,6 +32,9 @@ impl Net for SmolNet {
   type TcpStream = SmolTcpStream;
 
   type UdpSocket = SmolUdpSocket;
+
+  #[cfg(feature = "quinn")]
+  type Quinn = SmolQuinnRuntime;
 }
 
 pub struct SmolTcpListener {

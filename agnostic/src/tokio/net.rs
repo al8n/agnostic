@@ -23,6 +23,9 @@ use crate::{
 
 use super::TokioRuntime;
 
+#[cfg(feature = "quinn")]
+pub use quinn_::TokioQuinnRuntime;
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TokioNet;
 
@@ -32,7 +35,43 @@ impl Net for TokioNet {
   type TcpStream = TokioTcpStream;
 
   type UdpSocket = TokioUdpSocket;
+
+  #[cfg(feature = "quinn")]
+  type Quinn = TokioQuinnRuntime;
 }
+
+
+#[cfg(feature = "quinn")]
+mod quinn_ {
+  use quinn::{Runtime, TokioRuntime};
+
+  #[derive(Debug)]
+  #[repr(transparent)]
+  pub struct TokioQuinnRuntime(TokioRuntime);
+
+  impl Default for TokioQuinnRuntime {
+    fn default() -> Self {
+      Self(TokioRuntime)
+    }
+  }
+
+  impl Runtime for TokioQuinnRuntime {
+    fn new_timer(&self, i: std::time::Instant) -> std::pin::Pin<Box<dyn quinn::AsyncTimer>> {
+      self.0.new_timer(i)
+    }
+
+    fn spawn(&self, future: std::pin::Pin<Box<dyn async_std::prelude::Future<Output = ()> + Send>>) {
+      self.0.spawn(future)
+    }
+
+    fn wrap_udp_socket(&self, t: std::net::UdpSocket) -> std::io::Result<Box<dyn quinn::AsyncUdpSocket>> {
+      self.0.wrap_udp_socket(t)
+    }
+  }
+}
+
+
+
 
 pub struct TokioTcpListener {
   ln: TcpListener,
