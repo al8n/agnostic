@@ -40,7 +40,6 @@ impl Net for TokioNet {
   type Quinn = TokioQuinnRuntime;
 }
 
-
 #[cfg(feature = "quinn")]
 mod quinn_ {
   use quinn::{Runtime, TokioRuntime};
@@ -60,18 +59,21 @@ mod quinn_ {
       self.0.new_timer(i)
     }
 
-    fn spawn(&self, future: std::pin::Pin<Box<dyn async_std::prelude::Future<Output = ()> + Send>>) {
+    fn spawn(
+      &self,
+      future: std::pin::Pin<Box<dyn async_std::prelude::Future<Output = ()> + Send>>,
+    ) {
       self.0.spawn(future)
     }
 
-    fn wrap_udp_socket(&self, t: std::net::UdpSocket) -> std::io::Result<Box<dyn quinn::AsyncUdpSocket>> {
+    fn wrap_udp_socket(
+      &self,
+      t: std::net::UdpSocket,
+    ) -> std::io::Result<Box<dyn quinn::AsyncUdpSocket>> {
       self.0.wrap_udp_socket(t)
     }
   }
 }
-
-
-
 
 pub struct TokioTcpListener {
   ln: TcpListener,
