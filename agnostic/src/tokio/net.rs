@@ -59,10 +59,7 @@ mod quinn_ {
       self.0.new_timer(i)
     }
 
-    fn spawn(
-      &self,
-      future: std::pin::Pin<Box<dyn async_std::prelude::Future<Output = ()> + Send>>,
-    ) {
+    fn spawn(&self, future: std::pin::Pin<Box<dyn core::future::Future<Output = ()> + Send>>) {
       self.0.spawn(future)
     }
 
