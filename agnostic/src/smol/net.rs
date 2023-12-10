@@ -21,6 +21,7 @@ use crate::{
 
 use super::SmolRuntime;
 
+#[cfg(feature = "quinn")]
 pub use super::quinn_::SmolRuntime as SmolQuinnRuntime;
 
 #[derive(Debug, Default, Clone, Copy)]
