@@ -4,12 +4,12 @@ use std::{
   net::SocketAddr,
   ops::Deref,
   pin::Pin,
-  sync::Arc,
+  sync::{atomic::Ordering, Arc},
   task::{Context, Poll},
   time::Duration,
 };
 
-use atomic::{Atomic, Ordering};
+use atomic_time::AtomicOptionDuration;
 use tokio::{
   io::{AsyncReadExt, AsyncWriteExt},
   net::{TcpListener, TcpStream, UdpSocket},
@@ -74,8 +74,8 @@ mod quinn_ {
 
 pub struct TokioTcpListener {
   ln: TcpListener,
-  write_timeout: Atomic<Option<Duration>>,
-  read_timeout: Atomic<Option<Duration>>,
+  write_timeout: AtomicOptionDuration,
+  read_timeout: AtomicOptionDuration,
 }
 
 impl crate::net::TcpListener for TokioTcpListener {
@@ -104,8 +104,8 @@ impl crate::net::TcpListener for TokioTcpListener {
 
       res.map(|ln| Self {
         ln,
-        write_timeout: Atomic::new(None),
-        read_timeout: Atomic::new(None),
+        write_timeout: AtomicOptionDuration::new(None),
+        read_timeout: AtomicOptionDuration::new(None),
       })
     }
   }
@@ -116,8 +116,8 @@ impl crate::net::TcpListener for TokioTcpListener {
         (
           TokioTcpStream {
             stream,
-            write_timeout: Atomic::new(self.write_timeout.load(Ordering::SeqCst)),
-            read_timeout: Atomic::new(self.read_timeout.load(Ordering::SeqCst)),
+            write_timeout: AtomicOptionDuration::new(self.write_timeout.load(Ordering::SeqCst)),
+            read_timeout: AtomicOptionDuration::new(self.read_timeout.load(Ordering::SeqCst)),
           },
           addr,
         )
@@ -148,8 +148,8 @@ impl crate::net::TcpListener for TokioTcpListener {
 
 pub struct TokioTcpStream {
   stream: TcpStream,
-  write_timeout: Atomic<Option<Duration>>,
-  read_timeout: Atomic<Option<Duration>>,
+  write_timeout: AtomicOptionDuration,
+  read_timeout: AtomicOptionDuration,
 }
 
 impl futures_util::AsyncRead for TokioTcpStream {
@@ -244,7 +244,7 @@ impl tokio::io::AsyncWrite for TokioTcpStream {
 
 pub struct TokioTcpStreamOwnedReadHalf {
   stream: ::tokio::net::tcp::OwnedReadHalf,
-  read_timeout: Atomic<Option<Duration>>,
+  read_timeout: AtomicOptionDuration,
 }
 
 impl futures_util::io::AsyncRead for TokioTcpStreamOwnedReadHalf {
@@ -286,7 +286,7 @@ impl tokio::io::AsyncRead for TokioTcpStreamOwnedReadHalf {
 
 pub struct TokioTcpStreamOwnedWriteHalf {
   stream: ::tokio::net::tcp::OwnedWriteHalf,
-  write_timeout: Atomic<Option<Duration>>,
+  write_timeout: AtomicOptionDuration,
 }
 
 impl futures_util::io::AsyncWrite for TokioTcpStreamOwnedWriteHalf {
@@ -416,8 +416,8 @@ impl crate::net::TcpStream for TokioTcpStream {
 
       res.map(|stream| Self {
         stream,
-        write_timeout: Atomic::new(None),
-        read_timeout: Atomic::new(None),
+        write_timeout: AtomicOptionDuration::new(None),
+        read_timeout: AtomicOptionDuration::new(None),
       })
     }
   }
@@ -505,8 +505,8 @@ impl crate::net::TcpStream for TokioTcpStream {
 
 pub struct TokioUdpSocket {
   socket: UdpSocket,
-  write_timeout: Atomic<Option<Duration>>,
-  read_timeout: Atomic<Option<Duration>>,
+  write_timeout: AtomicOptionDuration,
+  read_timeout: AtomicOptionDuration,
 }
 
 impl crate::net::UdpSocket for TokioUdpSocket {
@@ -533,8 +533,8 @@ impl crate::net::UdpSocket for TokioUdpSocket {
       };
       res.map(|socket| Self {
         socket,
-        write_timeout: Atomic::new(None),
-        read_timeout: Atomic::new(None),
+        write_timeout: AtomicOptionDuration::new(None),
+        read_timeout: AtomicOptionDuration::new(None),
       })
     }
   }

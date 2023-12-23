@@ -34,8 +34,8 @@ impl Net for TokioWasmNet {
 
 pub struct TokioTcpListener {
   ln: TcpListener,
-  write_timeout: Atomic<Option<Duration>>,
-  read_timeout: Atomic<Option<Duration>>,
+  write_timeout: AtomicOptionDuration,
+  read_timeout: AtomicOptionDuration,
 }
 
 impl crate::net::TcpListener for TokioTcpListener {
@@ -110,8 +110,8 @@ impl crate::net::TcpListener for TokioTcpListener {
 
 pub struct TokioTcpStream {
   stream: TcpStream,
-  write_timeout: Atomic<Option<Duration>>,
-  read_timeout: Atomic<Option<Duration>>,
+  write_timeout: AtomicOptionDuration,
+  read_timeout: AtomicOptionDuration,
 }
 
 impl futures_util::AsyncRead for TokioTcpStream {
@@ -296,8 +296,8 @@ impl crate::net::TcpStream for TokioTcpStream {
 
 pub struct TokioUdpSocket {
   socket: UdpSocket,
-  write_timeout: Atomic<Option<Duration>>,
-  read_timeout: Atomic<Option<Duration>>,
+  write_timeout: AtomicOptionDuration,
+  read_timeout: AtomicOptionDuration,
 }
 
 impl crate::net::UdpSocket for TokioUdpSocket {

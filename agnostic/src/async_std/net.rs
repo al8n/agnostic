@@ -3,12 +3,12 @@ use std::{
   io,
   net::SocketAddr,
   pin::Pin,
-  sync::Arc,
+  sync::{atomic::Ordering, Arc},
   task::{Context, Poll},
   time::Duration,
 };
 
-use atomic::{Atomic, Ordering};
+use atomic_time::AtomicOptionDuration;
 use futures_util::{AsyncReadExt, AsyncWriteExt, FutureExt};
 use smol::net::{TcpListener, TcpStream, UdpSocket};
 #[cfg(feature = "compat")]
@@ -75,8 +75,8 @@ mod quinn_ {
 
 pub struct AsyncStdTcpListener {
   ln: TcpListener,
-  write_timeout: Atomic<Option<Duration>>,
-  read_timeout: Atomic<Option<Duration>>,
+  write_timeout: AtomicOptionDuration,
+  read_timeout: AtomicOptionDuration,
 }
 
 impl crate::net::TcpListener for AsyncStdTcpListener {
@@ -105,8 +105,8 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
 
       res.map(|ln| Self {
         ln,
-        write_timeout: Atomic::new(None),
-        read_timeout: Atomic::new(None),
+        write_timeout: AtomicOptionDuration::new(None),
+        read_timeout: AtomicOptionDuration::new(None),
       })
     }
   }
@@ -117,8 +117,8 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
         (
           AsyncStdTcpStream {
             stream,
-            write_timeout: Atomic::new(self.write_timeout.load(Ordering::SeqCst)),
-            read_timeout: Atomic::new(self.read_timeout.load(Ordering::SeqCst)),
+            write_timeout: AtomicOptionDuration::new(self.write_timeout.load(Ordering::SeqCst)),
+            read_timeout: AtomicOptionDuration::new(self.read_timeout.load(Ordering::SeqCst)),
           },
           addr,
         )
@@ -149,8 +149,8 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
 
 pub struct AsyncStdTcpStream {
   stream: TcpStream,
-  write_timeout: Atomic<Option<Duration>>,
-  read_timeout: Atomic<Option<Duration>>,
+  write_timeout: AtomicOptionDuration,
+  read_timeout: AtomicOptionDuration,
 }
 
 impl futures_util::AsyncRead for AsyncStdTcpStream {
@@ -273,14 +273,14 @@ impl std::error::Error for ReuniteError {}
 #[derive(Debug)]
 pub struct AsyncStdTcpStreamOwnedReadHalf {
   stream: TcpStream,
-  read_timeout: Atomic<Option<Duration>>,
+  read_timeout: AtomicOptionDuration,
   id: usize,
 }
 
 #[derive(Debug)]
 pub struct AsyncStdTcpStreamOwnedWriteHalf {
   stream: TcpStream,
-  write_timeout: Atomic<Option<Duration>>,
+  write_timeout: AtomicOptionDuration,
   shutdown_on_drop: bool,
   id: usize,
 }
@@ -473,8 +473,8 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
 
       res.map(|stream| Self {
         stream,
-        write_timeout: Atomic::new(None),
-        read_timeout: Atomic::new(None),
+        write_timeout: AtomicOptionDuration::new(None),
+        read_timeout: AtomicOptionDuration::new(None),
       })
     }
   }
@@ -562,7 +562,7 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
       write.shutdown_on_drop = false;
       Ok(Self {
         stream: read.stream,
-        write_timeout: Atomic::new(write.write_timeout.load(Ordering::Relaxed)),
+        write_timeout: AtomicOptionDuration::new(write.write_timeout.load(Ordering::Relaxed)),
         read_timeout: read.read_timeout,
       })
     } else {
@@ -573,8 +573,8 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
 
 pub struct AsyncStdUdpSocket {
   socket: UdpSocket,
-  write_timeout: Atomic<Option<Duration>>,
-  read_timeout: Atomic<Option<Duration>>,
+  write_timeout: AtomicOptionDuration,
+  read_timeout: AtomicOptionDuration,
 }
 
 impl crate::net::UdpSocket for AsyncStdUdpSocket {
@@ -601,8 +601,8 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
       };
       res.map(|socket| Self {
         socket,
-        write_timeout: Atomic::new(None),
-        read_timeout: Atomic::new(None),
+        write_timeout: AtomicOptionDuration::new(None),
+        read_timeout: AtomicOptionDuration::new(None),
       })
     }
   }
