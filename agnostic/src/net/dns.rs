@@ -14,17 +14,17 @@ pub type Dns<R> = AsyncResolver<AsyncConnectionProvider<R>>;
 
 #[doc(hidden)]
 #[repr(transparent)]
-pub struct AsyncSpawn<R: Runtime> {
+pub struct AsyncSpawn<R> {
   _marker: PhantomData<R>,
 }
 
-impl<R: Runtime> Clone for AsyncSpawn<R> {
+impl<R> Clone for AsyncSpawn<R> {
   fn clone(&self) -> Self {
     *self
   }
 }
 
-impl<R: Runtime> Copy for AsyncSpawn<R> {}
+impl<R> Copy for AsyncSpawn<R> {}
 
 impl<R: Runtime> Spawn for AsyncSpawn<R> {
   fn spawn_bg<F>(&mut self, future: F)
@@ -39,17 +39,17 @@ impl<R: Runtime> Spawn for AsyncSpawn<R> {
 
 /// Defines which async runtime that handles IO and timers.
 #[doc(hidden)]
-pub struct AsyncRuntimeProvider<R: Runtime> {
+pub struct AsyncRuntimeProvider<R> {
   runtime: AsyncSpawn<R>,
 }
 
-impl<R: Runtime> Default for AsyncRuntimeProvider<R> {
+impl<R> Default for AsyncRuntimeProvider<R> {
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl<R: Runtime> AsyncRuntimeProvider<R> {
+impl<R> AsyncRuntimeProvider<R> {
   pub fn new() -> Self {
     Self {
       runtime: AsyncSpawn {
@@ -60,17 +60,15 @@ impl<R: Runtime> AsyncRuntimeProvider<R> {
 }
 
 impl<R> Clone for AsyncRuntimeProvider<R>
-where
-  R: Runtime,
 {
   fn clone(&self) -> Self {
     *self
   }
 }
 
-impl<R> Copy for AsyncRuntimeProvider<R> where R: Runtime {}
+impl<R> Copy for AsyncRuntimeProvider<R> {}
 
-pub struct Timer<R: Runtime>(PhantomData<R>);
+pub struct Timer<R>(PhantomData<R>);
 
 #[async_trait::async_trait]
 impl<R: Runtime> Time for Timer<R> {
@@ -95,7 +93,7 @@ impl<R: Runtime> Time for Timer<R> {
 
 #[doc(hidden)]
 #[derive(Clone, Copy, Debug)]
-pub struct AgnosticTime<R: Runtime>(PhantomData<R>);
+pub struct AgnosticTime<R>(PhantomData<R>);
 
 #[async_trait::async_trait]
 impl<R> Time for AgnosticTime<R>

@@ -10,7 +10,7 @@ use std::{
 
 use atomic_time::AtomicOptionDuration;
 use futures_util::{AsyncReadExt, AsyncWriteExt, FutureExt};
-use smol::net::{TcpListener, TcpStream, UdpSocket};
+use ::async_std::net::{TcpListener, TcpStream, UdpSocket};
 #[cfg(feature = "compat")]
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
 
