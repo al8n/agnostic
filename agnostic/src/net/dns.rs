@@ -59,8 +59,7 @@ impl<R> AsyncRuntimeProvider<R> {
   }
 }
 
-impl<R> Clone for AsyncRuntimeProvider<R>
-{
+impl<R> Clone for AsyncRuntimeProvider<R> {
   fn clone(&self) -> Self {
     *self
   }
