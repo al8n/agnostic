@@ -111,7 +111,7 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
     }
   }
 
-  fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send + '_ {
+  fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send {
     async move {
       self.ln.accept().await.map(|(stream, addr)| {
         (

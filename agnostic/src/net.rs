@@ -35,18 +35,43 @@ pub trait ToSocketAddrs<R: Runtime>: Send + Sync {
   fn to_socket_addrs(&self) -> Self::Future;
 }
 
+/// An abstraction layer for TCP listener.
 pub trait TcpListener: Unpin + Send + Sync + 'static {
+  /// The async runtime.
   type Runtime: Runtime;
+  /// Stream of incoming connections.
   type Stream: TcpStream<Runtime = Self::Runtime>;
 
+  /// Creates a new TcpListener, which will be bound to the specified address.
+  ///
+  /// The returned listener is ready for accepting connections.
+  ///
+  /// Binding with a port number of 0 will request that the OS assigns a port
+  /// to this listener. The port allocated can be queried via the `local_addr`
+  /// method.
+  ///
+  /// The address type can be any implementor of the [`ToSocketAddrs`] trait.
+  /// If `addr` yields multiple addresses, bind will be attempted with each of
+  /// the addresses until one succeeds and returns the listener. If none of
+  /// the addresses succeed in creating a listener, the error returned from
+  /// the last attempt (the last address) is returned.
+  ///
+  /// This function sets the `SO_REUSEADDR` option on the socket.
   fn bind<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
   ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
-  fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send + '_;
+  /// Accepts a new incoming connection from this listener.
+  ///
+  /// This function will yield once a new TCP connection is established. When established,
+  /// the corresponding [`TcpStream`] and the remote peer's address will be returned.
+  fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send;
 
+  /// Returns the local address that this listener is bound to.
+  ///
+  /// This can be useful, for example, when binding to port 0 to figure out which port was actually bound.
   fn local_addr(&self) -> io::Result<SocketAddr>;
 
   fn set_write_timeout(&self, timeout: Option<Duration>);
@@ -347,6 +372,7 @@ pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Re
 
   // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
   let socket = unsafe { Socket::from_raw_fd(fd) };
+  socket.set_nonblocking(true)?;
   let mut err = None;
 
   while size > 0 {
@@ -375,7 +401,7 @@ pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::R
   // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
   let socket = unsafe { Socket::from_raw_fd(fd) };
   let mut err = None;
-
+  socket.set_nonblocking(true)?;
   while size > 0 {
     match socket.set_send_buffer_size(size) {
       Ok(()) => return Ok(()),
@@ -405,6 +431,7 @@ pub(crate) fn set_read_buffer(
 
   // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
   let socket = unsafe { Socket::from_raw_socket(fd) };
+  socket.set_nonblocking(true)?;
   let mut err = None;
 
   while size > 0 {
@@ -436,6 +463,7 @@ pub(crate) fn set_write_buffer(
 
   // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
   let socket = unsafe { Socket::from_raw_socket(fd) };
+  socket.set_nonblocking(true)?;
   let mut err = None;
 
   while size > 0 {
