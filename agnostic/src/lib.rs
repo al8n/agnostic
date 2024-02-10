@@ -145,6 +145,97 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
     F: Future + Send;
 }
 
+/// A waitable spawner, when spawning, a wait group is incremented,
+/// and when the spawned task is finished, the wait group is decremented.
+pub struct WaitableSpawner<R> {
+  wg: wg::AsyncWaitGroup,
+  _runtime: std::marker::PhantomData<R>,
+}
+
+impl<R> WaitableSpawner<R> {
+  /// Creates a new `WaitableSpawner`
+  pub fn new() -> Self {
+    Self {
+      wg: wg::AsyncWaitGroup::new(),
+      _runtime: std::marker::PhantomData,
+    }
+  }
+}
+
+impl<R: Runtime> WaitableSpawner<R> {
+  /// Spawns a future and increments the wait group
+  pub fn spawn<F>(&self, future: F) -> <R as Runtime>::JoinHandle<F::Output>
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static,
+  {
+    let wg = self.wg.add(1);
+    R::spawn(async move {
+      let res = future.await;
+      wg.done();
+      res
+    })
+  }
+
+  pub fn spawn_detach(&self, future: impl Future<Output = ()> + Send + 'static) {
+    Self::spawn(self, future);
+  }
+
+  /// Spawns a future and increments the wait group
+  pub fn spawn_local<F>(&self, future: F) -> R::JoinHandle<F::Output>
+  where
+    F::Output: 'static,
+    F: Future + 'static,
+  {
+    let wg = self.wg.add(1);
+    R::spawn_local(async move {
+      let res = future.await;
+      wg.done();
+      res
+    })
+  }
+
+  pub fn spawn_local_detach<F>(&self, future: F)
+  where
+    F: Future + 'static,
+    F::Output: 'static,
+  {
+    Self::spawn_local(self, future);
+  }
+
+  fn spawn_blocking_detach<F, RR>(&self, f: F)
+  where
+    F: FnOnce() -> RR + Send + 'static,
+    RR: Send + 'static,
+  {
+    Self::spawn_blocking(self, f);
+  }
+
+  /// Spawns a blocking function and increments the wait group
+  pub fn spawn_blocking<F, RR>(&self, f: F) -> R::JoinHandle<RR>
+  where
+    F: FnOnce() -> RR + Send + 'static,
+    RR: Send + 'static,
+  {
+    let wg = self.wg.add(1);
+    R::spawn_blocking(move || {
+      let res = f();
+      wg.done();
+      res
+    })
+  }
+
+  /// Waits for all spawned tasks to finish
+  pub async fn wait(&self) -> wg::WaitGroupFuture<'_> {
+    self.wg.wait()
+  }
+
+  /// Block waits for all spawned tasks to finish
+  pub fn block_wait(&self) {
+    self.wg.block_wait();
+  }
+}
+
 #[cfg(any(feature = "async-std", feature = "smol"))]
 mod timer {
   use super::{Runtime, Sleep};
