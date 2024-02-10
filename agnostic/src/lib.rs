@@ -152,6 +152,15 @@ pub struct WaitableSpawner<R> {
   _runtime: std::marker::PhantomData<R>,
 }
 
+impl<R> Clone for WaitableSpawner<R> {
+  fn clone(&self) -> Self {
+    Self {
+      wg: self.wg.clone(),
+      _runtime: std::marker::PhantomData,
+    }
+  }
+}
+
 impl<R> WaitableSpawner<R> {
   /// Creates a new `WaitableSpawner`
   pub fn new() -> Self {
@@ -226,7 +235,7 @@ impl<R: Runtime> WaitableSpawner<R> {
   }
 
   /// Waits for all spawned tasks to finish
-  pub async fn wait(&self) -> wg::WaitGroupFuture<'_> {
+  pub fn wait(&self) -> wg::WaitGroupFuture<'_> {
     self.wg.wait()
   }
 
