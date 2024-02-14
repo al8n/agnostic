@@ -187,7 +187,12 @@ impl<R: Runtime> WaitableSpawner<R> {
   }
 
   pub fn spawn_detach(&self, future: impl Future<Output = ()> + Send + 'static) {
-    Self::spawn(self, future);
+    let wg = self.wg.add(1);
+    R::spawn_detach(async move {
+      let res = future.await;
+      wg.done();
+      res
+    });
   }
 
   /// Spawns a future and increments the wait group
