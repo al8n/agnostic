@@ -10,8 +10,9 @@ use std::{
 };
 
 use atomic_time::AtomicOptionDuration;
+use futures_util::future::poll_fn;
 use tokio::{
-  io::{AsyncReadExt, AsyncWriteExt},
+  io::{AsyncReadExt, AsyncWriteExt, ReadBuf},
   net::{TcpListener, TcpStream, UdpSocket},
 };
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
@@ -521,7 +522,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
 
       let res = if addrs.size_hint().0 <= 1 {
         if let Some(addr) = addrs.next() {
-          UdpSocket::bind(addr).await
+          std::net::UdpSocket::bind(addr)
         } else {
           return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -529,13 +530,16 @@ impl crate::net::UdpSocket for TokioUdpSocket {
           ));
         }
       } else {
-        UdpSocket::bind(&addrs.collect::<Vec<_>>().as_slice()).await
+        std::net::UdpSocket::bind(&addrs.collect::<Vec<_>>().as_slice())
       };
-      res.map(|socket| Self {
-        socket,
+      res.and_then(|socket| Ok(Self {
+        socket: {
+          socket.set_nonblocking(true)?;
+          UdpSocket::from_std(socket)?
+        },
         write_timeout: AtomicOptionDuration::new(None),
         read_timeout: AtomicOptionDuration::new(None),
-      })
+      }))
     }
   }
 
@@ -611,16 +615,22 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     buf: &mut [u8],
   ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send {
     async move {
+      let mut buf = ReadBuf::new(buf);
+      let start = buf.filled().len();
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match TokioRuntime::timeout_nonblocking(timeout, self.socket.recv_from(buf)).await
+          return match TokioRuntime::timeout_nonblocking(timeout, poll_fn(|cx| {
+            self.socket.poll_recv_from(cx, &mut buf).map(|res| res.map(|addr| (buf.filled().len() - start, addr)))
+          })).await
           {
             Ok(timeout) => timeout,
             Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
           };
         }
       }
-      self.socket.recv_from(buf).await
+      poll_fn(|cx| {
+        self.socket.poll_recv_from(cx, &mut buf).map(|res| res.map(|addr| (buf.filled().len() - start, addr)))
+      }).await
     }
   }
 
@@ -651,7 +661,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
             if !timeout.is_zero() {
               return match TokioRuntime::timeout_nonblocking(
                 timeout,
-                self.socket.send_to(buf, addr),
+                poll_fn(|cx| self.socket.poll_send_to(cx, buf, addr)),
               )
               .await
               {
@@ -660,7 +670,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
               };
             }
           }
-          self.socket.send_to(buf, addr).await
+          poll_fn(|cx| self.socket.poll_send_to(cx, buf, addr)).await
         } else {
           return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
