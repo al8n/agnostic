@@ -43,7 +43,7 @@ impl QuinnRuntime for SmolRuntime {
   }
 
   fn spawn(&self, future: Pin<Box<dyn Future<Output = ()> + Send>>) {
-    async_std::task::spawn(future);
+    smol::spawn(future).detach();
   }
 
   fn wrap_udp_socket(&self, sock: std::net::UdpSocket) -> io::Result<Box<dyn AsyncUdpSocket>> {
