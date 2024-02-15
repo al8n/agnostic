@@ -147,7 +147,10 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   where
     F: Future + Send;
 
-  fn timeout_nonblocking<F>(duration: Duration, future: F) -> impl Future<Output = Result<F::Output, Self::TimeoutError>> + Send
+  fn timeout_nonblocking<F>(
+    duration: Duration,
+    future: F,
+  ) -> impl Future<Output = Result<F::Output, Self::TimeoutError>> + Send
   where
     F: Future + Send;
 }

@@ -160,7 +160,7 @@ impl futures_util::AsyncRead for TokioTcpStream {
   ) -> Poll<io::Result<usize>> {
     if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
-        let timeout = TokioRuntime::timeout(d, self.stream.read(buf));
+        let timeout = TokioRuntime::timeout_nonblocking(d, self.stream.read(buf));
         tokio::pin!(timeout);
         match timeout.poll(cx) {
           Poll::Ready(rst) => match rst {
@@ -184,7 +184,7 @@ impl futures_util::AsyncWrite for TokioTcpStream {
   ) -> std::task::Poll<io::Result<usize>> {
     if let Some(d) = self.write_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
-        let timeout = TokioRuntime::timeout(d, self.stream.write(buf));
+        let timeout = TokioRuntime::timeout_nonblocking(d, self.stream.write(buf));
         tokio::pin!(timeout);
         match timeout.poll(cx) {
           Poll::Ready(rst) => match rst {
@@ -255,7 +255,7 @@ impl futures_util::io::AsyncRead for TokioTcpStreamOwnedReadHalf {
   ) -> Poll<io::Result<usize>> {
     if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
-        let timeout = TokioRuntime::timeout(d, self.stream.read(buf));
+        let timeout = TokioRuntime::timeout_nonblocking(d, self.stream.read(buf));
         tokio::pin!(timeout);
         match timeout.poll(cx) {
           Poll::Ready(rst) => match rst {
@@ -297,7 +297,7 @@ impl futures_util::io::AsyncWrite for TokioTcpStreamOwnedWriteHalf {
   ) -> std::task::Poll<io::Result<usize>> {
     if let Some(d) = self.write_timeout.load(Ordering::Relaxed) {
       if !d.is_zero() {
-        let timeout = TokioRuntime::timeout(d, self.stream.write(buf));
+        let timeout = TokioRuntime::timeout_nonblocking(d, self.stream.write(buf));
         tokio::pin!(timeout);
         match timeout.poll(cx) {
           Poll::Ready(rst) => match rst {
@@ -430,7 +430,7 @@ impl crate::net::TcpStream for TokioTcpStream {
     Self: Sized,
   {
     async move {
-      TokioRuntime::timeout(timeout, Self::connect(addr))
+      TokioRuntime::timeout_nonblocking(timeout, Self::connect(addr))
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
         .and_then(|res| res)
@@ -547,7 +547,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     Self: Sized,
   {
     async move {
-      TokioRuntime::timeout(timeout, Self::bind(addr))
+      TokioRuntime::timeout_nonblocking(timeout, Self::bind(addr))
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
         .and_then(|res| res)
@@ -585,7 +585,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     timeout: Duration,
   ) -> impl Future<Output = io::Result<()>> + Send {
     async move {
-      TokioRuntime::timeout(timeout, self.connect(addr))
+      TokioRuntime::timeout_nonblocking(timeout, self.connect(addr))
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
         .and_then(|res| res)
@@ -596,7 +596,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     async move {
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match TokioRuntime::timeout(timeout, self.socket.recv(buf)).await {
+          return match TokioRuntime::timeout_nonblocking(timeout, self.socket.recv(buf)).await {
             Ok(timeout) => timeout,
             Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
           };
@@ -613,7 +613,8 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     async move {
       if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match TokioRuntime::timeout(timeout, self.socket.recv_from(buf)).await {
+          return match TokioRuntime::timeout_nonblocking(timeout, self.socket.recv_from(buf)).await
+          {
             Ok(timeout) => timeout,
             Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
           };
@@ -627,7 +628,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     async move {
       if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
         if !timeout.is_zero() {
-          return match TokioRuntime::timeout(timeout, self.socket.send(buf)).await {
+          return match TokioRuntime::timeout_nonblocking(timeout, self.socket.send(buf)).await {
             Ok(timeout) => timeout,
             Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
           };
@@ -648,7 +649,12 @@ impl crate::net::UdpSocket for TokioUdpSocket {
         if let Some(addr) = addrs.next() {
           if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
             if !timeout.is_zero() {
-              return match TokioRuntime::timeout(timeout, self.socket.send_to(buf, addr)).await {
+              return match TokioRuntime::timeout_nonblocking(
+                timeout,
+                self.socket.send_to(buf, addr),
+              )
+              .await
+              {
                 Ok(timeout) => timeout,
                 Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
               };
@@ -665,8 +671,11 @@ impl crate::net::UdpSocket for TokioUdpSocket {
         let addrs = addrs.collect::<Vec<_>>();
         if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
           if !timeout.is_zero() {
-            return match TokioRuntime::timeout(timeout, self.socket.send_to(buf, addrs.as_slice()))
-              .await
+            return match TokioRuntime::timeout_nonblocking(
+              timeout,
+              self.socket.send_to(buf, addrs.as_slice()),
+            )
+            .await
             {
               Ok(timeout) => timeout,
               Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),

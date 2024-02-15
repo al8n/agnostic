@@ -209,9 +209,13 @@ impl Runtime for SmolRuntime {
     }
   }
 
-  async fn timeout_nonblocking<F>(duration: Duration, future: F) -> Result<F::Output, Self::TimeoutError>
+  async fn timeout_nonblocking<F>(
+    duration: Duration,
+    future: F,
+  ) -> Result<F::Output, Self::TimeoutError>
   where
-    F: Future + Send {
+    F: Future + Send,
+  {
     Self::timeout(duration, future).await
-  } 
+  }
 }
