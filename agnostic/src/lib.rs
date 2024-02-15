@@ -150,10 +150,6 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   fn timeout_nonblocking<F>(duration: Duration, future: F) -> impl Future<Output = Result<F::Output, Self::TimeoutError>> + Send
   where
     F: Future + Send;
-  
-  fn timeout_at_nonblocking<F>(instant: Instant, future: F) -> impl Future<Output = Result<F::Output, Self::TimeoutError>> + Send
-  where
-    F: Future + Send;
 }
 
 /// A waitable spawner, when spawning, a wait group is incremented,

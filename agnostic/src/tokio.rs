@@ -273,16 +273,7 @@ impl Runtime for TokioRuntime {
     F: Future + Send {
     ::tokio::select! {
       res = future => Ok(res),
-      _ = ::tokio::time::sleep(duration) => Err(TimeoutError),
-    }
-  }
-
-  async fn timeout_at_nonblocking<F>(instant: Instant, future: F) -> Result<F::Output, Self::TimeoutError>
-  where
-    F: Future + Send {
-    ::tokio::select! {
-      res = future => Ok(res),
-      _ = ::tokio::time::sleep_until(instant.into()) => Err(TimeoutError),
+      _ = futures_timer::Delay::new(duration) => Err(TimeoutError),
     }
   }
 }

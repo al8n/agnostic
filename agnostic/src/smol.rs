@@ -213,11 +213,5 @@ impl Runtime for SmolRuntime {
   where
     F: Future + Send {
     Self::timeout(duration, future).await
-  }
-
-  async fn timeout_at_nonblocking<F>(instant: Instant, future: F) -> Result<F::Output, Self::TimeoutError>
-  where
-    F: Future + Send {
-    Self::timeout_at(instant, future).await
-  }
+  } 
 }
