@@ -8,6 +8,17 @@ use super::*;
 #[cfg(feature = "net")]
 pub mod net;
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct TimeoutError;
+
+impl core::fmt::Display for TimeoutError {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "timeout")
+  }
+}
+
+impl std::error::Error for TimeoutError {}
+
 impl super::Sleep for ::tokio::time::Sleep {
   /// Resets the `Sleep` instance to a new deadline.
   ///
@@ -166,6 +177,8 @@ impl Runtime for TokioRuntime {
   type Sleep = ::tokio::time::Sleep;
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = TokioTimeout<F> where F: Future + Send;
+  type TimeoutError = TimeoutError;
+
   #[cfg(feature = "net")]
   type Net = self::net::TokioNet;
 
@@ -225,6 +238,10 @@ impl Runtime for TokioRuntime {
     ::tokio::time::sleep_until(instant.into())
   }
 
+  fn yield_now() -> impl Future<Output = ()> + Send {
+    ::tokio::task::yield_now()
+  }
+
   fn delay<F>(delay: Duration, fut: F) -> Self::Delay<F>
   where
     F: Future + Send + 'static,
@@ -248,6 +265,24 @@ impl Runtime for TokioRuntime {
   {
     TokioTimeout {
       timeout: ::tokio::time::timeout_at(instant.into(), fut),
+    }
+  }
+
+  async fn timeout_nonblocking<F>(duration: Duration, future: F) -> Result<F::Output, Self::TimeoutError>
+  where
+    F: Future + Send {
+    ::tokio::select! {
+      res = future => Ok(res),
+      _ = ::tokio::time::sleep(duration) => Err(TimeoutError),
+    }
+  }
+
+  async fn timeout_at_nonblocking<F>(instant: Instant, future: F) -> Result<F::Output, Self::TimeoutError>
+  where
+    F: Future + Send {
+    ::tokio::select! {
+      res = future => Ok(res),
+      _ = ::tokio::time::sleep_until(instant.into()) => Err(TimeoutError),
     }
   }
 }

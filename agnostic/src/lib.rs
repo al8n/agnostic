@@ -76,6 +76,7 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   type Timeout<F>: Future<Output = std::io::Result<F::Output>> + Send
   where
     F: Future + Send;
+  type TimeoutError: Send + 'static;
 
   #[cfg(feature = "net")]
   type Net: net::Net;
@@ -131,6 +132,8 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
 
   fn sleep_until(instant: Instant) -> Self::Sleep;
 
+  fn yield_now() -> impl Future<Output = ()> + Send;
+
   fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
   where
     F: Future + Send + 'static,
@@ -141,6 +144,14 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
     F: Future + Send;
 
   fn timeout_at<F>(instant: Instant, future: F) -> Self::Timeout<F>
+  where
+    F: Future + Send;
+
+  fn timeout_nonblocking<F>(duration: Duration, future: F) -> impl Future<Output = Result<F::Output, Self::TimeoutError>> + Send
+  where
+    F: Future + Send;
+  
+  fn timeout_at_nonblocking<F>(instant: Instant, future: F) -> impl Future<Output = Result<F::Output, Self::TimeoutError>> + Send
   where
     F: Future + Send;
 }

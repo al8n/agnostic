@@ -103,6 +103,8 @@ impl Runtime for SmolRuntime {
   type Sleep = Timer;
   type Delay<F> = SmolDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = Timeout<F> where F: Future + Send;
+  type TimeoutError = std::io::Error;
+
   #[cfg(feature = "net")]
   type Net = net::SmolNet;
 
@@ -178,6 +180,10 @@ impl Runtime for SmolRuntime {
     Timer::at(deadline)
   }
 
+  async fn yield_now() {
+    ::smol::future::yield_now().await
+  }
+
   fn delay<F>(delay: Duration, fut: F) -> Self::Delay<F>
   where
     F: Future + Send + 'static,
@@ -201,5 +207,17 @@ impl Runtime for SmolRuntime {
       timeout: Timer::at(instant),
       future: fut,
     }
+  }
+
+  async fn timeout_nonblocking<F>(duration: Duration, future: F) -> Result<F::Output, Self::TimeoutError>
+  where
+    F: Future + Send {
+    Self::timeout(duration, future).await
+  }
+
+  async fn timeout_at_nonblocking<F>(instant: Instant, future: F) -> Result<F::Output, Self::TimeoutError>
+  where
+    F: Future + Send {
+    Self::timeout_at(instant, future).await
   }
 }
