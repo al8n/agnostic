@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.2.14"
+version = "0.2.15"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "Agnostic is a helpful crate for users who want to write async runtime-agnostic crate."
