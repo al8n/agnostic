@@ -76,7 +76,7 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   type Timeout<F>: Future<Output = std::io::Result<F::Output>> + Send
   where
     F: Future + Send;
-  type TimeoutError: Send + 'static;
+  type TimeoutError: std::error::Error + Send + 'static;
 
   #[cfg(feature = "net")]
   type Net: net::Net;
