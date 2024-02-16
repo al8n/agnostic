@@ -88,6 +88,15 @@ where
   fn cancel(&mut self) -> impl Future<Output = Option<F::Output>> + Send + '_;
 }
 
+pub trait Timeoutable<F: Future + Send>:
+  Future<Output = Result<F::Output, Elapsed>> + Send
+{
+  fn poll_elapsed(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Result<F::Output, Elapsed>>;
+}
+
 /// Runtime trait
 pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   type JoinHandle<F>: Future;
@@ -97,7 +106,7 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   where
     F: Future + Send + 'static,
     F::Output: Send;
-  type Timeout<F>: Future<Output = Result<F::Output, Elapsed>> + Send
+  type Timeout<F>: Timeoutable<F>
   where
     F: Future + Send;
 
@@ -340,6 +349,25 @@ mod timer {
       self: std::pin::Pin<&mut Self>,
       cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
+      let this = self.project();
+      match this.future.poll(cx) {
+        Poll::Pending => {}
+        other => return other.map(Ok),
+      }
+
+      if this.timeout.poll(cx).is_ready() {
+        Poll::Ready(Err(super::Elapsed(())))
+      } else {
+        Poll::Pending
+      }
+    }
+  }
+
+  impl<F: Future + Send> super::Timeoutable<F> for Timeout<F> {
+    fn poll_elapsed(
+      self: std::pin::Pin<&mut Self>,
+      cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<<F as Future>::Output, super::Elapsed>> {
       let this = self.project();
       match this.future.poll(cx) {
         Poll::Pending => {}

@@ -157,6 +157,25 @@ impl<F: Future> Future for TokioTimeout<F> {
   }
 }
 
+impl<F: Future + Send> Timeoutable<F> for TokioTimeout<F> {
+  fn poll_elapsed(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Result<<F as Future>::Output, Elapsed>> {
+    let this = self.project();
+    match this.future.poll(cx) {
+      Poll::Pending => {}
+      other => return other.map(Ok),
+    }
+
+    if this.timeout.poll(cx).is_ready() {
+      Poll::Ready(Err(Elapsed(())))
+    } else {
+      Poll::Pending
+    }
+  }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct TokioRuntime;
 
