@@ -187,7 +187,7 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
     F: Future + Send;
 }
 
-pub trait WaitGroup {
+pub trait WaitGroup: Clone + Send + Sync + 'static {
   type Runtime: Runtime;
   type Wait<'a>: Future<Output = ()> + Send + 'a
   where
