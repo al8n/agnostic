@@ -2,6 +2,7 @@ use std::{
   future::Future,
   io,
   net::SocketAddr,
+  os::fd::{AsRawFd, FromRawFd},
   pin::Pin,
   sync::{atomic::Ordering, Arc},
   task::{Context, Poll},
@@ -9,7 +10,6 @@ use std::{
 };
 
 use ::async_std::net::{TcpListener, TcpStream, UdpSocket};
-use atomic_time::AtomicOptionDuration;
 use futures_util::{AsyncReadExt, AsyncWriteExt, FutureExt};
 #[cfg(feature = "compat")]
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
@@ -73,10 +73,10 @@ mod quinn_ {
   }
 }
 
+#[derive(Debug)]
+#[repr(transparent)]
 pub struct AsyncStdTcpListener {
   ln: TcpListener,
-  write_timeout: AtomicOptionDuration,
-  read_timeout: AtomicOptionDuration,
 }
 
 impl crate::net::TcpListener for AsyncStdTcpListener {
@@ -103,54 +103,29 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
         TcpListener::bind(addrs.collect::<Vec<_>>().as_slice()).await
       };
 
-      res.map(|ln| Self {
-        ln,
-        write_timeout: AtomicOptionDuration::new(None),
-        read_timeout: AtomicOptionDuration::new(None),
-      })
+      res.map(|ln| Self { ln })
     }
   }
 
   fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send {
     async move {
-      self.ln.accept().await.map(|(stream, addr)| {
-        (
-          AsyncStdTcpStream {
-            stream,
-            write_timeout: AtomicOptionDuration::new(self.write_timeout.load(Ordering::SeqCst)),
-            read_timeout: AtomicOptionDuration::new(self.read_timeout.load(Ordering::SeqCst)),
-          },
-          addr,
-        )
-      })
+      self
+        .ln
+        .accept()
+        .await
+        .map(|(stream, addr)| (AsyncStdTcpStream { stream }, addr))
     }
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
     self.ln.local_addr()
   }
-
-  fn set_write_timeout(&self, timeout: Option<Duration>) {
-    self.write_timeout.store(timeout, Ordering::SeqCst);
-  }
-
-  fn write_timeout(&self) -> Option<Duration> {
-    self.write_timeout.load(Ordering::SeqCst)
-  }
-
-  fn set_read_timeout(&self, timeout: Option<Duration>) {
-    self.read_timeout.store(timeout, Ordering::SeqCst);
-  }
-
-  fn read_timeout(&self) -> Option<Duration> {
-    self.read_timeout.load(Ordering::SeqCst)
-  }
 }
 
+#[derive(Debug)]
+#[repr(transparent)]
 pub struct AsyncStdTcpStream {
   stream: TcpStream,
-  write_timeout: AtomicOptionDuration,
-  read_timeout: AtomicOptionDuration,
 }
 
 impl futures_util::AsyncRead for AsyncStdTcpStream {
@@ -159,20 +134,6 @@ impl futures_util::AsyncRead for AsyncStdTcpStream {
     cx: &mut Context<'_>,
     buf: &mut [u8],
   ) -> Poll<io::Result<usize>> {
-    if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
-      if !d.is_zero() {
-        let timeout = AsyncStdRuntime::timeout(d, self.stream.read(buf));
-        futures_util::pin_mut!(timeout);
-        match timeout.poll(cx) {
-          Poll::Ready(rst) => match rst {
-            Ok(rst) => return Poll::Ready(rst),
-            Err(e) => return Poll::Ready(Err(io::Error::new(io::ErrorKind::TimedOut, e))),
-          },
-          Poll::Pending => return Poll::Pending,
-        }
-      }
-    }
-
     Pin::new(&mut (&mut self.stream)).poll_read(cx, buf)
   }
 }
@@ -183,20 +144,6 @@ impl futures_util::AsyncWrite for AsyncStdTcpStream {
     cx: &mut std::task::Context<'_>,
     buf: &[u8],
   ) -> std::task::Poll<io::Result<usize>> {
-    if let Some(d) = self.write_timeout.load(Ordering::Relaxed) {
-      if !d.is_zero() {
-        let timeout = AsyncStdRuntime::timeout(d, self.stream.write(buf));
-        futures_util::pin_mut!(timeout);
-        match timeout.poll(cx) {
-          Poll::Ready(rst) => match rst {
-            Ok(rst) => return Poll::Ready(rst),
-            Err(e) => return Poll::Ready(Err(io::Error::new(io::ErrorKind::TimedOut, e))),
-          },
-          Poll::Pending => return Poll::Pending,
-        }
-      }
-    }
-
     Pin::new(&mut (&mut self.stream)).poll_write(cx, buf)
   }
 
@@ -273,14 +220,12 @@ impl std::error::Error for ReuniteError {}
 #[derive(Debug)]
 pub struct AsyncStdTcpStreamOwnedReadHalf {
   stream: TcpStream,
-  read_timeout: AtomicOptionDuration,
   id: usize,
 }
 
 #[derive(Debug)]
 pub struct AsyncStdTcpStreamOwnedWriteHalf {
   stream: TcpStream,
-  write_timeout: AtomicOptionDuration,
   shutdown_on_drop: bool,
   id: usize,
 }
@@ -306,20 +251,6 @@ impl futures_util::AsyncRead for AsyncStdTcpStreamOwnedReadHalf {
     cx: &mut Context<'_>,
     buf: &mut [u8],
   ) -> Poll<io::Result<usize>> {
-    if let Some(d) = self.read_timeout.load(Ordering::Relaxed) {
-      if !d.is_zero() {
-        let timeout = AsyncStdRuntime::timeout(d, self.stream.read(buf));
-        futures_util::pin_mut!(timeout);
-        match timeout.poll(cx) {
-          Poll::Ready(rst) => match rst {
-            Ok(rst) => return Poll::Ready(rst),
-            Err(e) => return Poll::Ready(Err(io::Error::new(io::ErrorKind::TimedOut, e))),
-          },
-          Poll::Pending => return Poll::Pending,
-        }
-      }
-    }
-
     Pin::new(&mut (&mut self.stream)).poll_read(cx, buf)
   }
 }
@@ -330,20 +261,6 @@ impl futures_util::AsyncWrite for AsyncStdTcpStreamOwnedWriteHalf {
     cx: &mut std::task::Context<'_>,
     buf: &[u8],
   ) -> std::task::Poll<io::Result<usize>> {
-    if let Some(d) = self.write_timeout.load(Ordering::Relaxed) {
-      if !d.is_zero() {
-        let timeout = AsyncStdRuntime::timeout(d, self.stream.write(buf));
-        futures_util::pin_mut!(timeout);
-        match timeout.poll(cx) {
-          Poll::Ready(rst) => match rst {
-            Ok(rst) => return Poll::Ready(rst),
-            Err(e) => return Poll::Ready(Err(io::Error::new(io::ErrorKind::TimedOut, e))),
-          },
-          Poll::Pending => return Poll::Pending,
-        }
-      }
-    }
-
     Pin::new(&mut (&mut self.stream)).poll_write(cx, buf)
   }
 
@@ -401,14 +318,6 @@ impl tokio::io::AsyncWrite for AsyncStdTcpStreamOwnedWriteHalf {
 impl TcpStreamOwnedReadHalf for AsyncStdTcpStreamOwnedReadHalf {
   type Runtime = AsyncStdRuntime;
 
-  fn set_read_timeout(&self, timeout: Option<Duration>) {
-    self.read_timeout.store(timeout, Ordering::Release);
-  }
-
-  fn read_timeout(&self) -> Option<Duration> {
-    self.read_timeout.load(Ordering::Acquire)
-  }
-
   fn local_addr(&self) -> io::Result<SocketAddr> {
     self.stream.local_addr()
   }
@@ -420,14 +329,6 @@ impl TcpStreamOwnedReadHalf for AsyncStdTcpStreamOwnedReadHalf {
 
 impl TcpStreamOwnedWriteHalf for AsyncStdTcpStreamOwnedWriteHalf {
   type Runtime = AsyncStdRuntime;
-
-  fn set_write_timeout(&self, timeout: Option<Duration>) {
-    self.write_timeout.store(timeout, Ordering::Release);
-  }
-
-  fn write_timeout(&self) -> Option<Duration> {
-    self.write_timeout.load(Ordering::Acquire)
-  }
 
   fn forget(mut self) {
     self.shutdown_on_drop = false;
@@ -471,26 +372,7 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
         TcpStream::connect(&addrs.collect::<Vec<_>>().as_slice()).await
       };
 
-      res.map(|stream| Self {
-        stream,
-        write_timeout: AtomicOptionDuration::new(None),
-        read_timeout: AtomicOptionDuration::new(None),
-      })
-    }
-  }
-
-  fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
-    addr: A,
-    timeout: Duration,
-  ) -> impl Future<Output = io::Result<Self>> + Send
-  where
-    Self: Sized,
-  {
-    async move {
-      AsyncStdRuntime::timeout(timeout, Self::connect(addr))
-        .await
-        .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
-        .and_then(|res| res)
+      res.map(|stream| Self { stream })
     }
   }
 
@@ -518,33 +400,15 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
     self.stream.nodelay()
   }
 
-  fn set_write_timeout(&self, timeout: Option<Duration>) {
-    self.write_timeout.store(timeout, Ordering::SeqCst);
-  }
-
-  fn write_timeout(&self) -> Option<Duration> {
-    self.write_timeout.load(Ordering::SeqCst)
-  }
-
-  fn set_read_timeout(&self, timeout: Option<Duration>) {
-    self.read_timeout.store(timeout, Ordering::SeqCst);
-  }
-
-  fn read_timeout(&self) -> Option<Duration> {
-    self.read_timeout.load(Ordering::SeqCst)
-  }
-
   fn into_split(self) -> (Self::OwnedReadHalf, Self::OwnedWriteHalf) {
     let id = &self.stream as *const _ as usize;
     (
       AsyncStdTcpStreamOwnedReadHalf {
         stream: self.stream.clone(),
-        read_timeout: self.read_timeout,
         id,
       },
       AsyncStdTcpStreamOwnedWriteHalf {
         stream: self.stream,
-        write_timeout: self.write_timeout,
         shutdown_on_drop: true,
         id,
       },
@@ -562,19 +426,21 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
       write.shutdown_on_drop = false;
       Ok(Self {
         stream: read.stream,
-        write_timeout: AtomicOptionDuration::new(write.write_timeout.load(Ordering::Relaxed)),
-        read_timeout: read.read_timeout,
       })
     } else {
       Err(ReuniteError(read, write))
     }
   }
+
+  fn shutdown(&self, how: std::net::Shutdown) -> io::Result<()> {
+    unsafe { socket2::Socket::from_raw_fd(self.stream.as_raw_fd()) }.shutdown(how)
+  }
 }
 
+#[derive(Debug)]
+#[repr(transparent)]
 pub struct AsyncStdUdpSocket {
   socket: UdpSocket,
-  write_timeout: AtomicOptionDuration,
-  read_timeout: AtomicOptionDuration,
 }
 
 impl crate::net::UdpSocket for AsyncStdUdpSocket {
@@ -599,26 +465,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
       } else {
         UdpSocket::bind(&addrs.collect::<Vec<_>>().as_slice()).await
       };
-      res.map(|socket| Self {
-        socket,
-        write_timeout: AtomicOptionDuration::new(None),
-        read_timeout: AtomicOptionDuration::new(None),
-      })
-    }
-  }
-
-  fn bind_timeout<A: ToSocketAddrs<Self::Runtime>>(
-    addr: A,
-    timeout: Duration,
-  ) -> impl Future<Output = io::Result<Self>> + Send
-  where
-    Self: Sized,
-  {
-    async move {
-      AsyncStdRuntime::timeout(timeout, Self::bind(addr))
-        .await
-        .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
-        .and_then(|res| res)
+      res.map(|socket| Self { socket })
     }
   }
 
@@ -647,62 +494,19 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
-    &self,
-    addr: A,
-    timeout: Duration,
-  ) -> impl Future<Output = io::Result<()>> + Send {
-    async move {
-      AsyncStdRuntime::timeout(timeout, self.connect(addr))
-        .await
-        .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))
-        .and_then(|res| res)
-    }
-  }
-
   fn recv(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send {
-    async move {
-      if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
-        if !timeout.is_zero() {
-          return match AsyncStdRuntime::timeout(timeout, self.socket.recv(buf)).await {
-            Ok(timeout) => timeout,
-            Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
-          };
-        }
-      }
-      self.socket.recv(buf).await
-    }
+    async move { self.socket.recv(buf).await }
   }
 
   fn recv_from(
     &self,
     buf: &mut [u8],
   ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send {
-    async move {
-      if let Some(timeout) = self.read_timeout.load(Ordering::Relaxed) {
-        if !timeout.is_zero() {
-          return match AsyncStdRuntime::timeout(timeout, self.socket.recv_from(buf)).await {
-            Ok(timeout) => timeout,
-            Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
-          };
-        }
-      }
-      self.socket.recv_from(buf).await
-    }
+    async move { self.socket.recv_from(buf).await }
   }
 
   fn send(&self, buf: &[u8]) -> impl Future<Output = io::Result<usize>> + Send {
-    async move {
-      if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
-        if !timeout.is_zero() {
-          return match AsyncStdRuntime::timeout(timeout, self.socket.send(buf)).await {
-            Ok(timeout) => timeout,
-            Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
-          };
-        }
-      }
-      self.socket.send(buf).await
-    }
+    async move { self.socket.send(buf).await }
   }
 
   fn send_to<A: ToSocketAddrs<Self::Runtime>>(
@@ -712,39 +516,13 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
   ) -> impl Future<Output = io::Result<usize>> + Send {
     async move {
       let mut addrs = target.to_socket_addrs().await?;
-      if addrs.size_hint().0 <= 1 {
-        if let Some(addr) = addrs.next() {
-          if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
-            if !timeout.is_zero() {
-              return match AsyncStdRuntime::timeout(timeout, self.socket.send_to(buf, addr)).await {
-                Ok(timeout) => timeout,
-                Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
-              };
-            }
-          }
-          self.socket.send_to(buf, addr).await
-        } else {
-          return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "invalid socket address",
-          ));
-        }
+      if let Some(addr) = addrs.next() {
+        self.socket.send_to(buf, addr).await
       } else {
-        let addrs = addrs.collect::<Vec<_>>();
-        if let Some(timeout) = self.write_timeout.load(Ordering::Relaxed) {
-          if !timeout.is_zero() {
-            return match AsyncStdRuntime::timeout(
-              timeout,
-              self.socket.send_to(buf, addrs.as_slice()),
-            )
-            .await
-            {
-              Ok(timeout) => timeout,
-              Err(e) => Err(io::Error::new(io::ErrorKind::TimedOut, e)),
-            };
-          }
-        }
-        self.socket.send_to(buf, addrs.as_slice()).await
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
       }
     }
   }
@@ -763,22 +541,6 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
 
   fn broadcast(&self) -> io::Result<bool> {
     self.socket.broadcast()
-  }
-
-  fn set_write_timeout(&self, timeout: Option<Duration>) {
-    self.write_timeout.store(timeout, Ordering::SeqCst);
-  }
-
-  fn write_timeout(&self) -> Option<Duration> {
-    self.write_timeout.load(Ordering::SeqCst)
-  }
-
-  fn set_read_timeout(&self, timeout: Option<Duration>) {
-    self.read_timeout.store(timeout, Ordering::SeqCst);
-  }
-
-  fn read_timeout(&self) -> Option<Duration> {
-    self.read_timeout.load(Ordering::SeqCst)
   }
 
   fn set_read_buffer(&self, size: usize) -> io::Result<()> {

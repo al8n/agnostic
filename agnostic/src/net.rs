@@ -73,14 +73,6 @@ pub trait TcpListener: Unpin + Send + Sync + 'static {
   ///
   /// This can be useful, for example, when binding to port 0 to figure out which port was actually bound.
   fn local_addr(&self) -> io::Result<SocketAddr>;
-
-  fn set_write_timeout(&self, timeout: Option<Duration>);
-
-  fn write_timeout(&self) -> Option<Duration>;
-
-  fn set_read_timeout(&self, timeout: Option<Duration>);
-
-  fn read_timeout(&self) -> Option<Duration>;
 }
 
 #[doc(hidden)]
@@ -141,10 +133,6 @@ impl<T: tokio::io::AsyncWrite + futures_util::io::AsyncWrite> IOWrite for T {}
 pub trait TcpStreamOwnedReadHalf: IORead + Unpin + Send + Sync + 'static {
   type Runtime: Runtime;
 
-  fn set_read_timeout(&self, timeout: Option<Duration>);
-
-  fn read_timeout(&self) -> Option<Duration>;
-
   fn local_addr(&self) -> io::Result<SocketAddr>;
 
   fn peer_addr(&self) -> io::Result<SocketAddr>;
@@ -152,10 +140,6 @@ pub trait TcpStreamOwnedReadHalf: IORead + Unpin + Send + Sync + 'static {
 
 pub trait TcpStreamOwnedWriteHalf: IOWrite + Unpin + Send + Sync + 'static {
   type Runtime: Runtime;
-
-  fn set_write_timeout(&self, timeout: Option<Duration>);
-
-  fn write_timeout(&self) -> Option<Duration>;
 
   fn forget(self);
 
@@ -177,13 +161,6 @@ pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
   where
     Self: Sized;
 
-  fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
-    addr: A,
-    timeout: Duration,
-  ) -> impl Future<Output = io::Result<Self>> + Send
-  where
-    Self: Sized;
-
   fn local_addr(&self) -> io::Result<SocketAddr>;
 
   fn peer_addr(&self) -> io::Result<SocketAddr>;
@@ -196,24 +173,9 @@ pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
 
   fn nodelay(&self) -> io::Result<bool>;
 
-  fn set_timeout(&self, timeout: Option<Duration>) {
-    self.set_write_timeout(timeout);
-    self.set_read_timeout(timeout);
-  }
-
-  fn timeout(&self) -> (Option<Duration>, Option<Duration>) {
-    (self.read_timeout(), self.write_timeout())
-  }
-
-  fn set_write_timeout(&self, timeout: Option<Duration>);
-
-  fn write_timeout(&self) -> Option<Duration>;
-
-  fn set_read_timeout(&self, timeout: Option<Duration>);
-
-  fn read_timeout(&self) -> Option<Duration>;
-
   fn into_split(self) -> (Self::OwnedReadHalf, Self::OwnedWriteHalf);
+
+  fn shutdown(&self, how: std::net::Shutdown) -> io::Result<()>;
 
   /// Attempts to put the two halves of a TcpStream back together and recover the original socket. Succeeds only if the two halves originated from the same call to [`into_split`][TcpStream::into_split].
   fn reunite(
@@ -233,22 +195,9 @@ pub trait UdpSocket: Unpin + Send + Sync + 'static {
   where
     Self: Sized;
 
-  fn bind_timeout<A: ToSocketAddrs<Self::Runtime>>(
-    addr: A,
-    timeout: Duration,
-  ) -> impl Future<Output = io::Result<Self>> + Send
-  where
-    Self: Sized;
-
   fn connect<A: ToSocketAddrs<Self::Runtime>>(
     &self,
     addr: A,
-  ) -> impl Future<Output = io::Result<()>> + Send;
-
-  fn connect_timeout<A: ToSocketAddrs<Self::Runtime>>(
-    &self,
-    addr: A,
-    timeout: Duration,
   ) -> impl Future<Output = io::Result<()>> + Send;
 
   fn recv(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
@@ -273,23 +222,6 @@ pub trait UdpSocket: Unpin + Send + Sync + 'static {
   fn set_broadcast(&self, broadcast: bool) -> io::Result<()>;
 
   fn broadcast(&self) -> io::Result<bool>;
-
-  fn set_timeout(&self, timeout: Option<Duration>) {
-    self.set_write_timeout(timeout);
-    self.set_read_timeout(timeout);
-  }
-
-  fn timeout(&self) -> (Option<Duration>, Option<Duration>) {
-    (self.read_timeout(), self.write_timeout())
-  }
-
-  fn set_write_timeout(&self, timeout: Option<Duration>);
-
-  fn write_timeout(&self) -> Option<Duration>;
-
-  fn set_read_timeout(&self, timeout: Option<Duration>);
-
-  fn read_timeout(&self) -> Option<Duration>;
 
   fn set_read_buffer(&self, size: usize) -> io::Result<()>;
 
