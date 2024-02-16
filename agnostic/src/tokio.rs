@@ -191,6 +191,7 @@ impl Runtime for TokioRuntime {
   type Sleep = ::tokio::time::Sleep;
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = TokioTimeout<F> where F: Future + Send;
+  type WaitGroup = TokioWaitGroup;
 
   #[cfg(feature = "net")]
   type Net = self::net::TokioNet;
@@ -250,7 +251,9 @@ impl Runtime for TokioRuntime {
   fn sleep_until(instant: Instant) -> Self::Sleep {
     ::tokio::time::sleep_until(instant.into())
   }
-
+  fn waitgroup() -> Self::WaitGroup {
+    TokioWaitGroup::new()
+  }
   fn yield_now() -> impl Future<Output = ()> + Send {
     ::tokio::task::yield_now()
   }
@@ -283,5 +286,110 @@ impl Runtime for TokioRuntime {
       res = future.fuse() => Ok(res),
       _ = futures_timer::Delay::new(duration).fuse() => Err(Elapsed(())),
     }
+  }
+}
+
+/// A waitable spawner, when spawning, a wait group is incremented,
+/// and when the spawned task is finished, the wait group is decremented.
+pub struct TokioWaitGroup {
+  wg: wg::tokio::AsyncWaitGroup,
+}
+
+impl Clone for TokioWaitGroup {
+  fn clone(&self) -> Self {
+    Self {
+      wg: self.wg.clone(),
+    }
+  }
+}
+
+impl TokioWaitGroup {
+  /// Creates a new `WaitableSpawner`
+  pub(crate) fn new() -> Self {
+    Self {
+      wg: wg::tokio::AsyncWaitGroup::new(),
+    }
+  }
+}
+
+impl WaitGroup for TokioWaitGroup {
+  type Runtime = TokioRuntime;
+  type Wait<'a> = wg::tokio::WaitGroupFuture<'a>;
+
+  /// Spawns a future and increments the wait group
+  fn spawn<F>(&self, future: F) -> <Self::Runtime as Runtime>::JoinHandle<F::Output>
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static,
+  {
+    let wg = self.wg.add(1);
+    <Self::Runtime as Runtime>::spawn(async move {
+      let res = future.await;
+      wg.done();
+      res
+    })
+  }
+
+  fn spawn_detach(&self, future: impl Future<Output = ()> + Send + 'static) {
+    let wg = self.wg.add(1);
+    <Self::Runtime as Runtime>::spawn_detach(async move {
+      let res = future.await;
+      wg.done();
+      res
+    });
+  }
+
+  /// Spawns a future and increments the wait group
+  fn spawn_local<F>(&self, future: F) -> <Self::Runtime as Runtime>::JoinHandle<F::Output>
+  where
+    F::Output: 'static,
+    F: Future + 'static,
+  {
+    let wg = self.wg.add(1);
+    <Self::Runtime as Runtime>::spawn_local(async move {
+      let res = future.await;
+      wg.done();
+      res
+    })
+  }
+
+  fn spawn_local_detach<F>(&self, future: F)
+  where
+    F: Future + 'static,
+    F::Output: 'static,
+  {
+    Self::spawn_local(self, future);
+  }
+
+  fn spawn_blocking_detach<F, RR>(&self, f: F)
+  where
+    F: FnOnce() -> RR + Send + 'static,
+    RR: Send + 'static,
+  {
+    Self::spawn_blocking(self, f);
+  }
+
+  /// Spawns a blocking function and increments the wait group
+  fn spawn_blocking<F, RR>(&self, f: F) -> <Self::Runtime as Runtime>::JoinHandle<RR>
+  where
+    F: FnOnce() -> RR + Send + 'static,
+    RR: Send + 'static,
+  {
+    let wg = self.wg.add(1);
+    <Self::Runtime as Runtime>::spawn_blocking(move || {
+      let res = f();
+      wg.done();
+      res
+    })
+  }
+
+  /// Waits for all spawned tasks to finish
+  fn wait(&self) -> wg::tokio::WaitGroupFuture<'_> {
+    self.wg.wait()
+  }
+
+  /// Block waits for all spawned tasks to finish
+  fn block_wait(&self) {
+    self.wg.block_wait();
   }
 }
