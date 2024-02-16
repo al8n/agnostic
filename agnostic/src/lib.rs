@@ -175,10 +175,6 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   where
     F: Future + Send;
 
-  fn timeout_at<F>(instant: Instant, future: F) -> Self::Timeout<F>
-  where
-    F: Future + Send;
-
   fn timeout_nonblocking<F>(
     duration: Duration,
     future: F,

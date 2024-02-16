@@ -170,16 +170,6 @@ impl Runtime for AsyncStdRuntime {
     Timeout::new(duration, fut)
   }
 
-  fn timeout_at<F>(instant: Instant, fut: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    Timeout {
-      timeout: Timer::at(instant),
-      future: fut,
-    }
-  }
-
   async fn timeout_nonblocking<F>(duration: Duration, future: F) -> Result<F::Output, Elapsed>
   where
     F: Future + Send,

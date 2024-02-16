@@ -130,7 +130,7 @@ where
 pin_project_lite::pin_project! {
   pub struct TokioTimeout<F: Future> {
     #[pin]
-    timeout: ::tokio::time::Sleep,
+    timeout: futures_timer::Delay,
     #[pin]
     future: F,
   }
@@ -268,17 +268,7 @@ impl Runtime for TokioRuntime {
     F: Future + Send,
   {
     TokioTimeout {
-      timeout: ::tokio::time::sleep(duration),
-      future: fut,
-    }
-  }
-
-  fn timeout_at<F>(instant: Instant, fut: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    TokioTimeout {
-      timeout: ::tokio::time::sleep_until(instant.into()),
+      timeout: futures_timer::Delay::new(duration),
       future: fut,
     }
   }
