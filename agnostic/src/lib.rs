@@ -44,6 +44,30 @@ use std::{
 
 use futures_util::Stream;
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct Elapsed(());
+
+impl core::fmt::Display for Elapsed {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "deadline has elapsed")
+  }
+}
+
+impl std::error::Error for Elapsed {}
+
+impl From<Elapsed> for std::io::Error {
+  fn from(_: Elapsed) -> Self {
+    std::io::ErrorKind::TimedOut.into()
+  }
+}
+
+#[cfg(feature = "tokio")]
+impl From<::tokio::time::error::Elapsed> for Elapsed {
+  fn from(_: ::tokio::time::error::Elapsed) -> Self {
+    Elapsed(())
+  }
+}
+
 pub trait Sleep: Future + Send {
   /// Resets the Sleep instance to a new deadline.
   ///
@@ -73,10 +97,9 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   where
     F: Future + Send + 'static,
     F::Output: Send;
-  type Timeout<F>: Future<Output = std::io::Result<F::Output>> + Send
+  type Timeout<F>: Future<Output = Result<F::Output, Elapsed>> + Send
   where
     F: Future + Send;
-  type TimeoutError: std::error::Error + Send + Sync + 'static;
 
   #[cfg(feature = "net")]
   type Net: net::Net;
@@ -150,7 +173,7 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   fn timeout_nonblocking<F>(
     duration: Duration,
     future: F,
-  ) -> impl Future<Output = Result<F::Output, Self::TimeoutError>> + Send
+  ) -> impl Future<Output = Result<F::Output, Elapsed>> + Send
   where
     F: Future + Send;
 }
@@ -311,7 +334,7 @@ mod timer {
   where
     F: Future,
   {
-    type Output = io::Result<F::Output>;
+    type Output = Result<F::Output, super::Elapsed>;
 
     fn poll(
       self: std::pin::Pin<&mut Self>,
@@ -324,8 +347,7 @@ mod timer {
       }
 
       if this.timeout.poll(cx).is_ready() {
-        let err = Err(io::Error::new(io::ErrorKind::TimedOut, "future timed out"));
-        Poll::Ready(err)
+        Poll::Ready(Err(super::Elapsed(())))
       } else {
         Poll::Pending
       }

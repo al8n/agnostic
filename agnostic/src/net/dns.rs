@@ -107,7 +107,7 @@ where
     duration: Duration,
     future: F,
   ) -> Result<F::Output, std::io::Error> {
-    R::timeout(duration, future).await
+    R::timeout(duration, future).await.map_err(Into::into)
   }
 }
 

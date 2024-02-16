@@ -1,4 +1,4 @@
-use std::task::Poll;
+use std::{io, task::Poll};
 
 use ::tokio::sync::mpsc;
 use tokio_stream::wrappers::IntervalStream;
@@ -130,34 +130,29 @@ where
 pin_project_lite::pin_project! {
   pub struct TokioTimeout<F: Future> {
     #[pin]
-    timeout: ::tokio::time::Timeout<F>,
-  }
-}
-
-impl<F: Future> From<::tokio::time::Timeout<F>> for TokioTimeout<F> {
-  fn from(timeout: ::tokio::time::Timeout<F>) -> Self {
-    Self { timeout }
-  }
-}
-
-impl<F: Future> From<TokioTimeout<F>> for ::tokio::time::Timeout<F> {
-  fn from(timeout: TokioTimeout<F>) -> Self {
-    timeout.timeout
+    timeout: ::tokio::time::Sleep,
+    #[pin]
+    future: F,
   }
 }
 
 impl<F: Future> Future for TokioTimeout<F> {
-  type Output = std::io::Result<F::Output>;
+  type Output = Result<F::Output, Elapsed>;
 
   fn poll(
     self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
   ) -> std::task::Poll<Self::Output> {
     let this = self.project();
-    match this.timeout.poll(cx) {
-      Poll::Ready(Ok(t)) => Poll::Ready(Ok(t)),
-      Poll::Ready(Err(e)) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::TimedOut, e))),
-      Poll::Pending => Poll::Pending,
+    match this.future.poll(cx) {
+      Poll::Pending => {}
+      other => return other.map(Ok),
+    }
+
+    if this.timeout.poll(cx).is_ready() {
+      Poll::Ready(Err(Elapsed(())))
+    } else {
+      Poll::Pending
     }
   }
 }
@@ -177,7 +172,6 @@ impl Runtime for TokioRuntime {
   type Sleep = ::tokio::time::Sleep;
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = TokioTimeout<F> where F: Future + Send;
-  type TimeoutError = TimeoutError;
 
   #[cfg(feature = "net")]
   type Net = self::net::TokioNet;
@@ -255,7 +249,8 @@ impl Runtime for TokioRuntime {
     F: Future + Send,
   {
     TokioTimeout {
-      timeout: ::tokio::time::timeout(duration, fut),
+      timeout: ::tokio::time::sleep(duration),
+      future: fut,
     }
   }
 
@@ -264,14 +259,12 @@ impl Runtime for TokioRuntime {
     F: Future + Send,
   {
     TokioTimeout {
-      timeout: ::tokio::time::timeout_at(instant.into(), fut),
+      timeout: ::tokio::time::sleep_until(instant.into()),
+      future: fut,
     }
   }
 
-  async fn timeout_nonblocking<F>(
-    duration: Duration,
-    future: F,
-  ) -> Result<F::Output, Self::TimeoutError>
+  async fn timeout_nonblocking<F>(duration: Duration, future: F) -> Result<F::Output, Elapsed>
   where
     F: Future + Send,
   {
@@ -279,7 +272,7 @@ impl Runtime for TokioRuntime {
 
     futures_util::select! {
       res = future.fuse() => Ok(res),
-      _ = futures_timer::Delay::new(duration).fuse() => Err(TimeoutError),
+      _ = futures_timer::Delay::new(duration).fuse() => Err(Elapsed(())),
     }
   }
 }

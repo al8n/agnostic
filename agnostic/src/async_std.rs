@@ -99,7 +99,6 @@ impl Runtime for AsyncStdRuntime {
   type Sleep = Timer;
   type Delay<F> = AsyncStdDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = Timeout<F> where F: Future + Send;
-  type TimeoutError = std::io::Error;
 
   #[cfg(feature = "net")]
   type Net = net::AsyncStdNet;
@@ -181,10 +180,7 @@ impl Runtime for AsyncStdRuntime {
     }
   }
 
-  async fn timeout_nonblocking<F>(
-    duration: Duration,
-    future: F,
-  ) -> Result<F::Output, Self::TimeoutError>
+  async fn timeout_nonblocking<F>(duration: Duration, future: F) -> Result<F::Output, Elapsed>
   where
     F: Future + Send,
   {
