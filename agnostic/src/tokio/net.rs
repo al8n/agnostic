@@ -3,7 +3,6 @@ use std::{
   io,
   net::SocketAddr,
   ops::Deref,
-  os::fd::{AsRawFd, FromRawFd},
   pin::Pin,
   sync::{atomic::Ordering, Arc},
   task::{Context, Poll},
@@ -366,7 +365,22 @@ impl crate::net::TcpStream for TokioTcpStream {
   }
 
   fn shutdown(&self, how: std::net::Shutdown) -> io::Result<()> {
-    unsafe { socket2::Socket::from_raw_fd(self.stream.as_raw_fd()) }.shutdown(how)
+    #[cfg(unix)]
+    {
+      use std::os::fd::{AsRawFd, FromRawFd};
+      unsafe { socket2::Socket::from_raw_fd(self.stream.as_raw_fd()) }.shutdown(how)
+    }
+
+    #[cfg(windows)]
+    {
+      use std::os::windows::io::{AsRawSocket, FromRawSocket};
+      unsafe { socket2::Socket::from_raw_socket(self.stream.as_raw_socket()) }.shutdown(how)
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    {
+      panic!("unsupported platform");
+    }
   }
 }
 
