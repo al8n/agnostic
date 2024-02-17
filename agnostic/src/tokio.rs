@@ -186,7 +186,10 @@ impl core::fmt::Display for TokioRuntime {
 }
 
 impl Runtime for TokioRuntime {
-  type JoinHandle<T> = ::tokio::task::JoinHandle<T> where T: Send + 'static;
+  type JoinHandle<T> = ::tokio::task::JoinHandle<T>
+  where
+    T: Send + 'static,
+    <Self::JoinHandle<T> as Future>::Output: Send;
   type BlockJoinHandle<R>
   where
     R: Send + 'static,

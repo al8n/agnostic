@@ -94,7 +94,10 @@ impl core::fmt::Display for AsyncStdRuntime {
 }
 
 impl Runtime for AsyncStdRuntime {
-  type JoinHandle<T> = ::async_std::task::JoinHandle<T> where T: Send + 'static;
+  type JoinHandle<T> = ::async_std::task::JoinHandle<T>
+  where
+    T: Send + 'static,
+    <Self::JoinHandle<T> as Future>::Output: Send;
   type BlockJoinHandle<R>
   where
     R: Send + 'static,

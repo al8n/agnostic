@@ -98,7 +98,10 @@ impl core::fmt::Display for SmolRuntime {
 }
 
 impl Runtime for SmolRuntime {
-  type JoinHandle<T> = ::smol::Task<T> where T: Send + 'static;
+  type JoinHandle<T> = ::smol::Task<T>
+  where
+    T: Send + 'static,
+    <Self::JoinHandle<T> as Future>::Output: Send;
   type BlockJoinHandle<R>
   where
     R: Send + 'static,
