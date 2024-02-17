@@ -94,7 +94,12 @@ impl core::fmt::Display for AsyncStdRuntime {
 }
 
 impl Runtime for AsyncStdRuntime {
-  type JoinHandle<T> = ::async_std::task::JoinHandle<T>;
+  type JoinHandle<T> = ::async_std::task::JoinHandle<T> where T: Send + 'static;
+  type BlockJoinHandle<R>
+  where
+    R: Send + 'static,
+  = ::async_std::task::JoinHandle<R>;
+  type LocalJoinHandle<F> = ::async_std::task::JoinHandle<F>;
   type Interval = Timer;
   type Sleep = Timer;
   type Delay<F> = AsyncStdDelay<F> where F: Future + Send + 'static, F::Output: Send;
@@ -116,7 +121,7 @@ impl Runtime for AsyncStdRuntime {
     ::async_std::task::spawn(fut)
   }
 
-  fn spawn_local<F>(fut: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(fut: F) -> Self::LocalJoinHandle<F::Output>
   where
     F: Future + 'static,
     F::Output: 'static,
@@ -124,7 +129,7 @@ impl Runtime for AsyncStdRuntime {
     ::async_std::task::spawn_local(fut)
   }
 
-  fn spawn_blocking<F, R>(f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(f: F) -> Self::BlockJoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,

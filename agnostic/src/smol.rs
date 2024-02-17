@@ -98,7 +98,12 @@ impl core::fmt::Display for SmolRuntime {
 }
 
 impl Runtime for SmolRuntime {
-  type JoinHandle<T> = ::smol::Task<T>;
+  type JoinHandle<T> = ::smol::Task<T> where T: Send + 'static;
+  type BlockJoinHandle<R>
+  where
+    R: Send + 'static,
+  = ::smol::Task<R>;
+  type LocalJoinHandle<F> = ::smol::Task<F>;
   type Interval = Timer;
   type Sleep = Timer;
   type Delay<F> = SmolDelay<F> where F: Future + Send + 'static, F::Output: Send;
@@ -128,7 +133,7 @@ impl Runtime for SmolRuntime {
     ::smol::spawn(fut).detach();
   }
 
-  fn spawn_local<F>(fut: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(fut: F) -> Self::LocalJoinHandle<F::Output>
   where
     F: Future + 'static,
     F::Output: 'static,
@@ -144,7 +149,7 @@ impl Runtime for SmolRuntime {
     ::smol::LocalExecutor::new().spawn(fut).detach();
   }
 
-  fn spawn_blocking<F, R>(f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(f: F) -> Self::BlockJoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,

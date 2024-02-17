@@ -186,7 +186,12 @@ impl core::fmt::Display for TokioRuntime {
 }
 
 impl Runtime for TokioRuntime {
-  type JoinHandle<T> = ::tokio::task::JoinHandle<T>;
+  type JoinHandle<T> = ::tokio::task::JoinHandle<T> where T: Send + 'static;
+  type BlockJoinHandle<R>
+  where
+    R: Send + 'static,
+  = ::tokio::task::JoinHandle<R>;
+  type LocalJoinHandle<F> = ::tokio::task::JoinHandle<F>;
   type Interval = IntervalStream;
   type Sleep = ::tokio::time::Sleep;
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
@@ -208,7 +213,7 @@ impl Runtime for TokioRuntime {
     ::tokio::spawn(fut)
   }
 
-  fn spawn_local<F>(fut: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(fut: F) -> Self::LocalJoinHandle<F::Output>
   where
     F: Future + 'static,
     F::Output: 'static,
@@ -216,7 +221,7 @@ impl Runtime for TokioRuntime {
     ::tokio::task::spawn_local(fut)
   }
 
-  fn spawn_blocking<F, R>(_f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(_f: F) -> Self::BlockJoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
@@ -340,7 +345,7 @@ impl WaitGroup for TokioWaitGroup {
   }
 
   /// Spawns a future and increments the wait group
-  fn spawn_local<F>(&self, future: F) -> <Self::Runtime as Runtime>::JoinHandle<F::Output>
+  fn spawn_local<F>(&self, future: F) -> <Self::Runtime as Runtime>::LocalJoinHandle<F::Output>
   where
     F::Output: 'static,
     F: Future + 'static,
@@ -370,7 +375,7 @@ impl WaitGroup for TokioWaitGroup {
   }
 
   /// Spawns a blocking function and increments the wait group
-  fn spawn_blocking<F, RR>(&self, f: F) -> <Self::Runtime as Runtime>::JoinHandle<RR>
+  fn spawn_blocking<F, RR>(&self, f: F) -> <Self::Runtime as Runtime>::BlockJoinHandle<RR>
   where
     F: FnOnce() -> RR + Send + 'static,
     RR: Send + 'static,
