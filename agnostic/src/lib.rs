@@ -338,7 +338,10 @@ mod future_wg {
 
     /// Block waits for all spawned tasks to finish
     fn block_wait(&self) {
-      self.wg.block_wait();
+      let fut = |fut| {
+        <R as Runtime>::spawn_detach(fut)
+      };
+      self.wg.block_wait(fut);
     }
   }
 }
