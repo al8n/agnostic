@@ -99,7 +99,7 @@ pub trait Timeoutable<F: Future + Send>:
 
 /// Runtime trait
 pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
-  type JoinHandle<F>: Future + Send + 'static
+  type JoinHandle<F>: Future + Send + Sync + 'static
   where
     F: Send + 'static;
   type LocalJoinHandle<F>: Future;
