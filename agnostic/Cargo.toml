@@ -43,7 +43,7 @@ io = ["futures-util/io"]
 # But if you are using tokio, this feature can be ignored.
 tokio-compat = ["tokio-util/compat", "dep:tokio"]
 
-tokio = ["dep:tokio", "quinn?/runtime-tokio", "pin-project-lite", "tokio-stream", "tokio/rt", "tokio/sync", "tokio/macros", "tokio/time", "tokio-compat", "futures-timer", "wg/tokio"]
+tokio = ["dep:tokio", "quinn?/runtime-tokio", "pin-project-lite", "tokio-stream", "tokio/rt", "tokio/sync", "tokio/macros", "tokio/time", "tokio-compat", "wg/tokio"]
 async-std = ["dep:async-std", "quinn?/runtime-async-std", "async-io", "pin-project-lite", "wg/future"]
 smol = ["dep:smol", "pin-project-lite", "async-io", "wg/future"]
 
@@ -69,8 +69,6 @@ wg = { version = "0.7", features = ["triomphe"] }
 tokio = { version = "1", default-features = false, optional = true }
 tokio-stream = { version = "0.1", default-features = false, optional = true, features = ["time"] }
 tokio-util = { version = "0.7", default-features = false, optional = true, features = ["compat"] }
-futures-timer = { version = "3", optional = true }
-
 
 async-std = { version = "1.12", optional = true, features = ["unstable"] }
 async-io = { version = "2.1", optional = true }

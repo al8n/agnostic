@@ -111,7 +111,6 @@ impl Runtime for SmolRuntime {
   type Sleep = Timer;
   type Delay<F> = SmolDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = Timeout<F> where F: Future + Send;
-  type WaitGroup = super::future_wg::FutureWaitGroup<Self>;
 
   #[cfg(feature = "net")]
   type Net = net::SmolNet;
@@ -188,10 +187,6 @@ impl Runtime for SmolRuntime {
     Timer::at(deadline)
   }
 
-  fn waitgroup() -> Self::WaitGroup {
-    super::future_wg::FutureWaitGroup::new()
-  }
-
   async fn yield_now() {
     ::smol::future::yield_now().await
   }
@@ -211,10 +206,10 @@ impl Runtime for SmolRuntime {
     Timeout::new(duration, fut)
   }
 
-  async fn timeout_nonblocking<F>(duration: Duration, future: F) -> Result<F::Output, Elapsed>
+  fn timeout_at<F>(deadline: Instant, fut: F) -> Self::Timeout<F>
   where
     F: Future + Send,
   {
-    Self::timeout(duration, future).await
+    Timeout::at(duration, fut)
   }
 }

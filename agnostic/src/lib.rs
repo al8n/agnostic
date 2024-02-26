@@ -101,8 +101,7 @@ pub trait Timeoutable<F: Future + Send>:
 pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   type JoinHandle<F>: Future + Send + Sync + 'static
   where
-    F: Send + 'static,
-    <Self::JoinHandle<F> as Future>::Output: Send;
+    F: Send + 'static;
   type LocalJoinHandle<F>: Future;
   type BlockJoinHandle<R>
   where
@@ -116,7 +115,6 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   type Timeout<F>: Timeoutable<F>
   where
     F: Future + Send;
-  type WaitGroup: WaitGroup<Runtime = Self>;
 
   #[cfg(feature = "net")]
   type Net: net::Net;
@@ -162,9 +160,6 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
     <Self as Runtime>::spawn_blocking(f);
   }
 
-  /// Returns a new waitgroup, all tasks spawned with this waitgroup can be waited on.
-  fn waitgroup() -> Self::WaitGroup;
-
   fn block_on<F: Future>(f: F) -> F::Output;
 
   fn interval(interval: Duration) -> Self::Interval;
@@ -186,179 +181,9 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   where
     F: Future + Send;
 
-  fn timeout_nonblocking<F>(
-    duration: Duration,
-    future: F,
-  ) -> impl Future<Output = Result<F::Output, Elapsed>> + Send
+  fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
   where
     F: Future + Send;
-}
-
-pub trait WaitGroup: Clone + Send + Sync + 'static {
-  type Runtime: Runtime;
-  type Wait<'a>: Future<Output = ()> + Send + 'a
-  where
-    Self: 'a;
-
-  /// Spawns a future and increments the wait group
-  fn spawn<F>(&self, future: F) -> <Self::Runtime as Runtime>::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static;
-
-  fn spawn_detach(&self, future: impl Future<Output = ()> + Send + 'static);
-
-  /// Spawns a future and increments the wait group
-  fn spawn_local<F>(&self, future: F) -> <Self::Runtime as Runtime>::LocalJoinHandle<F::Output>
-  where
-    F::Output: 'static,
-    F: Future + 'static;
-
-  fn spawn_local_detach<F>(&self, future: F)
-  where
-    F: Future + 'static,
-    F::Output: 'static;
-
-  fn spawn_blocking_detach<F, RR>(&self, f: F)
-  where
-    F: FnOnce() -> RR + Send + 'static,
-    RR: Send + 'static;
-
-  /// Spawns a blocking function and increments the wait group
-  fn spawn_blocking<F, RR>(&self, f: F) -> <Self::Runtime as Runtime>::BlockJoinHandle<RR>
-  where
-    F: FnOnce() -> RR + Send + 'static,
-    RR: Send + 'static;
-
-  /// Waits for all spawned tasks to finish
-  fn wait(&self) -> Self::Wait<'_>;
-
-  /// Block waits for all spawned tasks to finish
-  fn block_wait(&self);
-}
-
-#[cfg(any(feature = "async-std", feature = "smol"))]
-mod future_wg {
-  use super::*;
-
-  /// A waitable spawner, when spawning, a wait group is incremented,
-  /// and when the spawned task is finished, the wait group is decremented.
-  pub struct FutureWaitGroup<R> {
-    wg: wg::future::AsyncWaitGroup,
-    _runtime: std::marker::PhantomData<R>,
-  }
-
-  impl<R> Clone for FutureWaitGroup<R> {
-    fn clone(&self) -> Self {
-      Self {
-        wg: self.wg.clone(),
-        _runtime: std::marker::PhantomData,
-      }
-    }
-  }
-
-  impl<R> FutureWaitGroup<R> {
-    /// Creates a new `WaitableSpawner`
-    pub(crate) fn new() -> Self {
-      Self {
-        wg: wg::future::AsyncWaitGroup::new(),
-        _runtime: std::marker::PhantomData,
-      }
-    }
-  }
-
-  impl<R: Runtime> WaitGroup for FutureWaitGroup<R> {
-    type Runtime = R;
-    type Wait<'a> = wg::future::WaitGroupFuture<'a>;
-
-    /// Spawns a future and increments the wait group
-    fn spawn<F>(&self, future: F) -> <R as Runtime>::JoinHandle<F::Output>
-    where
-      F::Output: Send + 'static,
-      F: Future + Send + 'static,
-    {
-      let wg = self.wg.add(1);
-      R::spawn(async move {
-        let res = future.await;
-        wg.done();
-        res
-      })
-    }
-
-    fn spawn_detach(&self, future: impl Future<Output = ()> + Send + 'static) {
-      let wg = self.wg.add(1);
-      R::spawn_detach(async move {
-        let res = future.await;
-        wg.done();
-        res
-      });
-    }
-
-    /// Spawns a future and increments the wait group
-    fn spawn_local<F>(&self, future: F) -> R::LocalJoinHandle<F::Output>
-    where
-      F::Output: 'static,
-      F: Future + 'static,
-    {
-      let wg = self.wg.add(1);
-      R::spawn_local(async move {
-        let res = future.await;
-        wg.done();
-        res
-      })
-    }
-
-    fn spawn_local_detach<F>(&self, future: F)
-    where
-      F: Future + 'static,
-      F::Output: 'static,
-    {
-      let wg = self.wg.add(1);
-      R::spawn_local_detach(async move {
-        let res = future.await;
-        wg.done();
-        res
-      });
-    }
-
-    fn spawn_blocking_detach<F, RR>(&self, f: F)
-    where
-      F: FnOnce() -> RR + Send + 'static,
-      RR: Send + 'static,
-    {
-      let wg = self.wg.add(1);
-      R::spawn_blocking_detach(move || {
-        let res = f();
-        wg.done();
-        res
-      });
-    }
-
-    /// Spawns a blocking function and increments the wait group
-    fn spawn_blocking<F, RR>(&self, f: F) -> R::BlockJoinHandle<RR>
-    where
-      F: FnOnce() -> RR + Send + 'static,
-      RR: Send + 'static,
-    {
-      let wg = self.wg.add(1);
-      R::spawn_blocking(move || {
-        let res = f();
-        wg.done();
-        res
-      })
-    }
-
-    /// Waits for all spawned tasks to finish
-    fn wait(&self) -> wg::future::WaitGroupFuture<'_> {
-      self.wg.wait()
-    }
-
-    /// Block waits for all spawned tasks to finish
-    fn block_wait(&self) {
-      let fut = |fut| <R as Runtime>::spawn_detach(fut);
-      self.wg.block_wait(fut);
-    }
-  }
 }
 
 #[cfg(any(feature = "async-std", feature = "smol"))]
@@ -404,6 +229,13 @@ mod timer {
       Self {
         future,
         timeout: async_io::Timer::after(timeout),
+      }
+    }
+
+    pub fn at(deadline: Instant, future: F) -> Self {
+      Self {
+        future,
+        timeout: async_io::Timer::at(deadline),
       }
     }
   }
