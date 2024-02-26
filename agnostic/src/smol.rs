@@ -210,6 +210,6 @@ impl Runtime for SmolRuntime {
   where
     F: Future + Send,
   {
-    Timeout::at(duration, fut)
+    Timeout::at(deadline, fut)
   }
 }

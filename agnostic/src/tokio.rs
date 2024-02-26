@@ -127,7 +127,7 @@ where
   }
 }
 
-impl<F: Future> Timeoutable for ::tokio::time::Timeout<F> {
+impl<F: Future + Send> Timeoutable<F> for ::tokio::time::Timeout<F> {
   fn poll_elapsed(
     self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
