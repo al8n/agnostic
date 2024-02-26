@@ -129,6 +129,18 @@ where
 
 pub struct TokioTimeout<F>(::tokio::time::Timeout<F>);
 
+impl<F: Future> Future for TokioTimeout<F> {
+  type Output = Result<F::Output, Elapsed>;
+
+  fn poll(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+    match std::pin::Pin::new(&mut self.0).poll(cx) {
+      Poll::Ready(Ok(rst)) => Poll::Ready(Ok(rst)),
+      Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
+      Poll::Pending => Poll::Pending,
+    }
+  }
+}
+
 impl<F: Future + Send> Timeoutable<F> for TokioTimeout<F> {
   fn poll_elapsed(
     mut self: std::pin::Pin<&mut Self>,
