@@ -127,14 +127,16 @@ where
   }
 }
 
-impl<F: Future + Send> Timeoutable<F> for ::tokio::time::Timeout<F> {
+pub struct TokioTimeout<F>(::tokio::time::Timeout<F>);
+
+impl<F: Future + Send> Timeoutable<F> for TokioTimeout<F> {
   fn poll_elapsed(
-    self: std::pin::Pin<&mut Self>,
+    mut self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
   ) -> std::task::Poll<Result<F::Output, Elapsed>> {
-    match self.poll(cx) {
+    match std::pin::Pin::new(&mut self.0).poll(cx) {
       Poll::Ready(Ok(rst)) => Poll::Ready(Ok(rst)),
-      Poll::Ready(Err(_)) => Poll::Ready(Err(Elapsed)),
+      Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
       Poll::Pending => Poll::Pending,
     }
   }
@@ -162,7 +164,7 @@ impl Runtime for TokioRuntime {
   type Interval = IntervalStream;
   type Sleep = ::tokio::time::Sleep;
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
-  type Timeout<F> = ::tokio::time::Timeout<F> where F: Future + Send;
+  type Timeout<F> = TokioTimeout<F> where F: Future + Send;
 
   #[cfg(feature = "net")]
   type Net = self::net::TokioNet;
