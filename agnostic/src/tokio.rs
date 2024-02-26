@@ -127,17 +127,21 @@ where
   }
 }
 
-pub struct TokioTimeout<F>(::tokio::time::Timeout<F>);
+pin_project_lite::pin_project! {
+  pub struct TokioTimeout<F> {
+    #[pin] inner: ::tokio::time::Timeout<F>
+  }
+}
 
 impl<F> From<::tokio::time::Timeout<F>> for TokioTimeout<F> {
   fn from(timeout: ::tokio::time::Timeout<F>) -> Self {
-    Self(timeout)
+    Self { inner: timeout }
   }
 }
 
 impl<F> From<TokioTimeout<F>> for ::tokio::time::Timeout<F> {
   fn from(timeout: TokioTimeout<F>) -> Self {
-    timeout.0
+    timeout.inner
   }
 }
 
@@ -148,7 +152,7 @@ impl<F: Future> Future for TokioTimeout<F> {
     mut self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
   ) -> Poll<Self::Output> {
-    match std::pin::Pin::new(&mut self.0).poll(cx) {
+    match self.project().inner.poll(cx) {
       Poll::Ready(Ok(rst)) => Poll::Ready(Ok(rst)),
       Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
       Poll::Pending => Poll::Pending,
@@ -158,10 +162,10 @@ impl<F: Future> Future for TokioTimeout<F> {
 
 impl<F: Future + Send> Timeoutable<F> for TokioTimeout<F> {
   fn poll_elapsed(
-    mut self: std::pin::Pin<&mut Self>,
+    self: std::pin::Pin<&mut Self>,
     cx: &mut std::task::Context<'_>,
   ) -> std::task::Poll<Result<F::Output, Elapsed>> {
-    match std::pin::Pin::new(&mut self.0).poll(cx) {
+    match self.poll(cx) {
       Poll::Ready(Ok(rst)) => Poll::Ready(Ok(rst)),
       Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
       Poll::Pending => Poll::Pending,
