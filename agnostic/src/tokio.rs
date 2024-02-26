@@ -129,10 +129,25 @@ where
 
 pub struct TokioTimeout<F>(::tokio::time::Timeout<F>);
 
+impl<F> From<::tokio::time::Timeout<F>> for TokioTimeout<F> {
+  fn from(timeout: ::tokio::time::Timeout<F>) -> Self {
+    Self(timeout)
+  }
+}
+
+impl<F> From<TokioTimeout<F>> for ::tokio::time::Timeout<F> {
+  fn from(timeout: TokioTimeout<F>) -> Self {
+    timeout.0
+  }
+}
+
 impl<F: Future> Future for TokioTimeout<F> {
   type Output = Result<F::Output, Elapsed>;
 
-  fn poll(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+  fn poll(
+    mut self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> Poll<Self::Output> {
     match std::pin::Pin::new(&mut self.0).poll(cx) {
       Poll::Ready(Ok(rst)) => Poll::Ready(Ok(rst)),
       Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
@@ -253,13 +268,13 @@ impl Runtime for TokioRuntime {
   where
     F: Future + Send,
   {
-    ::tokio::time::timeout(duration, fut)
+    ::tokio::time::timeout(duration, fut).into()
   }
 
   fn timeout_at<F>(deadline: Instant, fut: F) -> Self::Timeout<F>
   where
     F: Future + Send,
   {
-    ::tokio::time::timeout_at(deadline.into(), fut)
+    ::tokio::time::timeout_at(deadline.into(), fut).into()
   }
 }
