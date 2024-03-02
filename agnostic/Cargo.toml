@@ -34,7 +34,7 @@ dnssec = ["dns", "hickory-proto/dnssec", "hickory-resolver/dnssec"]
 
 quinn = ["quinn/native-certs", "quinn/tls-rustls", "quinn/log", "quinn-udp", "net"]
 
-net = ["atomic-time/std", "io", "socket2", "tokio?/net", "tokio?/io-util", "tokio?/io-std", "async-std?/default"]
+net = ["io", "socket2", "tokio?/net", "tokio?/io-util", "tokio?/io-std", "async-std?/default"]
 io = ["futures-util/io"]
 
 # This feature must be used with net feature
@@ -61,7 +61,6 @@ hickory-resolver = { version = "0.24", default-features = false, optional = true
 hickory-resolver = { version = "0.24", default-features = false, optional = true }
 
 [dependencies]
-atomic-time = { version = "0.1", optional = true, default-features = false }
 async-trait = "0.1"
 futures-util = { version = "0.3" }
 
