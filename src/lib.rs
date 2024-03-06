@@ -68,8 +68,7 @@ impl From<::tokio::time::error::Elapsed> for Elapsed {
   }
 }
 
-pub trait Sleep: Future<Output = ()> + Send
-{
+pub trait Sleep: Future<Output = ()> + Send {
   /// Resets the Sleep instance to a new deadline.
   ///
   /// The behavior of this function may different in different runtime implementations.
@@ -191,7 +190,7 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
 
 #[cfg(any(feature = "async-std", feature = "smol"))]
 mod timer {
-  use super::{Runtime, Sleep, Interval};
+  use super::{Interval, Runtime, Sleep};
   use std::{
     future::Future,
     io,

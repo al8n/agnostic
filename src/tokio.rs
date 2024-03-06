@@ -272,23 +272,19 @@ impl Runtime for TokioRuntime {
     ::tokio::runtime::Handle::current().block_on(f)
   }
 
-  fn interval(interval: Duration) -> Self::Interval
-  {
+  fn interval(interval: Duration) -> Self::Interval {
     IntervalStream::new(::tokio::time::interval(interval)).into()
   }
 
-  fn interval_at(start: Instant, period: Duration) -> Self::Interval
-  {
+  fn interval_at(start: Instant, period: Duration) -> Self::Interval {
     IntervalStream::new(::tokio::time::interval_at(start.into(), period)).into()
   }
 
-  fn sleep(duration: Duration) -> Self::Sleep
-  {
+  fn sleep(duration: Duration) -> Self::Sleep {
     ::tokio::time::sleep(duration)
   }
 
-  fn sleep_until(instant: Instant) -> Self::Sleep
-  {
+  fn sleep_until(instant: Instant) -> Self::Sleep {
     ::tokio::time::sleep_until(instant.into())
   }
 

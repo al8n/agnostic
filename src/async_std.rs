@@ -143,23 +143,19 @@ impl Runtime for AsyncStdRuntime {
     ::async_std::task::block_on(f)
   }
 
-  fn interval(interval: Duration) -> Self::Interval
-  {
+  fn interval(interval: Duration) -> Self::Interval {
     Timer::interval(interval)
   }
 
-  fn interval_at(start: Instant, period: Duration) -> Self::Interval
-  {
+  fn interval_at(start: Instant, period: Duration) -> Self::Interval {
     Timer::interval_at(start, period)
   }
 
-  fn sleep(duration: Duration) -> Self::Sleep
-  {
+  fn sleep(duration: Duration) -> Self::Sleep {
     Timer::after(duration).into()
   }
 
-  fn sleep_until(deadline: Instant) -> Self::Sleep
-  {
+  fn sleep_until(deadline: Instant) -> Self::Sleep {
     Timer::at(deadline).into()
   }
 
