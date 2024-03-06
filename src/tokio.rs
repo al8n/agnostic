@@ -53,6 +53,38 @@ impl super::Sleep for ::tokio::time::Sleep {
   }
 }
 
+pub struct TokioInterval(IntervalStream);
+
+impl From<IntervalStream> for TokioInterval {
+  fn from(stream: IntervalStream) -> Self {
+    Self(stream)
+  }
+}
+
+impl From<TokioInterval> for IntervalStream {
+  fn from(internal: TokioInterval) -> Self {
+    internal.0
+  }
+}
+
+impl futures_util::Stream for TokioInterval {
+  type Item = Instant;
+
+  fn poll_next(
+    mut self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> Poll<Option<Self::Item>> {
+    let pinned = std::pin::Pin::new(&mut self.0);
+    match pinned.poll_next(cx) {
+      Poll::Ready(Some(instant)) => Poll::Ready(Some(instant.into())),
+      Poll::Ready(None) => Poll::Ready(None),
+      Poll::Pending => Poll::Pending,
+    }
+  }
+}
+
+impl super::Interval for TokioInterval {}
+
 struct DelayFuncHandle<F: Future> {
   handle: ::tokio::task::JoinHandle<Option<F::Output>>,
   reset_tx: mpsc::Sender<Duration>,
@@ -192,7 +224,7 @@ impl Runtime for TokioRuntime {
     R: Send + 'static,
   = ::tokio::task::JoinHandle<R>;
   type LocalJoinHandle<F> = ::tokio::task::JoinHandle<F>;
-  type Interval = IntervalStream;
+  type Interval = TokioInterval;
   type Sleep = ::tokio::time::Sleep;
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = TokioTimeout<F> where F: Future + Send;
@@ -240,19 +272,23 @@ impl Runtime for TokioRuntime {
     ::tokio::runtime::Handle::current().block_on(f)
   }
 
-  fn interval(interval: Duration) -> Self::Interval {
-    IntervalStream::new(::tokio::time::interval(interval))
+  fn interval(interval: Duration) -> Self::Interval
+  {
+    IntervalStream::new(::tokio::time::interval(interval)).into()
   }
 
-  fn interval_at(start: Instant, period: Duration) -> Self::Interval {
-    IntervalStream::new(::tokio::time::interval_at(start.into(), period))
+  fn interval_at(start: Instant, period: Duration) -> Self::Interval
+  {
+    IntervalStream::new(::tokio::time::interval_at(start.into(), period)).into()
   }
 
-  fn sleep(duration: Duration) -> Self::Sleep {
+  fn sleep(duration: Duration) -> Self::Sleep
+  {
     ::tokio::time::sleep(duration)
   }
 
-  fn sleep_until(instant: Instant) -> Self::Sleep {
+  fn sleep_until(instant: Instant) -> Self::Sleep
+  {
     ::tokio::time::sleep_until(instant.into())
   }
 

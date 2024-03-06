@@ -68,12 +68,15 @@ impl From<::tokio::time::error::Elapsed> for Elapsed {
   }
 }
 
-pub trait Sleep: Future + Send {
+pub trait Sleep: Future<Output = ()> + Send
+{
   /// Resets the Sleep instance to a new deadline.
   ///
   /// The behavior of this function may different in different runtime implementations.
   fn reset(self: std::pin::Pin<&mut Self>, deadline: Instant);
 }
+
+pub trait Interval: Stream<Item = Instant> + Send + Unpin {}
 
 /// Simlilar to Go's `time.AfterFunc`
 pub trait Delay<F>
@@ -106,7 +109,7 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   type BlockJoinHandle<R>
   where
     R: Send + 'static;
-  type Interval: Stream + Send + Unpin;
+  type Interval: Interval;
   type Sleep: Sleep;
   type Delay<F>: Delay<F>
   where
@@ -188,7 +191,7 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
 
 #[cfg(any(feature = "async-std", feature = "smol"))]
 mod timer {
-  use super::{Runtime, Sleep};
+  use super::{Runtime, Sleep, Interval};
   use std::{
     future::Future,
     io,
@@ -196,15 +199,46 @@ mod timer {
     time::{Duration, Instant},
   };
 
-  impl Sleep for async_io::Timer {
+  pin_project_lite::pin_project! {
+    #[derive(Debug)]
+    #[repr(transparent)]
+    pub struct AsyncSleep {
+      #[pin]
+      t: async_io::Timer,
+    }
+  }
+
+  impl From<async_io::Timer> for AsyncSleep {
+    fn from(t: async_io::Timer) -> Self {
+      Self { t }
+    }
+  }
+
+  impl From<AsyncSleep> for async_io::Timer {
+    fn from(s: AsyncSleep) -> Self {
+      s.t
+    }
+  }
+
+  impl Future for AsyncSleep {
+    type Output = ();
+
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+      self.project().t.poll(cx).map(|_| ())
+    }
+  }
+
+  impl Sleep for AsyncSleep {
     /// Sets the timer to emit an event once at the given time instant.
     ///
     /// Note that resetting a timer is different from creating a new sleep by [`sleep()`][`Runtime::sleep()`] because
     /// `reset()` does not remove the waker associated with the task.
     fn reset(mut self: std::pin::Pin<&mut Self>, deadline: Instant) {
-      self.as_mut().set_at(deadline)
+      self.project().t.as_mut().set_at(deadline)
     }
   }
+
+  impl Interval for async_io::Timer {}
 
   pin_project_lite::pin_project! {
     /// Future returned by the `FutureExt::timeout` method.
