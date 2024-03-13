@@ -13,6 +13,8 @@ rust-version = "1.75.0"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-tokio = { version = "1", optional = true, default-features = false, features = ["rt"] }
+tokio = { version = "1", optional = true, default-features = false, features = [
+  "rt",
+] }
 smol = { version = "2", optional = true, default-features = false }
-async-std = { version = "1", optional = true, default-features = false }
+async-std = { version = "1", optional = true }
