@@ -1,0 +1,18 @@
+[package]
+name = "agnostic-lite"
+version = "0.1.0"
+edition = "2021"
+description = "`agnostic-lite` is lightweight `agnostic`."
+repository = "https://github.com/al8n/agnostic"
+documentation = "https://docs.rs/agnostic-lite"
+readme = "README.md"
+keywords = ["async", "runtime", "agnostic", "trait"]
+categories = ["asynchronous"]
+homepage = "https://github.com/al8n/agnostic"
+rust-version = "1.75.0"
+license = "MIT/Apache-2.0"
+
+[dependencies]
+tokio = { version = "1", optional = true, default-features = false, features = ["rt"] }
+smol = { version = "2", optional = true, default-features = false }
+async-std = { version = "1", optional = true, default-features = false }
