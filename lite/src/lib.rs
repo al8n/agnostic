@@ -3,9 +3,11 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
+use core::future::Future;
+
 /// A spawner trait for spawning futures.
 pub trait AsyncSpawner: Copy + Send + Sync + 'static {
-  type JoinHandle<F>: core::future::Future + Send + Sync + 'static
+  type JoinHandle<F>: Future + Send + Sync + 'static
   where
     F: Send + 'static;
 
@@ -13,7 +15,16 @@ pub trait AsyncSpawner: Copy + Send + Sync + 'static {
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
-    F: core::future::Future + Send + 'static;
+    F: Future + Send + 'static;
+
+  /// Spawn a future and detach it.
+  fn spawn_detach<F>(future: F)
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static,
+  {
+    Self::spawn(future);
+  }
 }
 
 /// A [`AsyncSpawner`] that uses the [`tokio`] runtime.
@@ -30,7 +41,8 @@ impl AsyncSpawner for TokioSpawner {
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
-    F: core::future::Future + Send + 'static {
+    F: core::future::Future + Send + 'static,
+  {
     tokio::task::spawn(future)
   }
 }
@@ -48,7 +60,8 @@ impl AsyncSpawner for AsyncStdSpawner {
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
-    F: core::future::Future + Send + 'static {
+    F: core::future::Future + Send + 'static,
+  {
     async_std::task::spawn(future)
   }
 }
@@ -66,7 +79,16 @@ impl AsyncSpawner for SmolSpawner {
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
-    F: core::future::Future + Send + 'static {
+    F: core::future::Future + Send + 'static,
+  {
     smol::spawn(future)
+  }
+
+  fn spawn_detach<F>(future: F)
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static,
+  {
+    smol::spawn(future).detach()
   }
 }
