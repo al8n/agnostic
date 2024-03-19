@@ -89,50 +89,9 @@ impl AsyncLocalSpawner for SmolLocalSpawner {
   }
 }
 
-/// The join handle returned by [`WasmLocalSpawner`].
 #[cfg(feature = "wasm")]
-#[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
-pub struct WasmLocalJoinHandle<F> {
-  stop_tx: futures_channel::oneshot::Sender<bool>,
-  rx: futures_channel::oneshot::Receiver<F>,
-}
-
-#[cfg(feature = "wasm")]
-impl<F> Future for WasmLocalJoinHandle<F> {
-  type Output = Result<F, futures_channel::oneshot::Canceled>;
-
-  fn poll(
-    mut self: core::pin::Pin<&mut Self>,
-    cx: &mut core::task::Context<'_>,
-  ) -> core::task::Poll<Self::Output> {
-    core::pin::Pin::new(&mut self.rx).poll(cx)
-  }
-}
-
-#[cfg(feature = "wasm")]
-impl<F> WasmLocalJoinHandle<F> {
-  /// Detach the future from the spawner.
-  #[inline]
-  pub fn detach(self) {
-    let _ = self.stop_tx.send(false);
-  }
-
-  /// Cancel the future.
-  #[inline]
-  pub fn cancel(self) {
-    let _ = self.stop_tx.send(true);
-  }
-}
-
-/// A [`AsyncLocalSpawner`] that uses the [`wasm-bindgen-futures`](wasm_bindgen_futures) runtime.
-#[cfg(feature = "wasm")]
-#[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
-#[derive(Debug, Clone, Copy)]
-pub struct WasmLocalSpawner;
-
-#[cfg(feature = "wasm")]
-impl AsyncLocalSpawner for WasmLocalSpawner {
-  type JoinHandle<F> = WasmLocalJoinHandle<F> where F: 'static;
+impl AsyncLocalSpawner for super::WasmSpawner {
+  type JoinHandle<F> = super::WasmJoinHandle<F> where F: 'static;
 
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
@@ -162,6 +121,6 @@ impl AsyncLocalSpawner for WasmLocalSpawner {
         }
       }
     });
-    WasmLocalJoinHandle { stop_tx, rx }
+    super::WasmJoinHandle { stop_tx, rx }
   }
 }

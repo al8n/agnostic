@@ -36,6 +36,7 @@ English | [简体中文][zh-cn-url]
   - `tokio`
   - `async-std`
   - `smol`
+  - `wasm-bindgen-futures`
 - `AsyncLocalSpawner`: trait for spawning local tasks
   
   Builtin supports runtimes
