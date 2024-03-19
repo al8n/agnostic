@@ -1,16 +1,19 @@
 [package]
 name = "agnostic-lite"
-version = "0.2.5"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+
 description = "`agnostic-lite` is WASM friendly and light version of `agnostic`, for users who want to write async runtime-agnostic crate."
-repository = "https://github.com/al8n/agnostic"
 documentation = "https://docs.rs/agnostic-lite"
 readme = "README.md"
-keywords = ["async", "runtime", "agnostic", "trait"]
+
 categories = ["asynchronous", "no-std"]
-homepage = "https://github.com/al8n/agnostic"
-rust-version = "1.75.0"
-license = "MIT/Apache-2.0"
+
 
 [package.metadata.docs.rs]
 all-features = true
