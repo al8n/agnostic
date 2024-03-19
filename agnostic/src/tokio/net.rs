@@ -446,18 +446,14 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   }
 
   fn recv(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send {
-    async move {
-      self.socket.recv(buf).await
-    }
+    async move { self.socket.recv(buf).await }
   }
 
   fn recv_from(
     &self,
     buf: &mut [u8],
   ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send {
-    async move {
-      self.socket.recv_from(buf).await
-    }
+    async move { self.socket.recv_from(buf).await }
   }
 
   fn send(&self, buf: &[u8]) -> impl Future<Output = io::Result<usize>> + Send {
