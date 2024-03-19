@@ -1,3 +1,11 @@
 [workspace]
 members = ["agnostic", "lite"]
 resolver = "2"
+
+[workspace.dependencies]
+futures-util = { version = "=0.3.29", default-features = false }
+pin-project-lite = "0.2"
+
+[workspace.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

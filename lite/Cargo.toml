@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-lite"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 description = "`agnostic-lite` is WASM friendly and light version of `agnostic`, for users who want to write async runtime-agnostic crate."
 repository = "https://github.com/al8n/agnostic"
@@ -11,6 +11,10 @@ categories = ["asynchronous", "no-std"]
 homepage = "https://github.com/al8n/agnostic"
 rust-version = "1.75.0"
 license = "MIT/Apache-2.0"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["std"]
@@ -35,11 +39,10 @@ wasm = [
 wasm-time = ["dep:futures-timer", "futures-timer/wasm-bindgen"]
 
 [dependencies]
-pin-project-lite = "0.2"
+futures-util.workspace = true
+pin-project-lite.workspace = true
 
-futures-util = { version = "=0.3.29", default-features = false }
 async-io = { version = "2", optional = true }
-
 tokio = { version = "1", optional = true, default-features = false, features = [
   "rt",
 ] }

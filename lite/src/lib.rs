@@ -1,6 +1,5 @@
-//! `agnostic-lite` is lightweight [`agnostic`](https://crates.io/crates/agnostic).
+#![doc = include_str!("../README.md")]
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
-#![allow(warnings)]
 #![forbid(unsafe_code)]
 #![deny(warnings, missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
