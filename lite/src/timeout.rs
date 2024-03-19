@@ -185,13 +185,13 @@ mod _async_io {
   pin_project_lite::pin_project! {
     /// The [`AsyncSleep`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
     #[repr(transparent)]
-    pub struct AsyncIOTimeout<F> {
+    pub struct AsyncIoTimeout<F> {
       #[pin]
       inner: Select<Pin<Box<F>>, Timer>,
     }
   }
 
-  impl<F: Future> Future for AsyncIOTimeout<F> {
+  impl<F: Future> Future for AsyncIoTimeout<F> {
     type Output = Result<F::Output, Elapsed>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -204,7 +204,7 @@ mod _async_io {
     }
   }
 
-  impl<F: Future> AsyncTimeout<F> for AsyncIOTimeout<F> {
+  impl<F: Future> AsyncTimeout<F> for AsyncIoTimeout<F> {
     fn timeout(timeout: Duration, fut: F) -> Self
     where
       Self: Sized,
@@ -241,7 +241,7 @@ mod _async_io {
           1
         };
         let start = Instant::now();
-        let rst = AsyncIOTimeout::timeout(TIMEOUT, fut).await;
+        let rst = AsyncIoTimeout::timeout(TIMEOUT, fut).await;
         assert!(rst.is_err());
         let elapsed = start.elapsed();
         assert!(elapsed >= TIMEOUT && elapsed <= TIMEOUT + BOUND);
@@ -252,7 +252,7 @@ mod _async_io {
         };
 
         let start = Instant::now();
-        let rst = AsyncIOTimeout::timeout(TIMEOUT, fut).await;
+        let rst = AsyncIoTimeout::timeout(TIMEOUT, fut).await;
         assert!(rst.is_ok());
         let elapsed = start.elapsed();
         assert!(elapsed >= GOOD && elapsed <= GOOD + BOUND);
@@ -267,7 +267,7 @@ mod _async_io {
           1
         };
         let start = Instant::now();
-        let rst = AsyncIOTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
+        let rst = AsyncIoTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
         assert!(rst.is_err());
         let elapsed = start.elapsed();
         assert!(elapsed >= TIMEOUT && elapsed <= TIMEOUT + BOUND);
@@ -278,7 +278,7 @@ mod _async_io {
         };
 
         let start = Instant::now();
-        let rst = AsyncIOTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
+        let rst = AsyncIoTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
         assert!(rst.is_ok());
         let elapsed = start.elapsed();
         assert!(elapsed >= GOOD && elapsed <= GOOD + BOUND);

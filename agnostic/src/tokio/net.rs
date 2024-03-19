@@ -9,7 +9,6 @@ use std::{
   time::Duration,
 };
 
-use futures_util::future::poll_fn;
 use tokio::{
   io::{AsyncReadExt, AsyncWriteExt, ReadBuf},
   net::{TcpListener, TcpStream, UdpSocket},
@@ -448,11 +447,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
 
   fn recv(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send {
     async move {
-      let mut buf = ReadBuf::new(buf);
-      let start = buf.filled().len();
-      poll_fn(|cx| self.socket.poll_recv(cx, &mut buf))
-        .await
-        .map(|_| buf.filled().len() - start)
+      self.socket.recv(buf).await
     }
   }
 
@@ -461,20 +456,12 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     buf: &mut [u8],
   ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send {
     async move {
-      let mut buf = ReadBuf::new(buf);
-      let start = buf.filled().len();
-      poll_fn(|cx| {
-        self
-          .socket
-          .poll_recv_from(cx, &mut buf)
-          .map(|res| res.map(|addr| (buf.filled().len() - start, addr)))
-      })
-      .await
+      self.socket.recv_from(buf).await
     }
   }
 
   fn send(&self, buf: &[u8]) -> impl Future<Output = io::Result<usize>> + Send {
-    async move { poll_fn(|cx| self.socket.poll_send(cx, buf)).await }
+    async move { self.socket.send(buf).await }
   }
 
   fn send_to<A: ToSocketAddrs<Self::Runtime>>(
@@ -485,7 +472,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     async move {
       let mut addrs = target.to_socket_addrs().await?;
       if let Some(addr) = addrs.next() {
-        poll_fn(|cx| self.socket.poll_send_to(cx, buf, addr)).await
+        self.socket.send_to(buf, addr).await
       } else {
         return Err(io::Error::new(
           io::ErrorKind::InvalidInput,

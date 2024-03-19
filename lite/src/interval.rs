@@ -264,7 +264,7 @@ mod _tokio {
 
 #[cfg(all(feature = "async-io", feature = "std"))]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "async-io"))))]
-pub use _async_io::AsyncIOInterval;
+pub use _async_io::AsyncIoInterval;
 
 #[cfg(all(feature = "async-io", feature = "std"))]
 mod _async_io {
@@ -274,25 +274,25 @@ mod _async_io {
   pin_project_lite::pin_project! {
     /// The [`AsyncInterval`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
     #[repr(transparent)]
-    pub struct AsyncIOInterval {
+    pub struct AsyncIoInterval {
       #[pin]
       inner: async_io::Timer,
     }
   }
 
-  impl From<async_io::Timer> for AsyncIOInterval {
+  impl From<async_io::Timer> for AsyncIoInterval {
     fn from(timer: async_io::Timer) -> Self {
       Self { inner: timer }
     }
   }
 
-  impl From<AsyncIOInterval> for async_io::Timer {
-    fn from(interval: AsyncIOInterval) -> Self {
+  impl From<AsyncIoInterval> for async_io::Timer {
+    fn from(interval: AsyncIoInterval) -> Self {
       interval.inner
     }
   }
 
-  impl Stream for AsyncIOInterval {
+  impl Stream for AsyncIoInterval {
     type Item = Instant;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -300,7 +300,7 @@ mod _async_io {
     }
   }
 
-  impl AsyncInterval for AsyncIOInterval {
+  impl AsyncInterval for AsyncIoInterval {
     fn reset(&mut self, interval: Duration) {
       self.inner.set_after(interval)
     }
@@ -314,7 +314,7 @@ mod _async_io {
     }
   }
 
-  impl AsyncIntervalExt for AsyncIOInterval {
+  impl AsyncIntervalExt for AsyncIoInterval {
     fn interval(period: Duration) -> Self
     where
       Self: Sized,
@@ -346,14 +346,14 @@ mod _async_io {
 
     #[test]
     fn test_object_safe() {
-      let _: Box<dyn AsyncInterval> = Box::new(AsyncIOInterval::interval(Duration::from_secs(1)));
+      let _: Box<dyn AsyncInterval> = Box::new(AsyncIoInterval::interval(Duration::from_secs(1)));
     }
 
     #[test]
     fn test_interval() {
       futures::executor::block_on(async {
         let start = Instant::now();
-        let interval = AsyncIOInterval::interval(INTERVAL);
+        let interval = AsyncIoInterval::interval(INTERVAL);
         let mut interval = interval.take(4);
         // The first tick is immediate
         let ins = interval.next().await.unwrap();
@@ -384,7 +384,7 @@ mod _async_io {
     fn test_interval_at() {
       futures::executor::block_on(async {
         let start = Instant::now();
-        let interval = AsyncIOInterval::interval_at(Instant::now(), INTERVAL);
+        let interval = AsyncIoInterval::interval_at(Instant::now(), INTERVAL);
         let mut interval = interval.take(4);
         // The first tick is immediate
         let ins = interval.next().await.unwrap();
@@ -415,7 +415,7 @@ mod _async_io {
     fn test_interval_reset() {
       futures::executor::block_on(async {
         let start = Instant::now();
-        let mut interval = AsyncIOInterval::interval(INTERVAL);
+        let mut interval = AsyncIoInterval::interval(INTERVAL);
 
         // The first tick is immediate
         let ins = interval.next().await.unwrap();
@@ -448,7 +448,7 @@ mod _async_io {
     fn test_interval_reset_at() {
       futures::executor::block_on(async {
         let start = Instant::now();
-        let mut interval = AsyncIOInterval::interval(INTERVAL);
+        let mut interval = AsyncIoInterval::interval(INTERVAL);
 
         // The first tick is immediate
         let ins = interval.next().await.unwrap();

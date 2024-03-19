@@ -158,7 +158,7 @@ mod _tokio {
 
 #[cfg(all(feature = "async-io", feature = "std"))]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "async-io"))))]
-pub use _async_io::AsyncIOSleep;
+pub use _async_io::AsyncIoSleep;
 
 #[cfg(all(feature = "async-io", feature = "std"))]
 mod _async_io {
@@ -170,25 +170,25 @@ mod _async_io {
     #[derive(Debug)]
     #[repr(transparent)]
     #[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "async-io"))))]
-    pub struct AsyncIOSleep {
+    pub struct AsyncIoSleep {
       #[pin]
       t: Timer,
     }
   }
 
-  impl From<Timer> for AsyncIOSleep {
+  impl From<Timer> for AsyncIoSleep {
     fn from(t: Timer) -> Self {
       Self { t }
     }
   }
 
-  impl From<AsyncIOSleep> for Timer {
-    fn from(s: AsyncIOSleep) -> Self {
+  impl From<AsyncIoSleep> for Timer {
+    fn from(s: AsyncIoSleep) -> Self {
       s.t
     }
   }
 
-  impl Future for AsyncIOSleep {
+  impl Future for AsyncIoSleep {
     type Output = Instant;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -196,7 +196,7 @@ mod _async_io {
     }
   }
 
-  impl AsyncSleepExt for AsyncIOSleep {
+  impl AsyncSleepExt for AsyncIoSleep {
     fn sleep(after: Duration) -> Self
     where
       Self: Sized,
@@ -216,7 +216,7 @@ mod _async_io {
     }
   }
 
-  impl AsyncSleep for AsyncIOSleep {
+  impl AsyncSleep for AsyncIoSleep {
     /// Sets the timer to emit an event once at the given time instant.
     ///
     /// Note that resetting a timer is different from creating a new sleep by [`sleep()`][`Runtime::sleep()`] because
@@ -228,7 +228,7 @@ mod _async_io {
 
   #[test]
   fn test_object_safe() {
-    let _a: Box<dyn AsyncSleep> = Box::new(AsyncIOSleep::sleep(Duration::from_secs(1)));
+    let _a: Box<dyn AsyncSleep> = Box::new(AsyncIoSleep::sleep(Duration::from_secs(1)));
   }
 
   #[cfg(test)]
@@ -241,14 +241,14 @@ mod _async_io {
 
     #[test]
     fn test_object_safe() {
-      let _a: Box<dyn AsyncSleep> = Box::new(AsyncIOSleep::sleep(ORIGINAL));
+      let _a: Box<dyn AsyncSleep> = Box::new(AsyncIoSleep::sleep(ORIGINAL));
     }
 
     #[test]
     fn test_asyncio_sleep() {
       futures::executor::block_on(async {
         let start = Instant::now();
-        let sleep = AsyncIOSleep::sleep(ORIGINAL);
+        let sleep = AsyncIoSleep::sleep(ORIGINAL);
         let ins = sleep.await;
         assert!(ins >= start + ORIGINAL);
         let elapsed = start.elapsed();
@@ -260,7 +260,7 @@ mod _async_io {
     fn test_asyncio_sleep_until() {
       futures::executor::block_on(async {
         let start = Instant::now();
-        let sleep = AsyncIOSleep::sleep_until(start + ORIGINAL);
+        let sleep = AsyncIoSleep::sleep_until(start + ORIGINAL);
         let ins = sleep.await;
         assert!(ins >= start + ORIGINAL);
         let elapsed = start.elapsed();
@@ -272,7 +272,7 @@ mod _async_io {
     fn test_asyncio_sleep_reset() {
       futures::executor::block_on(async {
         let start = Instant::now();
-        let mut sleep = AsyncIOSleep::sleep(ORIGINAL);
+        let mut sleep = AsyncIoSleep::sleep(ORIGINAL);
         let pin = Pin::new(&mut sleep);
         pin.reset(Instant::now() + RESET);
         let ins = sleep.await;
@@ -286,7 +286,7 @@ mod _async_io {
     fn test_asyncio_sleep_reset2() {
       futures::executor::block_on(async {
         let start = Instant::now();
-        let mut sleep = AsyncIOSleep::sleep_until(start + ORIGINAL);
+        let mut sleep = AsyncIoSleep::sleep_until(start + ORIGINAL);
         let pin = Pin::new(&mut sleep);
         pin.reset(Instant::now() + RESET);
         let ins = sleep.await;
