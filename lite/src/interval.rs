@@ -6,6 +6,7 @@ use std::{
 use futures_util::stream::Stream;
 
 /// The interval abstraction for a runtime.
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncInterval: Stream<Item = Instant> {
   /// Resets the interval to a [`Duration`]. Sets the next tick after the specified [`Duration`].
   ///
@@ -46,8 +47,8 @@ pub trait AsyncIntervalExt: AsyncInterval {
     Self: Sized;
 }
 
-#[cfg(all(feature = "tokio", feature = "std"))]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "tokio"))))]
+#[cfg(all(feature = "tokio", feature = "time"))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "tokio", feature = "time"))))]
 pub use _tokio::TokioInterval;
 
 #[cfg(all(feature = "tokio", feature = "std"))]
@@ -262,11 +263,11 @@ mod _tokio {
   }
 }
 
-#[cfg(all(feature = "async-io", feature = "std"))]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "async-io"))))]
+#[cfg(feature = "async-io")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async-io")))]
 pub use _async_io::AsyncIoInterval;
 
-#[cfg(all(feature = "async-io", feature = "std"))]
+#[cfg(feature = "async-io")]
 mod _async_io {
   use super::*;
   use core::pin::Pin;
@@ -480,11 +481,11 @@ mod _async_io {
   }
 }
 
-#[cfg(all(feature = "wasm", feature = "std"))]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "wasm"))))]
+#[cfg(feature = "wasm-time")]
+#[cfg_attr(docsrs, doc(cfg(feature = "wasm-time")))]
 pub use _wasm::WasmInterval;
 
-#[cfg(all(feature = "wasm", feature = "std"))]
+#[cfg(feature = "wasm-time")]
 mod _wasm {
   use super::*;
 

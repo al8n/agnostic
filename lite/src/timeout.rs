@@ -4,6 +4,7 @@ use std::{
 };
 
 /// The timeout abstraction for async runtime.
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncTimeout<F: Future>: Future<Output = Result<F::Output, Elapsed>> {
   /// Requires a `Future` to complete before the specified duration has elapsed.
   ///
@@ -22,6 +23,7 @@ pub trait AsyncTimeout<F: Future>: Future<Output = Result<F::Output, Elapsed>> {
 
 /// Elapsed error
 #[derive(Debug, PartialEq, Eq)]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub struct Elapsed(());
 
 impl core::fmt::Display for Elapsed {
@@ -38,18 +40,18 @@ impl From<Elapsed> for std::io::Error {
   }
 }
 
-#[cfg(feature = "tokio")]
+#[cfg(all(feature = "tokio", feature = "time"))]
 impl From<::tokio::time::error::Elapsed> for Elapsed {
   fn from(_: ::tokio::time::error::Elapsed) -> Self {
     Elapsed(())
   }
 }
 
-#[cfg(all(feature = "tokio", feature = "std"))]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "tokio"))))]
+#[cfg(all(feature = "tokio", feature = "time"))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "tokio", feature = "time"))))]
 pub use _tokio::*;
 
-#[cfg(all(feature = "tokio", feature = "std"))]
+#[cfg(all(feature = "tokio", feature = "time"))]
 mod _tokio {
   use super::*;
   use core::{
@@ -174,11 +176,11 @@ mod _tokio {
   }
 }
 
-#[cfg(all(feature = "async-io", feature = "std"))]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "async-io"))))]
+#[cfg(feature = "async-io")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async-io")))]
 pub use _async_io::*;
 
-#[cfg(all(feature = "async-io", feature = "std"))]
+#[cfg(feature = "async-io")]
 mod _async_io {
   use super::*;
   use async_io::Timer;
@@ -293,11 +295,11 @@ mod _async_io {
   }
 }
 
-#[cfg(all(feature = "wasm", feature = "std"))]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "wasm"))))]
+#[cfg(feature = "wasm-time")]
+#[cfg_attr(docsrs, doc(cfg(feature = "wasm-time")))]
 pub use _wasm::*;
 
-#[cfg(all(feature = "wasm", feature = "std"))]
+#[cfg(feature = "wasm-time")]
 mod _wasm {
   use super::*;
   use core::{

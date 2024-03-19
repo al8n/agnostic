@@ -156,11 +156,11 @@ mod _tokio {
   }
 }
 
-#[cfg(all(feature = "async-io", feature = "std"))]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "async-io"))))]
+#[cfg(feature = "async-io")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async-io")))]
 pub use _async_io::AsyncIoSleep;
 
-#[cfg(all(feature = "async-io", feature = "std"))]
+#[cfg(feature = "async-io")]
 mod _async_io {
   use super::*;
   use async_io::Timer;
@@ -170,7 +170,7 @@ mod _async_io {
     /// The [`AsyncSleep`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
     #[derive(Debug)]
     #[repr(transparent)]
-    #[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "async-io"))))]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async-io")))]
     pub struct AsyncIoSleep {
       #[pin]
       t: Timer,
@@ -299,11 +299,11 @@ mod _async_io {
   }
 }
 
-#[cfg(all(feature = "wasm", feature = "std"))]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "wasm"))))]
+#[cfg(feature = "wasm-time")]
+#[cfg_attr(docsrs, doc(cfg(feature = "wasm-time")))]
 pub use _wasm::WasmSleep;
 
-#[cfg(all(feature = "wasm", feature = "std"))]
+#[cfg(feature = "wasm-time")]
 mod _wasm {
   use super::*;
   use core::task::{Context, Poll};
