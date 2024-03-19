@@ -103,7 +103,7 @@ mod _tokio {
 
     const ORIGINAL: Duration = Duration::from_secs(1);
     const RESET: Duration = Duration::from_secs(2);
-    const BOUND: Duration = Duration::from_millis(50);
+    const BOUND: Duration = Duration::from_millis(10);
 
     #[tokio::test]
     async fn test_object_safe() {
@@ -237,7 +237,7 @@ mod _async_io {
 
     const ORIGINAL: Duration = Duration::from_secs(1);
     const RESET: Duration = Duration::from_secs(2);
-    const BOUND: Duration = Duration::from_millis(50);
+    const BOUND: Duration = Duration::from_millis(10);
 
     #[test]
     fn test_object_safe() {
@@ -367,7 +367,7 @@ mod _wasm {
 
     const ORIGINAL: Duration = Duration::from_secs(1);
     const RESET: Duration = Duration::from_secs(2);
-    const BOUND: Duration = Duration::from_millis(50);
+    const BOUND: Duration = Duration::from_millis(10);
 
     #[test]
     fn test_object_safe() {
