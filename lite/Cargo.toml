@@ -1,8 +1,8 @@
 [package]
 name = "agnostic-lite"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
-description = "`agnostic-lite` is lightweight `agnostic`."
+description = "`agnostic-lite` is WASM friendly and light version of `agnostic`, for users who want to write async runtime-agnostic crate."
 repository = "https://github.com/al8n/agnostic"
 documentation = "https://docs.rs/agnostic-lite"
 readme = "README.md"
@@ -31,7 +31,7 @@ wasm = [
   "futures-util/std",
 ]
 
-# enable `AsyncSleep` implementation for wasm target
+# enable `AsyncSleep` `AsyncInterval` and `AsyncTimeout` implementation for wasm target
 wasm-time = ["dep:futures-timer", "futures-timer/wasm-bindgen"]
 
 [dependencies]

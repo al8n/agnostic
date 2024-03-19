@@ -7,7 +7,7 @@
 </div>
 <div align="center">
 
-`agnostic-lite` is the light weight version of `agnostic`, for users who want to write async runtime-agnostic crate.
+`agnostic-lite` is WASM friendly and light version of `agnostic`, for users who want to write async runtime-agnostic crate.
 
 [<img alt="github" src="https://img.shields.io/badge/github-al8n/agnostic--lite-8da0cb?style=for-the-badge&logo=Github" height="22">][Github-url]
 <img alt="LoC" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fal8n%2F4bac4a768dd5583e656aeecb44867864%2Fraw%2Fagnostic-lite" height="22">
@@ -26,13 +26,13 @@ English | [简体中文][zh-cn-url]
 
 ## Introduction
 
-`agnostic-lite` is the light weight version of `agnostic`, for users who want to write async runtime-agnostic crate.
+`agnostic-lite` is WASM friendly and light version of `agnostic`, for users who want to write async runtime-agnostic crate.
 
 ## Installation
 
 ```toml
 [dependencies]
-agnostic-lite = "0.1"
+agnostic-lite = "0.2"
 ```
 
 #### License
