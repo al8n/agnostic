@@ -1,8 +1,13 @@
-use std::{future::Future, pin::Pin, task::{Context, Poll}, time::{Duration, Instant}};
+use std::{
+  future::Future,
+  pin::Pin,
+  task::{Context, Poll},
+  time::{Duration, Instant},
+};
 
 /// The sleep abstraction for a runtime.
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-pub trait AsyncSleep: Future<Output = Instant> + Send {
+pub trait AsyncSleep: Future<Output = Instant> {
   /// Resets the Sleep instance to a new deadline.
   ///
   /// The behavior of this function may different in different runtime implementations.
@@ -13,10 +18,14 @@ pub trait AsyncSleep: Future<Output = Instant> + Send {
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncSleepExt: AsyncSleep {
   /// Creates a timer that emits an event once after the given duration of time.
-  fn sleep(after: Duration) -> Self where Self: Sized;
+  fn sleep(after: Duration) -> Self
+  where
+    Self: Sized;
 
   /// Creates a timer that emits an event once at the given time instant.
-  fn sleep_until(&self, deadline: Instant) -> Self where Self: Sized;
+  fn sleep_until(deadline: Instant) -> Self
+  where
+    Self: Sized;
 }
 
 #[cfg(all(feature = "tokio", feature = "std"))]
@@ -29,7 +38,7 @@ mod _tokio {
 
   pin_project_lite::pin_project! {
     /// The [`AsyncSleep`] implementation for tokio runtime
-    #[cfg_attr(docsrs, doc(cfg(all(feature = "sleep", feature = "tokio"))))]
+    #[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "tokio"))))]
     #[repr(transparent)]
     pub struct TokioSleep {
       #[pin]
@@ -42,20 +51,17 @@ mod _tokio {
       Self { inner: sleep }
     }
   }
-  
+
   impl From<TokioSleep> for ::tokio::time::Sleep {
     fn from(sleep: TokioSleep) -> Self {
       sleep.inner
     }
   }
-  
+
   impl Future for TokioSleep {
     type Output = Instant;
-  
-    fn poll(
-      self: std::pin::Pin<&mut Self>,
-      cx: &mut std::task::Context<'_>,
-    ) -> Poll<Self::Output> {
+
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
       let this = self.project();
       let ddl = this.inner.deadline().into();
       match this.inner.poll(cx) {
@@ -72,13 +78,19 @@ mod _tokio {
   }
 
   impl AsyncSleepExt for TokioSleep {
-    fn sleep(after: Duration) -> Self where Self: Sized {
+    fn sleep(after: Duration) -> Self
+    where
+      Self: Sized,
+    {
       Self {
         inner: tokio::time::sleep(after),
       }
     }
 
-    fn sleep_until(&self, deadline: Instant) -> Self where Self: Sized {
+    fn sleep_until(deadline: Instant) -> Self
+    where
+      Self: Sized,
+    {
       Self {
         inner: tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)),
       }
@@ -132,13 +144,19 @@ mod _async_io {
   }
 
   impl AsyncSleepExt for AsyncIOSleep {
-    fn sleep(after: Duration) -> Self where Self: Sized {
+    fn sleep(after: Duration) -> Self
+    where
+      Self: Sized,
+    {
       Self {
         t: async_io::Timer::after(after),
       }
     }
 
-    fn sleep_until(&self, deadline: Instant) -> Self where Self: Sized {
+    fn sleep_until(deadline: Instant) -> Self
+    where
+      Self: Sized,
+    {
       Self {
         t: async_io::Timer::at(deadline),
       }
@@ -158,5 +176,74 @@ mod _async_io {
   #[test]
   fn test_object_safe() {
     let _a: Box<dyn AsyncSleep> = Box::new(AsyncIOSleep::sleep(Duration::from_secs(1)));
+  }
+}
+
+#[cfg(all(feature = "wasm", feature = "std"))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "wasm"))))]
+pub use _wasm::WasmSleep;
+
+#[cfg(all(feature = "wasm", feature = "std"))]
+mod _wasm {
+  use super::*;
+  use futures_timer::Delay;
+
+  pin_project_lite::pin_project! {
+    /// The [`AsyncSleep`] implementation for wasm-bindgen based runtime.
+    #[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "wasm"))))]
+    pub struct WasmSleep {
+      #[pin]
+      pub(crate) sleep: Delay,
+      pub(crate) ddl: Instant,
+      pub(crate) duration: Duration,
+    }
+  }
+
+  impl Future for WasmSleep {
+    type Output = Instant;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+      let ddl = self.ddl;
+      self.project().sleep.poll(cx).map(|_| ddl)
+    }
+  }
+
+  impl AsyncSleep for WasmSleep {
+    fn reset(self: Pin<&mut Self>, deadline: Instant) {
+      let mut this = self.project();
+      let ddl = deadline - Instant::now();
+      this.sleep.reset(ddl);
+      *this.ddl = deadline;
+    }
+  }
+
+  impl AsyncSleepExt for WasmSleep {
+    fn sleep(after: Duration) -> Self
+    where
+      Self: Sized,
+    {
+      Self {
+        sleep: Delay::new(after),
+        ddl: Instant::now() + after,
+        duration: after,
+      }
+    }
+
+    fn sleep_until(deadline: Instant) -> Self
+    where
+      Self: Sized,
+    {
+      let duration = deadline - Instant::now();
+      Self {
+        sleep: Delay::new(duration),
+        ddl: deadline,
+        duration,
+      }
+    }
+  }
+
+  #[test]
+  fn test_object_safe() {
+    let _a: Box<dyn AsyncSleep> = Box::new(WasmSleep::sleep(Duration::from_secs(1)));
   }
 }

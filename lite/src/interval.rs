@@ -1,16 +1,20 @@
-use std::{pin::Pin, task::{Context, Poll}, time::{Duration, Instant}};
+use std::{
+  pin::Pin,
+  task::{Context, Poll},
+  time::{Duration, Instant},
+};
 
 use futures_util::stream::Stream;
 
 /// The interval abstraction for a runtime.
-pub trait AsyncInterval: Stream<Item = Instant> + Send {
+pub trait AsyncInterval: Stream<Item = Instant> {
   /// Resets the interval to a [`Duration`].
   ///
   /// The behavior of this function may different in different runtime implementations.
   fn reset(&mut self, interval: Duration);
 
   /// Resets the interval to a specific instant.
-  /// 
+  ///
   /// The behavior of this function may different in different runtime implementations.
   fn reset_at(&mut self, instant: Instant);
 
@@ -43,11 +47,9 @@ pub trait AsyncIntervalExt: AsyncInterval {
     Self: Sized;
 }
 
-
 #[cfg(all(feature = "tokio", feature = "std"))]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "tokio"))))]
 pub use _tokio::TokioInterval;
-
 
 #[cfg(all(feature = "tokio", feature = "std"))]
 mod _tokio {
@@ -61,7 +63,6 @@ mod _tokio {
       inner: ::tokio::time::Interval,
     }
   }
-
 
   impl From<::tokio::time::Interval> for TokioInterval {
     fn from(interval: ::tokio::time::Interval) -> Self {
@@ -82,7 +83,11 @@ mod _tokio {
       self: Pin<&mut Self>,
       cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-      self.project().inner.poll_tick(cx).map(|ins| Some(ins.into()))
+      self
+        .project()
+        .inner
+        .poll_tick(cx)
+        .map(|ins| Some(ins.into()))
     }
   }
 
@@ -102,16 +107,18 @@ mod _tokio {
 
   impl AsyncIntervalExt for TokioInterval {
     fn interval(period: Duration) -> Self
-      where
-        Self: Sized {
+    where
+      Self: Sized,
+    {
       Self {
         inner: tokio::time::interval(period),
       }
     }
 
     fn interval_at(start: Instant, period: Duration) -> Self
-      where
-        Self: Sized {
+    where
+      Self: Sized,
+    {
       Self {
         inner: tokio::time::interval_at(tokio::time::Instant::from_std(start), period),
       }
@@ -157,10 +164,7 @@ mod _async_io {
   impl Stream for AsyncIoInterval {
     type Item = Instant;
 
-    fn poll_next(
-      self: Pin<&mut Self>,
-      cx: &mut Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
       self.project().inner.poll_next(cx)
     }
   }
@@ -183,16 +187,18 @@ mod _async_io {
 
   impl AsyncIntervalExt for AsyncIoInterval {
     fn interval(period: Duration) -> Self
-      where
-        Self: Sized {
+    where
+      Self: Sized,
+    {
       Self {
         inner: async_io::Timer::interval(period),
       }
     }
 
     fn interval_at(start: Instant, period: Duration) -> Self
-      where
-        Self: Sized {
+    where
+      Self: Sized,
+    {
       Self {
         inner: async_io::Timer::interval_at(start, period),
       }
@@ -205,3 +211,94 @@ mod _async_io {
   }
 }
 
+#[cfg(all(feature = "wasm", feature = "std"))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "wasm"))))]
+pub use _wasm::WasmInterval;
+
+#[cfg(all(feature = "wasm", feature = "std"))]
+mod _wasm {
+  use super::*;
+
+  use crate::{sleep::WasmSleep, AsyncSleepExt as _};
+  use futures_util::FutureExt;
+
+  pin_project_lite::pin_project! {
+    /// The [`AsyncInterval`] implementation for wasm runtime.
+    ///
+    /// **Note:** `WasmInterval` may not accurate under milliseconds level.
+    #[repr(transparent)]
+    pub struct WasmInterval {
+      #[pin]
+      inner: Pin<Box<WasmSleep>>,
+    }
+  }
+
+  impl Stream for WasmInterval {
+    type Item = Instant;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+      let mut this = self.project();
+      match this.inner.poll_unpin(cx) {
+        Poll::Ready(ins) => {
+          let duration = this.inner.duration;
+          this.inner.sleep.reset(duration);
+          Poll::Ready(Some(ins))
+        }
+        Poll::Pending => Poll::Pending,
+      }
+    }
+  }
+
+  impl AsyncInterval for WasmInterval {
+    fn reset(&mut self, interval: Duration) {
+      self.inner.sleep.reset(interval);
+      let ddl = Instant::now() + interval;
+      self.inner.ddl = ddl;
+      self.inner.duration = interval;
+    }
+
+    fn reset_at(&mut self, instant: Instant) {
+      let duration = instant - Instant::now();
+      self.inner.sleep.reset(duration);
+      self.inner.ddl = instant;
+      self.inner.duration = duration;
+    }
+
+    fn poll_tick(&mut self, cx: &mut Context<'_>) -> Poll<Instant> {
+      match self.inner.sleep.poll_unpin(cx) {
+        Poll::Ready(_) => {
+          let duration = self.inner.duration;
+          self.inner.sleep.reset(duration);
+          self.inner.ddl = Instant::now() + duration;
+          Poll::Ready(self.inner.ddl)
+        }
+        Poll::Pending => Poll::Pending,
+      }
+    }
+  }
+
+  impl AsyncIntervalExt for WasmInterval {
+    fn interval(period: Duration) -> Self
+    where
+      Self: Sized,
+    {
+      Self {
+        inner: Box::pin(WasmSleep::sleep(period)),
+      }
+    }
+
+    fn interval_at(start: Instant, period: Duration) -> Self
+    where
+      Self: Sized,
+    {
+      Self {
+        inner: Box::pin(WasmSleep::sleep_until(start + period)),
+      }
+    }
+  }
+
+  #[test]
+  fn test_object_safe() {
+    let _: Box<dyn AsyncInterval> = Box::new(WasmInterval::interval(Duration::from_secs(1)));
+  }
+}

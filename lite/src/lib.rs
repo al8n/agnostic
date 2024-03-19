@@ -9,6 +9,9 @@
 mod spawner;
 pub use spawner::*;
 
+mod local_spawner;
+pub use local_spawner::*;
+
 #[cfg(any(feature = "std", test))]
 extern crate std;
 

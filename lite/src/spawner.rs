@@ -1,6 +1,5 @@
 use core::future::Future;
 
-
 /// A spawner trait for spawning futures.
 pub trait AsyncSpawner: Copy + Send + Sync + 'static {
   /// The handle returned by the spawner when a future is spawned.
