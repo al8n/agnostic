@@ -46,7 +46,7 @@ jobs:
       
       - name: Count lines of code
         run: |
-          tokeit --message "Total lines of code"
+          tokeit --label "Total lines of code"
   
       - name: Upload loc to GitHub Gist
         uses: actions/github-script@v6
