@@ -19,11 +19,17 @@ time = ["std", "tokio?/time", "futures-util"]
 
 tokio = ["dep:tokio"]
 
-async-io = ["dep:async-io", "futures-util", "futures-lite", "time"]
+async-io = ["dep:async-io", "futures-util", "time"]
 smol = ["dep:smol", "async-io"]
 async-std = ["dep:async-std", "async-io"]
 
-wasm = ["dep:wasm-bindgen-futures", "futures-channel"]
+wasm = [
+  "dep:wasm-bindgen-futures",
+  "futures-channel",
+  "futures-util/async-await-macro",
+  "futures-util/async-await",
+  "futures-util/std",
+]
 
 # enable `AsyncSleep` implementation for wasm target
 wasm-time = ["dep:futures-timer", "futures-timer/wasm-bindgen"]
@@ -32,7 +38,6 @@ wasm-time = ["dep:futures-timer", "futures-timer/wasm-bindgen"]
 pin-project-lite = "0.2"
 
 futures-util = { version = "=0.3.29", optional = true, default-features = false }
-futures-lite =  { verions = "2", optional = true, default-features = false }
 async-io = { version = "2", optional = true }
 
 tokio = { version = "1", optional = true, default-features = false, features = [

@@ -269,7 +269,7 @@ pub use _async_io::AsyncIoInterval;
 #[cfg(all(feature = "async-io", feature = "std"))]
 mod _async_io {
   use super::*;
-  use futures_lite::FutureExt;
+  use futures_util::FutureExt;
 
   pin_project_lite::pin_project! {
     /// The [`AsyncInterval`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
@@ -310,7 +310,7 @@ mod _async_io {
     }
 
     fn poll_tick(&mut self, cx: &mut Context<'_>) -> Poll<Instant> {
-      self.inner.poll(cx)
+      self.inner.poll_unpin(cx)
     }
   }
 
