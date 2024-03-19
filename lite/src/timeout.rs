@@ -108,6 +108,68 @@ mod _tokio {
       }
     }
   }
+
+  #[cfg(test)]
+  mod tests {
+    use super::*;
+
+    const BAD: Duration = Duration::from_secs(1);
+    const GOOD: Duration = Duration::from_millis(10);
+    const TIMEOUT: Duration = Duration::from_millis(200);
+    const BOUND: Duration = Duration::from_secs(10);
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_timeout() {
+      futures::executor::block_on(async {
+        let fut = async {
+          tokio::time::sleep(BAD).await;
+          1
+        };
+        let start = Instant::now();
+        let rst = TokioTimeout::timeout(TIMEOUT, fut).await;
+        assert!(rst.is_err());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= TIMEOUT && elapsed <= TIMEOUT + BOUND);
+
+        let fut = async {
+          tokio::time::sleep(GOOD).await;
+          1
+        };
+
+        let start = Instant::now();
+        let rst = TokioTimeout::timeout(TIMEOUT, fut).await;
+        assert!(rst.is_ok());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= GOOD && elapsed <= GOOD + BOUND);
+      });
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_timeout_at() {
+      futures::executor::block_on(async {
+        let fut = async {
+          tokio::time::sleep(BAD).await;
+          1
+        };
+        let start = Instant::now();
+        let rst = TokioTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
+        assert!(rst.is_err());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= TIMEOUT && elapsed <= TIMEOUT + BOUND);
+
+        let fut = async {
+          tokio::time::sleep(GOOD).await;
+          1
+        };
+
+        let start = Instant::now();
+        let rst = TokioTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
+        assert!(rst.is_ok());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= GOOD && elapsed <= GOOD + BOUND);
+      });
+    }
+  }
 }
 
 #[cfg(all(feature = "async-io", feature = "std"))]
@@ -161,6 +223,68 @@ mod _async_io {
       }
     }
   }
+
+  #[cfg(test)]
+  mod tests {
+    use super::*;
+
+    const BAD: Duration = Duration::from_secs(1);
+    const GOOD: Duration = Duration::from_millis(10);
+    const TIMEOUT: Duration = Duration::from_millis(200);
+    const BOUND: Duration = Duration::from_secs(10);
+
+    #[test]
+    fn test_timeout() {
+      futures::executor::block_on(async {
+        let fut = async {
+          Timer::after(BAD).await;
+          1
+        };
+        let start = Instant::now();
+        let rst = AsyncIoTimeout::timeout(TIMEOUT, fut).await;
+        assert!(rst.is_err());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= TIMEOUT && elapsed <= TIMEOUT + BOUND);
+
+        let fut = async {
+          Timer::after(GOOD).await;
+          1
+        };
+
+        let start = Instant::now();
+        let rst = AsyncIoTimeout::timeout(TIMEOUT, fut).await;
+        assert!(rst.is_ok());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= GOOD && elapsed <= GOOD + BOUND);
+      });
+    }
+
+    #[test]
+    fn test_timeout_at() {
+      futures::executor::block_on(async {
+        let fut = async {
+          Timer::after(BAD).await;
+          1
+        };
+        let start = Instant::now();
+        let rst = AsyncIoTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
+        assert!(rst.is_err());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= TIMEOUT && elapsed <= TIMEOUT + BOUND);
+
+        let fut = async {
+          Timer::after(GOOD).await;
+          1
+        };
+
+        let start = Instant::now();
+        let rst = AsyncIoTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
+        assert!(rst.is_ok());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= GOOD && elapsed <= GOOD + BOUND);
+      });
+    }
+  }
 }
 
 #[cfg(all(feature = "wasm", feature = "std"))]
@@ -212,6 +336,68 @@ mod _wasm {
       Self {
         inner: select(Box::pin(fut), Delay::new(duration)),
       }
+    }
+  }
+
+  #[cfg(test)]
+  mod tests {
+    use super::*;
+
+    const BAD: Duration = Duration::from_secs(1);
+    const GOOD: Duration = Duration::from_millis(10);
+    const TIMEOUT: Duration = Duration::from_millis(200);
+    const BOUND: Duration = Duration::from_secs(10);
+
+    #[test]
+    fn test_timeout() {
+      futures::executor::block_on(async {
+        let fut = async {
+          futures_timer::Delay::new(BAD).await;
+          1
+        };
+        let start = Instant::now();
+        let rst = WasmTimeout::timeout(TIMEOUT, fut).await;
+        assert!(rst.is_err());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= TIMEOUT && elapsed <= TIMEOUT + BOUND);
+
+        let fut = async {
+          futures_timer::Delay::new(GOOD).await;
+          1
+        };
+
+        let start = Instant::now();
+        let rst = WasmTimeout::timeout(TIMEOUT, fut).await;
+        assert!(rst.is_ok());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= GOOD && elapsed <= GOOD + BOUND);
+      });
+    }
+
+    #[test]
+    fn test_timeout_at() {
+      futures::executor::block_on(async {
+        let fut = async {
+          futures_timer::Delay::new(BAD).await;
+          1
+        };
+        let start = Instant::now();
+        let rst = WasmTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
+        assert!(rst.is_err());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= TIMEOUT && elapsed <= TIMEOUT + BOUND);
+
+        let fut = async {
+          futures_timer::Delay::new(GOOD).await;
+          1
+        };
+
+        let start = Instant::now();
+        let rst = WasmTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
+        assert!(rst.is_ok());
+        let elapsed = start.elapsed();
+        assert!(elapsed >= GOOD && elapsed <= GOOD + BOUND);
+      });
     }
   }
 }

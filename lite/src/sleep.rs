@@ -97,15 +97,68 @@ mod _tokio {
     }
   }
 
-  #[test]
-  fn test_object_safe() {
-    let _a: Box<dyn AsyncSleep> = Box::new(TokioSleep::sleep(Duration::from_secs(1)));
+  #[cfg(test)]
+  mod tests {
+    use super::*;
+
+    const ORIGINAL: Duration = Duration::from_secs(1);
+    const RESET: Duration = Duration::from_secs(2);
+    const BOUND: Duration = Duration::from_millis(10);
+
+    #[tokio::test]
+    async fn test_object_safe() {
+      let _a: Box<dyn AsyncSleep> = Box::new(TokioSleep::sleep(ORIGINAL));
+    }
+
+    #[tokio::test]
+    async fn test_tokio_sleep() {
+      let start = Instant::now();
+      let sleep = TokioSleep::sleep(ORIGINAL);
+      let ins = sleep.await;
+      assert!(ins >= start + ORIGINAL);
+      let elapsed = start.elapsed();
+      assert!(elapsed >= ORIGINAL && elapsed < ORIGINAL + BOUND);
+    }
+
+    #[tokio::test]
+    async fn test_tokio_sleep_until() {
+      let start = Instant::now();
+      let sleep = TokioSleep::sleep_until(start + ORIGINAL);
+      let ins = sleep.await;
+      assert!(ins >= start + ORIGINAL);
+      let elapsed = start.elapsed();
+      assert!(elapsed >= ORIGINAL && elapsed < ORIGINAL + BOUND);
+    }
+
+    #[tokio::test]
+    async fn test_tokio_sleep_reset() {
+      let start = Instant::now();
+      let sleep = TokioSleep::sleep(ORIGINAL);
+      tokio::pin!(sleep);
+      sleep.as_mut().reset(Instant::now() + RESET);
+      let ins = sleep.await;
+      assert!(ins >= start + RESET);
+      let elapsed = start.elapsed();
+      assert!(elapsed >= RESET && elapsed < RESET + BOUND);
+    }
+
+    #[tokio::test]
+    async fn test_tokio_sleep_reset2() {
+      let start = Instant::now();
+      let sleep = TokioSleep::sleep_until(start + ORIGINAL);
+      tokio::pin!(sleep);
+      sleep.as_mut().reset(Instant::now() + RESET);
+      let ins = sleep.await;
+      assert!(ins >= start + RESET);
+      let elapsed = start.elapsed();
+      assert!(elapsed >= RESET && elapsed < RESET + BOUND);
+    }
   }
 }
 
 #[cfg(all(feature = "async-io", feature = "std"))]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "async-io"))))]
-pub use _async_io::AsyncIOSleep;
+pub use _async_io::AsyncIoSleep;
 
 #[cfg(all(feature = "async-io", feature = "std"))]
 mod _async_io {
@@ -117,25 +170,25 @@ mod _async_io {
     #[derive(Debug)]
     #[repr(transparent)]
     #[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "async-io"))))]
-    pub struct AsyncIOSleep {
+    pub struct AsyncIoSleep {
       #[pin]
       t: Timer,
     }
   }
 
-  impl From<Timer> for AsyncIOSleep {
+  impl From<Timer> for AsyncIoSleep {
     fn from(t: Timer) -> Self {
       Self { t }
     }
   }
 
-  impl From<AsyncIOSleep> for Timer {
-    fn from(s: AsyncIOSleep) -> Self {
+  impl From<AsyncIoSleep> for Timer {
+    fn from(s: AsyncIoSleep) -> Self {
       s.t
     }
   }
 
-  impl Future for AsyncIOSleep {
+  impl Future for AsyncIoSleep {
     type Output = Instant;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -143,7 +196,7 @@ mod _async_io {
     }
   }
 
-  impl AsyncSleepExt for AsyncIOSleep {
+  impl AsyncSleepExt for AsyncIoSleep {
     fn sleep(after: Duration) -> Self
     where
       Self: Sized,
@@ -163,7 +216,7 @@ mod _async_io {
     }
   }
 
-  impl AsyncSleep for AsyncIOSleep {
+  impl AsyncSleep for AsyncIoSleep {
     /// Sets the timer to emit an event once at the given time instant.
     ///
     /// Note that resetting a timer is different from creating a new sleep by [`sleep()`][`Runtime::sleep()`] because
@@ -175,7 +228,73 @@ mod _async_io {
 
   #[test]
   fn test_object_safe() {
-    let _a: Box<dyn AsyncSleep> = Box::new(AsyncIOSleep::sleep(Duration::from_secs(1)));
+    let _a: Box<dyn AsyncSleep> = Box::new(AsyncIoSleep::sleep(Duration::from_secs(1)));
+  }
+
+  #[cfg(test)]
+  mod tests {
+    use super::*;
+
+    const ORIGINAL: Duration = Duration::from_secs(1);
+    const RESET: Duration = Duration::from_secs(2);
+    const BOUND: Duration = Duration::from_millis(10);
+
+    #[test]
+    fn test_object_safe() {
+      let _a: Box<dyn AsyncSleep> = Box::new(AsyncIoSleep::sleep(ORIGINAL));
+    }
+
+    #[test]
+    fn test_asyncio_sleep() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let sleep = AsyncIoSleep::sleep(ORIGINAL);
+        let ins = sleep.await;
+        assert!(ins >= start + ORIGINAL);
+        let elapsed = start.elapsed();
+        assert!(elapsed >= ORIGINAL && elapsed < ORIGINAL + BOUND);
+      });
+    }
+
+    #[test]
+    fn test_asyncio_sleep_until() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let sleep = AsyncIoSleep::sleep_until(start + ORIGINAL);
+        let ins = sleep.await;
+        assert!(ins >= start + ORIGINAL);
+        let elapsed = start.elapsed();
+        assert!(elapsed >= ORIGINAL && elapsed < ORIGINAL + BOUND);
+      });
+    }
+
+    #[test]
+    fn test_asyncio_sleep_reset() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let mut sleep = AsyncIoSleep::sleep(ORIGINAL);
+        let pin = Pin::new(&mut sleep);
+        pin.reset(Instant::now() + RESET);
+        let ins = sleep.await;
+        assert!(ins >= start + RESET);
+        let elapsed = start.elapsed();
+        assert!(elapsed >= RESET && elapsed < RESET + BOUND);
+      });
+    }
+
+    #[test]
+    fn test_asyncio_sleep_reset2() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let mut sleep = AsyncIoSleep::sleep_until(start + ORIGINAL);
+        let pin = Pin::new(&mut sleep);
+        pin.reset(Instant::now() + RESET);
+        let ins = sleep.await;
+        assert!(ins >= start + RESET);
+        let elapsed = start.elapsed();
+        assert!(elapsed >= RESET && elapsed < RESET + BOUND);
+      });
+    }
   }
 }
 
@@ -223,8 +342,8 @@ mod _wasm {
       Self: Sized,
     {
       Self {
-        sleep: Delay::new(after),
         ddl: Instant::now() + after,
+        sleep: Delay::new(after),
         duration: after,
       }
     }
@@ -242,8 +361,69 @@ mod _wasm {
     }
   }
 
-  #[test]
-  fn test_object_safe() {
-    let _a: Box<dyn AsyncSleep> = Box::new(WasmSleep::sleep(Duration::from_secs(1)));
+  #[cfg(test)]
+  mod tests {
+    use super::*;
+
+    const ORIGINAL: Duration = Duration::from_secs(1);
+    const RESET: Duration = Duration::from_secs(2);
+    const BOUND: Duration = Duration::from_millis(10);
+
+    #[test]
+    fn test_object_safe() {
+      let _a: Box<dyn AsyncSleep> = Box::new(WasmSleep::sleep(ORIGINAL));
+    }
+
+    #[test]
+    fn test_wasm_sleep() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let sleep = WasmSleep::sleep(ORIGINAL);
+        let ins = sleep.await;
+        assert!(ins >= start + ORIGINAL);
+        let elapsed = start.elapsed();
+        assert!(elapsed >= ORIGINAL && elapsed < ORIGINAL + BOUND);
+      });
+    }
+
+    #[test]
+    fn test_wasm_sleep_until() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let sleep = WasmSleep::sleep_until(start + ORIGINAL);
+        let ins = sleep.await;
+        assert!(ins >= start + ORIGINAL);
+        let elapsed = start.elapsed();
+        assert!(elapsed >= ORIGINAL && elapsed < ORIGINAL + BOUND);
+      });
+    }
+
+    #[test]
+    fn test_wasm_sleep_reset() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let mut sleep = WasmSleep::sleep(ORIGINAL);
+        let pin = Pin::new(&mut sleep);
+        pin.reset(Instant::now() + RESET);
+        let ins = sleep.await;
+        assert!(ins >= start + RESET);
+        let elapsed = start.elapsed();
+        assert!(elapsed >= RESET && elapsed < RESET + BOUND);
+      });
+    }
+
+    #[test]
+    fn test_wasm_sleep_reset2() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let mut sleep = WasmSleep::sleep_until(start + ORIGINAL);
+        let pin = Pin::new(&mut sleep);
+        pin.reset(Instant::now() + RESET);
+        let ins = sleep.await;
+        assert!(ins >= start + RESET);
+        let elapsed = start.elapsed();
+        assert!(elapsed >= RESET && elapsed < RESET + BOUND);
+      });
+    }
   }
 }
