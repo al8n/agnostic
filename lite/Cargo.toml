@@ -40,8 +40,13 @@ tokio = { version = "1", optional = true, default-features = false, features = [
 ] }
 
 smol = { version = "2", optional = true, default-features = false }
-async-std = { version = "1", optional = true }
+async-std = { version = "1", optional = true, features = ["unstable"] }
 
 futures-channel = { version = "=0.3.29", optional = true }
 futures-timer = { version = "3", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
+
+[dev-dependencies]
+futures = { version = "=0.3.29", features = ["executor"] }
+tokio = { version = "1", features = ["full"] }
+async-std = { version = "1", features = ["attributes"] }
