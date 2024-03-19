@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-lite"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 description = "`agnostic-lite` is WASM friendly and light version of `agnostic`, for users who want to write async runtime-agnostic crate."
 repository = "https://github.com/al8n/agnostic"
