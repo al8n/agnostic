@@ -68,7 +68,7 @@ impl From<::tokio::time::error::Elapsed> for Elapsed {
   }
 }
 
-pub trait Sleep: Future<Output = ()> + Send {
+pub trait Sleep: Future<Output = std::time::Instant> + Send {
   /// Resets the Sleep instance to a new deadline.
   ///
   /// The behavior of this function may different in different runtime implementations.
@@ -220,10 +220,10 @@ mod timer {
   }
 
   impl Future for AsyncSleep {
-    type Output = ();
+    type Output = std::time::Instant;
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-      self.project().t.poll(cx).map(|_| ())
+      self.project().t.poll(cx)
     }
   }
 

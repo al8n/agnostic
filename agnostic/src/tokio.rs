@@ -19,37 +19,44 @@ impl core::fmt::Display for TimeoutError {
 
 impl std::error::Error for TimeoutError {}
 
-impl super::Sleep for ::tokio::time::Sleep {
-  /// Resets the `Sleep` instance to a new deadline.
-  ///
-  /// Calling this function allows changing the instant at which the `Sleep`
-  /// future completes without having to create new associated state.
-  ///
-  /// This function can be called both before and after the future has
-  /// completed.
-  ///
-  /// To call this method, you will usually combine the call with
-  /// [`Pin::as_mut`], which lets you call the method without consuming the
-  /// `Sleep` itself.
-  ///
-  /// # Example
-  ///
-  /// ```
-  /// use std::time::{Duration, Instant};
-  /// use agnostic::tokio::TokioRuntime;
-  ///
-  /// # #[tokio::main(flavor = "current_thread")]
-  /// # async fn main() {
-  /// let sleep = TokioRuntime::sleep(Duration::from_millis(10));
-  /// tokio::pin!(sleep);
-  ///
-  /// sleep.as_mut().reset(Instant::now() + Duration::from_millis(20));
-  /// # }
-  /// ```
-  ///
-  /// [`Pin::as_mut`]: fn@std::pin::Pin::as_mut
+pin_project_lite::pin_project! {
+  pub struct TokioSleep {
+    #[pin]
+    inner: ::tokio::time::Sleep,
+  }
+}
+
+impl From<::tokio::time::Sleep> for TokioSleep {
+  fn from(sleep: ::tokio::time::Sleep) -> Self {
+    Self { inner: sleep }
+  }
+}
+
+impl From<TokioSleep> for ::tokio::time::Sleep {
+  fn from(sleep: TokioSleep) -> Self {
+    sleep.inner
+  }
+}
+
+impl futures_util::Future for TokioSleep {
+  type Output = Instant;
+
+  fn poll(
+    mut self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> Poll<Self::Output> {
+    let this = self.project();
+    let ddl = this.inner.deadline().into();
+    match this.inner.poll(cx) {
+      Poll::Ready(_) => Poll::Ready(ddl),
+      Poll::Pending => Poll::Pending,
+    }
+  }
+}
+
+impl super::Sleep for TokioSleep {
   fn reset(mut self: std::pin::Pin<&mut Self>, deadline: Instant) {
-    self.as_mut().reset(deadline.into())
+    self.project().inner.as_mut().reset(deadline.into())
   }
 }
 
@@ -225,7 +232,7 @@ impl Runtime for TokioRuntime {
   = ::tokio::task::JoinHandle<R>;
   type LocalJoinHandle<F> = ::tokio::task::JoinHandle<F>;
   type Interval = TokioInterval;
-  type Sleep = ::tokio::time::Sleep;
+  type Sleep = TokioSleep;
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = TokioTimeout<F> where F: Future + Send;
 
@@ -281,11 +288,11 @@ impl Runtime for TokioRuntime {
   }
 
   fn sleep(duration: Duration) -> Self::Sleep {
-    ::tokio::time::sleep(duration)
+    ::tokio::time::sleep(duration).into()
   }
 
   fn sleep_until(instant: Instant) -> Self::Sleep {
-    ::tokio::time::sleep_until(instant.into())
+    ::tokio::time::sleep_until(instant.into()).into()
   }
 
   fn yield_now() -> impl Future<Output = ()> + Send {

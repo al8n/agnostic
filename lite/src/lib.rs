@@ -1,94 +1,28 @@
 //! `agnostic-lite` is lightweight [`agnostic`](https://crates.io/crates/agnostic).
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
 #![allow(warnings)]
+#![forbid(unsafe_code)]
+#![deny(warnings, missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
-use core::future::Future;
+mod spawner;
+pub use spawner::*;
 
-/// A spawner trait for spawning futures.
-pub trait AsyncSpawner: Copy + Send + Sync + 'static {
-  type JoinHandle<F>: Future + Send + Sync + 'static
-  where
-    F: Send + 'static;
+#[cfg(any(feature = "std", test))]
+extern crate std;
 
-  /// Spawn a future.
-  fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static;
+#[cfg(feature = "std")]
+mod sleep;
+#[cfg(feature = "std")]
+pub use sleep::*;
 
-  /// Spawn a future and detach it.
-  fn spawn_detach<F>(future: F)
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    Self::spawn(future);
-  }
-}
+#[cfg(feature = "std")]
+mod interval;
+#[cfg(feature = "std")]
+pub use interval::*;
 
-/// A [`AsyncSpawner`] that uses the [`tokio`] runtime.
-#[cfg(feature = "tokio")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
-#[derive(Debug, Clone, Copy)]
-pub struct TokioSpawner;
-
-#[cfg(feature = "tokio")]
-impl AsyncSpawner for TokioSpawner {
-  type JoinHandle<F> = tokio::task::JoinHandle<F> where
-  F: Send + 'static;
-
-  fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: core::future::Future + Send + 'static,
-  {
-    tokio::task::spawn(future)
-  }
-}
-
-/// A [`AsyncSpawner`] that uses the [`async-std`](async_std) runtime.
-#[cfg(feature = "async-std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
-#[derive(Debug, Clone, Copy)]
-pub struct AsyncStdSpawner;
-
-#[cfg(feature = "async-std")]
-impl AsyncSpawner for AsyncStdSpawner {
-  type JoinHandle<F> = async_std::task::JoinHandle<F> where F: Send + 'static;
-
-  fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: core::future::Future + Send + 'static,
-  {
-    async_std::task::spawn(future)
-  }
-}
-
-/// A [`AsyncSpawner`] that uses the [`smol`] runtime.
-#[cfg(feature = "smol")]
-#[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
-#[derive(Debug, Clone, Copy)]
-pub struct SmolSpawner;
-
-#[cfg(feature = "smol")]
-impl AsyncSpawner for SmolSpawner {
-  type JoinHandle<F> = smol::Task<F> where F: Send + 'static;
-
-  fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: core::future::Future + Send + 'static,
-  {
-    smol::spawn(future)
-  }
-
-  fn spawn_detach<F>(future: F)
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    smol::spawn(future).detach()
-  }
-}
+#[cfg(feature = "std")]
+mod timeout;
+#[cfg(feature = "std")]
+pub use timeout::*;

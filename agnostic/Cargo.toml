@@ -62,7 +62,7 @@ hickory-resolver = { version = "0.24", default-features = false, optional = true
 
 [dependencies]
 async-trait = "0.1"
-futures-util = { version = "0.3" }
+futures-util = { version = "=0.3.29" }
 
 tokio = { version = "1", default-features = false, optional = true }
 tokio-stream = { version = "0.1", default-features = false, optional = true, features = ["time"] }
