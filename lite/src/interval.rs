@@ -8,12 +8,12 @@ use futures_util::stream::Stream;
 
 /// The interval abstraction for a runtime.
 pub trait AsyncInterval: Stream<Item = Instant> {
-  /// Resets the interval to a [`Duration`].
+  /// Resets the interval to a [`Duration`]. Sets the next tick after the specified [`Duration`].
   ///
   /// The behavior of this function may different in different runtime implementations.
   fn reset(&mut self, interval: Duration);
 
-  /// Resets the interval to a specific instant.
+  /// Resets the interval to a specific instant. Sets the next tick to expire at the given instant.
   ///
   /// The behavior of this function may different in different runtime implementations.
   fn reset_at(&mut self, instant: Instant);
@@ -93,7 +93,7 @@ mod _tokio {
 
   impl AsyncInterval for TokioInterval {
     fn reset(&mut self, interval: Duration) {
-      self.inner.reset_at(tokio::time::Instant::now() + interval);
+      self.inner.reset_after(interval);
     }
 
     fn reset_at(&mut self, instant: Instant) {
@@ -125,15 +125,146 @@ mod _tokio {
     }
   }
 
-  #[test]
-  fn test_object_safe() {
-    let _: Box<dyn AsyncInterval> = Box::new(TokioInterval::interval(Duration::from_secs(1)));
+  #[cfg(test)]
+  mod tests {
+    use futures::StreamExt;
+
+    use super::*;
+
+    const INTERVAL: Duration = Duration::from_millis(100);
+    const BOUND: Duration = Duration::from_millis(20);
+    const IMMEDIATE: Duration = Duration::from_millis(1);
+
+    #[tokio::test]
+    async fn test_object_safe() {
+      let _: Box<dyn AsyncInterval> = Box::new(TokioInterval::interval(Duration::from_secs(1)));
+    }
+
+    #[tokio::test]
+    async fn test_interval() {
+      let start = Instant::now();
+      let interval = TokioInterval::interval(INTERVAL);
+      let mut interval = interval.take(4);
+
+      // The first tick is immediate
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins <= start + IMMEDIATE);
+      assert!(elapsed <= IMMEDIATE + BOUND);
+
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins >= start + INTERVAL - BOUND);
+      assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins >= start + INTERVAL * 2 - BOUND);
+      assert!(elapsed >= INTERVAL * 2 - BOUND && elapsed <= INTERVAL * 2 + BOUND);
+
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins >= start + INTERVAL * 3 - BOUND);
+      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+      assert!(interval.next().await.is_none());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_interval_at() {
+      let start = Instant::now();
+      let interval = TokioInterval::interval_at(Instant::now(), INTERVAL);
+      let mut interval = interval.take(4);
+
+      // The first tick is immediate
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins <= start + IMMEDIATE);
+      assert!(elapsed <= IMMEDIATE + BOUND);
+
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins >= start + INTERVAL - BOUND);
+      assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins >= start + INTERVAL * 2 - BOUND);
+      assert!(elapsed >= INTERVAL * 2 - BOUND && elapsed <= INTERVAL * 2 + BOUND);
+
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins >= start + INTERVAL * 3 - BOUND);
+      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+      assert!(interval.next().await.is_none());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_interval_reset() {
+      let start = Instant::now();
+      let mut interval = TokioInterval::interval(INTERVAL);
+      // The first tick is immediate
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins <= start + IMMEDIATE);
+      assert!(elapsed <= IMMEDIATE + BOUND);
+
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins >= start + INTERVAL - BOUND);
+      assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+
+      // Reset the next tick to 2x
+      interval.reset(INTERVAL * 2);
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      // interval + 2x interval, so 3 here
+      assert!(ins >= start + INTERVAL * 3 - BOUND);
+      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      // interval + 2x interval + interval, so 4 here
+      assert!(ins >= start + INTERVAL * 4 - BOUND);
+      assert!(elapsed >= INTERVAL * 4 - BOUND && elapsed <= INTERVAL * 4 + BOUND);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_interval_reset_at() {
+      let start = Instant::now();
+      let mut interval = TokioInterval::interval(INTERVAL);
+      // The first tick is immediate
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins <= start + IMMEDIATE);
+      assert!(elapsed <= IMMEDIATE + BOUND);
+
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(ins >= start + INTERVAL);
+      assert!(elapsed >= INTERVAL && elapsed <= INTERVAL + BOUND);
+
+      // Reset the next tick to 2x
+      interval.reset_at(start + INTERVAL * 3);
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      // interval + 2x interval, so 3 here
+      assert!(ins >= start + INTERVAL * 3);
+      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+      let ins = interval.next().await.unwrap();
+      let elapsed = start.elapsed();
+      // interval + 2x interval + interval, so 4 here
+      assert!(ins >= start + INTERVAL * 4 - BOUND);
+      assert!(elapsed >= INTERVAL * 4 - BOUND && elapsed <= INTERVAL * 4 + BOUND);
+    }
   }
 }
 
 #[cfg(all(feature = "async-io", feature = "std"))]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "async-io"))))]
-pub use _async_io::AsyncIoInterval;
+pub use _async_io::AsyncIOInterval;
 
 #[cfg(all(feature = "async-io", feature = "std"))]
 mod _async_io {
@@ -143,25 +274,25 @@ mod _async_io {
   pin_project_lite::pin_project! {
     /// The [`AsyncInterval`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
     #[repr(transparent)]
-    pub struct AsyncIoInterval {
+    pub struct AsyncIOInterval {
       #[pin]
       inner: async_io::Timer,
     }
   }
 
-  impl From<async_io::Timer> for AsyncIoInterval {
+  impl From<async_io::Timer> for AsyncIOInterval {
     fn from(timer: async_io::Timer) -> Self {
       Self { inner: timer }
     }
   }
 
-  impl From<AsyncIoInterval> for async_io::Timer {
-    fn from(interval: AsyncIoInterval) -> Self {
+  impl From<AsyncIOInterval> for async_io::Timer {
+    fn from(interval: AsyncIOInterval) -> Self {
       interval.inner
     }
   }
 
-  impl Stream for AsyncIoInterval {
+  impl Stream for AsyncIOInterval {
     type Item = Instant;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -169,15 +300,13 @@ mod _async_io {
     }
   }
 
-  impl AsyncInterval for AsyncIoInterval {
+  impl AsyncInterval for AsyncIOInterval {
     fn reset(&mut self, interval: Duration) {
-      self.inner.set_interval(interval);
+      self.inner.set_after(interval)
     }
 
     fn reset_at(&mut self, deadline: Instant) {
-      let now = Instant::now();
-      let period = deadline - now;
-      self.inner.set_interval_at(now, period);
+      self.inner.set_at(deadline);
     }
 
     fn poll_tick(&mut self, cx: &mut Context<'_>) -> Poll<Instant> {
@@ -185,13 +314,13 @@ mod _async_io {
     }
   }
 
-  impl AsyncIntervalExt for AsyncIoInterval {
+  impl AsyncIntervalExt for AsyncIOInterval {
     fn interval(period: Duration) -> Self
     where
       Self: Sized,
     {
       Self {
-        inner: async_io::Timer::interval(period),
+        inner: async_io::Timer::interval_at(Instant::now(), period),
       }
     }
 
@@ -205,9 +334,148 @@ mod _async_io {
     }
   }
 
-  #[test]
-  fn test_object_safe() {
-    let _: Box<dyn AsyncInterval> = Box::new(AsyncIoInterval::interval(Duration::from_secs(1)));
+  #[cfg(test)]
+  mod tests {
+    use futures::StreamExt;
+
+    use super::*;
+
+    const INTERVAL: Duration = Duration::from_millis(100);
+    const BOUND: Duration = Duration::from_millis(20);
+    const IMMEDIATE: Duration = Duration::from_millis(1);
+
+    #[test]
+    fn test_object_safe() {
+      let _: Box<dyn AsyncInterval> = Box::new(AsyncIOInterval::interval(Duration::from_secs(1)));
+    }
+
+    #[test]
+    fn test_interval() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let interval = AsyncIOInterval::interval(INTERVAL);
+        let mut interval = interval.take(4);
+        // The first tick is immediate
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins <= start + IMMEDIATE);
+        assert!(elapsed <= IMMEDIATE + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL - BOUND);
+        assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL * 2 - BOUND);
+        assert!(elapsed >= INTERVAL * 2 - BOUND && elapsed <= INTERVAL * 2 + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL * 3 - BOUND);
+        assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+        assert!(interval.next().await.is_none());
+      });
+    }
+
+    #[test]
+    fn test_interval_at() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let interval = AsyncIOInterval::interval_at(Instant::now(), INTERVAL);
+        let mut interval = interval.take(4);
+        // The first tick is immediate
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins <= start + IMMEDIATE);
+        assert!(elapsed <= IMMEDIATE + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL - BOUND);
+        assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL * 2 - BOUND);
+        assert!(elapsed >= INTERVAL * 2 - BOUND && elapsed <= INTERVAL * 2 + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL * 3 - BOUND);
+        assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+        assert!(interval.next().await.is_none());
+      });
+    }
+
+    #[test]
+    fn test_interval_reset() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let mut interval = AsyncIOInterval::interval(INTERVAL);
+
+        // The first tick is immediate
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins <= start + IMMEDIATE);
+        assert!(elapsed <= IMMEDIATE + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL - BOUND);
+        assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+
+        // Reset the next tick to 2x
+        interval.reset(INTERVAL * 2);
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        // interval + 2x interval, so 3 here
+        assert!(ins >= start + INTERVAL * 3 - BOUND);
+        assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        // interval + 2x interval + interval, so 4 here
+        assert!(ins >= start + INTERVAL * 4 - BOUND);
+        assert!(elapsed >= INTERVAL * 4 - BOUND && elapsed <= INTERVAL * 4 + BOUND);
+      });
+    }
+
+    #[test]
+    fn test_interval_reset_at() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let mut interval = AsyncIOInterval::interval(INTERVAL);
+
+        // The first tick is immediate
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins <= start + IMMEDIATE);
+        assert!(elapsed <= IMMEDIATE + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL);
+        assert!(elapsed >= INTERVAL && elapsed <= INTERVAL + BOUND);
+
+        // Reset the next tick to 2x
+        interval.reset_at(start + INTERVAL * 3);
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        // interval + 2x interval, so 3 here
+        assert!(ins >= start + INTERVAL * 3);
+        assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        // interval + 2x interval + interval, so 4 here
+        assert!(ins >= start + INTERVAL * 4 - BOUND);
+        assert!(elapsed >= INTERVAL * 4 - BOUND && elapsed <= INTERVAL * 4 + BOUND);
+      });
+    }
   }
 }
 
@@ -219,29 +487,34 @@ pub use _wasm::WasmInterval;
 mod _wasm {
   use super::*;
 
-  use crate::{sleep::WasmSleep, AsyncSleepExt as _};
+  use crate::{AsyncSleep, AsyncSleepExt as _, WasmSleep};
   use futures_util::FutureExt;
 
   pin_project_lite::pin_project! {
     /// The [`AsyncInterval`] implementation for wasm runtime.
     ///
-    /// **Note:** `WasmInterval` may not accurate under milliseconds level.
-    #[repr(transparent)]
+    /// **Note:** `WasmInterval` is not accurate below second level.
     pub struct WasmInterval {
       #[pin]
       inner: Pin<Box<WasmSleep>>,
+      first: bool,
     }
   }
 
   impl Stream for WasmInterval {
     type Item = Instant;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+      if self.first {
+        self.first = false;
+        return Poll::Ready(Some(self.inner.ddl - self.inner.duration));
+      }
+
       let mut this = self.project();
       match this.inner.poll_unpin(cx) {
         Poll::Ready(ins) => {
           let duration = this.inner.duration;
-          this.inner.sleep.reset(duration);
+          Pin::new(&mut **this.inner).reset(Instant::now() + duration);
           Poll::Ready(Some(ins))
         }
         Poll::Pending => Poll::Pending,
@@ -251,26 +524,25 @@ mod _wasm {
 
   impl AsyncInterval for WasmInterval {
     fn reset(&mut self, interval: Duration) {
-      self.inner.sleep.reset(interval);
-      let ddl = Instant::now() + interval;
-      self.inner.ddl = ddl;
-      self.inner.duration = interval;
+      Pin::new(&mut *self.inner).reset(Instant::now() + interval);
     }
 
     fn reset_at(&mut self, instant: Instant) {
-      let duration = instant - Instant::now();
-      self.inner.sleep.reset(duration);
-      self.inner.ddl = instant;
-      self.inner.duration = duration;
+      Pin::new(&mut *self.inner).reset(instant);
     }
 
     fn poll_tick(&mut self, cx: &mut Context<'_>) -> Poll<Instant> {
-      match self.inner.sleep.poll_unpin(cx) {
-        Poll::Ready(_) => {
-          let duration = self.inner.duration;
-          self.inner.sleep.reset(duration);
-          self.inner.ddl = Instant::now() + duration;
-          Poll::Ready(self.inner.ddl)
+      if self.first {
+        self.first = false;
+        return Poll::Ready(self.inner.ddl - self.inner.duration);
+      }
+
+      let duration = self.inner.duration;
+      let mut this = Pin::new(&mut *self.inner);
+      match this.poll_unpin(cx) {
+        Poll::Ready(ins) => {
+          this.reset(Instant::now() + duration);
+          Poll::Ready(ins)
         }
         Poll::Pending => Poll::Pending,
       }
@@ -284,6 +556,7 @@ mod _wasm {
     {
       Self {
         inner: Box::pin(WasmSleep::sleep(period)),
+        first: true,
       }
     }
 
@@ -293,12 +566,150 @@ mod _wasm {
     {
       Self {
         inner: Box::pin(WasmSleep::sleep_until(start + period)),
+        first: true,
       }
     }
   }
 
-  #[test]
-  fn test_object_safe() {
-    let _: Box<dyn AsyncInterval> = Box::new(WasmInterval::interval(Duration::from_secs(1)));
+  #[cfg(test)]
+  mod tests {
+    use futures::StreamExt;
+
+    use super::*;
+
+    const INTERVAL: Duration = Duration::from_millis(100);
+    const BOUND: Duration = Duration::from_millis(20);
+    const IMMEDIATE: Duration = Duration::from_millis(1);
+
+    #[test]
+    fn test_object_safe() {
+      let _: Box<dyn AsyncInterval> = Box::new(WasmInterval::interval(Duration::from_secs(1)));
+    }
+
+    #[test]
+    fn test_interval() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let interval = WasmInterval::interval(INTERVAL);
+        let mut interval = interval.take(4);
+        // The first tick is immediate
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins <= start + IMMEDIATE);
+        assert!(elapsed <= IMMEDIATE + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL - BOUND);
+        assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL * 2 - BOUND);
+        assert!(elapsed >= INTERVAL * 2 - BOUND && elapsed <= INTERVAL * 2 + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL * 3 - BOUND);
+        assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+        assert!(interval.next().await.is_none());
+      });
+    }
+
+    #[test]
+    fn test_interval_at() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let interval = WasmInterval::interval_at(Instant::now(), INTERVAL);
+        let mut interval = interval.take(4);
+        // The first tick is immediate
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins <= start + IMMEDIATE);
+        assert!(elapsed <= IMMEDIATE + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL - BOUND);
+        assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL * 2 - BOUND);
+        assert!(elapsed >= INTERVAL * 2 - BOUND && elapsed <= INTERVAL * 2 + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL * 3 - BOUND);
+        assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+        assert!(interval.next().await.is_none());
+      });
+    }
+
+    #[test]
+    fn test_interval_reset() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let mut interval = WasmInterval::interval(INTERVAL);
+        // The first tick is immediate
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins <= start + IMMEDIATE);
+        assert!(elapsed <= IMMEDIATE + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL - BOUND);
+        assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+
+        // Reset the next tick to 2x
+        interval.reset(INTERVAL * 2);
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        // interval + 2x interval, so 3 here
+        assert!(ins >= start + INTERVAL * 3 - BOUND);
+        assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        // interval + 2x interval + interval, so 4 here
+        assert!(ins >= start + INTERVAL * 4 - BOUND);
+        assert!(elapsed >= INTERVAL * 4 - BOUND && elapsed <= INTERVAL * 4 + BOUND);
+      });
+    }
+
+    #[test]
+    fn test_interval_reset_at() {
+      futures::executor::block_on(async {
+        let start = Instant::now();
+        let mut interval = WasmInterval::interval(INTERVAL);
+        // The first tick is immediate
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins <= start + IMMEDIATE);
+        assert!(elapsed <= IMMEDIATE + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        assert!(ins >= start + INTERVAL);
+        assert!(elapsed >= INTERVAL && elapsed <= INTERVAL + BOUND);
+
+        // Reset the next tick to 2x
+        interval.reset_at(start + INTERVAL * 3);
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        // interval + 2x interval, so 3 here
+        assert!(ins >= start + INTERVAL * 3);
+        assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+
+        let ins = interval.next().await.unwrap();
+        let elapsed = start.elapsed();
+        // interval + 2x interval + interval, so 4 here
+        assert!(ins >= start + INTERVAL * 4 - BOUND);
+        assert!(elapsed >= INTERVAL * 4 - BOUND && elapsed <= INTERVAL * 4 + BOUND);
+      });
+    }
   }
 }

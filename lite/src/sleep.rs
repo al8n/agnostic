@@ -342,8 +342,8 @@ mod _wasm {
       Self: Sized,
     {
       Self {
-        sleep: Delay::new(after),
         ddl: Instant::now() + after,
+        sleep: Delay::new(after),
         duration: after,
       }
     }
