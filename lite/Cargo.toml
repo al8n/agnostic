@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-lite"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "`agnostic-lite` is lightweight `agnostic`."
 repository = "https://github.com/al8n/agnostic"
@@ -15,11 +15,11 @@ license = "MIT/Apache-2.0"
 [features]
 default = ["std"]
 std = []
-time = ["std", "tokio?/time", "futures-util"]
+time = ["std", "tokio?/time"]
 
 tokio = ["dep:tokio"]
 
-async-io = ["dep:async-io", "futures-util", "time"]
+async-io = ["dep:async-io", "time"]
 smol = ["dep:smol", "async-io"]
 async-std = ["dep:async-std", "async-io"]
 
@@ -37,7 +37,7 @@ wasm-time = ["dep:futures-timer", "futures-timer/wasm-bindgen"]
 [dependencies]
 pin-project-lite = "0.2"
 
-futures-util = { version = "=0.3.29", optional = true, default-features = false }
+futures-util = { version = "=0.3.29", default-features = false }
 async-io = { version = "2", optional = true }
 
 tokio = { version = "1", optional = true, default-features = false, features = [

@@ -1,7 +1,6 @@
 use std::{
   future::Future,
   pin::Pin,
-  task::{Context, Poll},
   time::{Duration, Instant},
 };
 
@@ -35,6 +34,7 @@ pub use _tokio::TokioSleep;
 #[cfg(all(feature = "tokio", feature = "std"))]
 mod _tokio {
   use super::*;
+  use core::task::Poll;
 
   pin_project_lite::pin_project! {
     /// The [`AsyncSleep`] implementation for tokio runtime
@@ -164,6 +164,7 @@ pub use _async_io::AsyncIoSleep;
 mod _async_io {
   use super::*;
   use async_io::Timer;
+  use core::task::{Context, Poll};
 
   pin_project_lite::pin_project! {
     /// The [`AsyncSleep`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
@@ -305,6 +306,7 @@ pub use _wasm::WasmSleep;
 #[cfg(all(feature = "wasm", feature = "std"))]
 mod _wasm {
   use super::*;
+  use core::task::{Context, Poll};
   use futures_timer::Delay;
 
   pin_project_lite::pin_project! {

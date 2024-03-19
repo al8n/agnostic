@@ -1,5 +1,4 @@
 use std::{
-  pin::Pin,
   task::{Context, Poll},
   time::{Duration, Instant},
 };
@@ -54,6 +53,7 @@ pub use _tokio::TokioInterval;
 #[cfg(all(feature = "tokio", feature = "std"))]
 mod _tokio {
   use super::*;
+  use core::pin::Pin;
 
   pin_project_lite::pin_project! {
     /// The [`AsyncInterval`] implementation for tokio runtime
@@ -269,6 +269,7 @@ pub use _async_io::AsyncIoInterval;
 #[cfg(all(feature = "async-io", feature = "std"))]
 mod _async_io {
   use super::*;
+  use core::pin::Pin;
   use futures_util::FutureExt;
 
   pin_project_lite::pin_project! {
@@ -488,6 +489,7 @@ mod _wasm {
   use super::*;
 
   use crate::{AsyncSleep, AsyncSleepExt as _, WasmSleep};
+  use core::pin::Pin;
   use futures_util::FutureExt;
 
   pin_project_lite::pin_project! {

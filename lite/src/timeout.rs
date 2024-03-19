@@ -1,7 +1,5 @@
 use std::{
   future::Future,
-  pin::Pin,
-  task::{Context, Poll},
   time::{Duration, Instant},
 };
 
@@ -54,6 +52,10 @@ pub use _tokio::*;
 #[cfg(all(feature = "tokio", feature = "std"))]
 mod _tokio {
   use super::*;
+  use core::{
+    pin::Pin,
+    task::{Context, Poll},
+  };
   use tokio::time::{timeout, timeout_at, Timeout};
 
   pin_project_lite::pin_project! {
@@ -180,6 +182,10 @@ pub use _async_io::*;
 mod _async_io {
   use super::*;
   use async_io::Timer;
+  use core::{
+    pin::Pin,
+    task::{Context, Poll},
+  };
   use futures_util::future::{select, Either, Select};
 
   pin_project_lite::pin_project! {
@@ -294,6 +300,10 @@ pub use _wasm::*;
 #[cfg(all(feature = "wasm", feature = "std"))]
 mod _wasm {
   use super::*;
+  use core::{
+    pin::Pin,
+    task::{Context, Poll},
+  };
   use futures_timer::Delay;
   use futures_util::future::{select, Either, Select};
 
