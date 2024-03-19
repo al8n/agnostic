@@ -12,7 +12,7 @@
 If you want a light weight crate, see `agnostic-lite`.
 
 [<img alt="github" src="https://img.shields.io/badge/github-al8n/agnostic-8da0cb?style=for-the-badge&logo=Github" height="22">][Github-url]
-<img alt="LoC" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fal8n%2F4bac4a768dd5583e656aeecb44867864%2Fraw%2Fagnostic" height="22">
+<img alt="LoC" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fal8n%2F327b2a8aef9003246e45c6e47fe63937%2Fraw%2Fagnostic" height="22">
 [<img alt="Build" src="https://img.shields.io/github/actions/workflow/status/al8n/agnostic/ci.yml?logo=Github-Actions&style=for-the-badge" height="22">][CI-url]
 [<img alt="codecov" src="https://img.shields.io/codecov/c/gh/al8n/agnostic?style=for-the-badge&token=6R3QFWRWHL&logo=codecov" height="22">][codecov-url]
 
