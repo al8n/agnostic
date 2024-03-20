@@ -44,9 +44,9 @@ io = ["futures-util/io"]
 # But if you are using tokio, this feature can be ignored.
 tokio-compat = ["tokio-util/compat", "dep:tokio"]
 
-tokio = ["dep:tokio", "quinn?/runtime-tokio", "pin-project-lite", "tokio-stream", "tokio/rt", "tokio/sync", "tokio/macros", "tokio/time", "tokio-compat"]
-async-std = ["dep:async-std", "quinn?/runtime-async-std", "async-io", "pin-project-lite"]
-smol = ["dep:smol", "pin-project-lite", "async-io"]
+tokio = ["dep:tokio", "agnostic-lite/tokio", "quinn?/runtime-tokio", "pin-project-lite", "tokio-stream", "tokio/rt", "tokio/sync", "tokio/macros", "tokio/time", "tokio-compat"]
+async-std = ["dep:async-std", "agnostic-lite/async-std", "quinn?/runtime-async-std", "async-io", "pin-project-lite"]
+smol = ["dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
 
 tracing = ["dep:tracing"]
 
@@ -62,6 +62,7 @@ hickory-resolver = { version = "0.24", default-features = false, optional = true
 hickory-resolver = { version = "0.24", default-features = false, optional = true }
 
 [dependencies]
+agnostic-lite = { workspace = true, features = ["time"] }
 async-trait = "0.1"
 futures-util = { version = "=0.3.29" }
 

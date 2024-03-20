@@ -2,10 +2,6 @@
 members = ["agnostic", "lite"]
 resolver = "2"
 
-[workspace.dependencies]
-futures-util = { version = "=0.3.29", default-features = false }
-pin-project-lite = "0.2"
-
 [workspace.package]
 version = "0.3.0"
 edition = "2021"
@@ -14,6 +10,11 @@ rust-version = "1.75.0"
 repository = "https://github.com/al8n/agnostic"
 homepage = "https://github.com/al8n/agnostic"
 keywords = ["async", "runtime", "agnostic", "trait"]
+
+[workspace.dependencies]
+futures-util = { version = "=0.3.29", default-features = false }
+pin-project-lite = "0.2"
+agnostic-lite = { path = "./lite", version = "0.3" }
 
 [workspace.metadata.docs.rs]
 all-features = true

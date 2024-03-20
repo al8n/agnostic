@@ -3,7 +3,6 @@ use std::sync::{
   Arc,
 };
 
-pub use super::timer::*;
 use super::*;
 use ::smol::channel;
 use async_io::Timer;
@@ -98,57 +97,27 @@ impl core::fmt::Display for SmolRuntime {
 }
 
 impl Runtime for SmolRuntime {
-  type JoinHandle<T> = ::smol::Task<T>
-  where
-    T: Send + 'static,
-    <Self::JoinHandle<T> as Future>::Output: Send;
+  type Spawner = SmolSpawner;
+  type LocalSpawner = SmolLocalSpawner;
+  type Interval = AsyncIoInterval;
+  type LocalInterval = AsyncIoInterval;
+  type Sleep = AsyncIoSleep;
+  type LocalSleep = AsyncIoSleep;
+  type Timeout<F> = AsyncIoTimeout<F> where F: Future + Send;
+  type LocalTimeout<F> = AsyncIoTimeout<F> where F: Future;
+
   type BlockJoinHandle<R>
   where
     R: Send + 'static,
   = ::smol::Task<R>;
-  type LocalJoinHandle<F> = ::smol::Task<F>;
-  type Interval = Timer;
-  type Sleep = AsyncSleep;
+
   type Delay<F> = SmolDelay<F> where F: Future + Send + 'static, F::Output: Send;
-  type Timeout<F> = Timeout<F> where F: Future + Send;
 
   #[cfg(feature = "net")]
   type Net = net::SmolNet;
 
   fn new() -> Self {
     Self
-  }
-
-  fn spawn<F>(fut: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    ::smol::spawn(fut)
-  }
-
-  fn spawn_detach<F>(fut: F)
-  where
-    F: Future + Send + 'static,
-    F::Output: Send + 'static,
-  {
-    ::smol::spawn(fut).detach();
-  }
-
-  fn spawn_local<F>(fut: F) -> Self::LocalJoinHandle<F::Output>
-  where
-    F: Future + 'static,
-    F::Output: 'static,
-  {
-    ::smol::LocalExecutor::new().spawn(fut)
-  }
-
-  fn spawn_local_detach<F>(fut: F)
-  where
-    F: Future + 'static,
-    F::Output: 'static,
-  {
-    ::smol::LocalExecutor::new().spawn(fut).detach();
   }
 
   fn spawn_blocking<F, R>(f: F) -> Self::BlockJoinHandle<R>
@@ -171,27 +140,40 @@ impl Runtime for SmolRuntime {
     ::smol::block_on(f)
   }
 
-  fn interval(interval: Duration) -> Self::Interval
-  where
-    <Self::Interval as Stream>::Item: Send,
-  {
-    Timer::interval(interval)
+  async fn yield_now() {
+    ::smol::future::yield_now().await
+  }
+
+  fn interval(duration: Duration) -> Self::Interval {
+    AsyncIoInterval::interval(duration)
+  }
+
+  fn interval_local(duration: Duration) -> Self::LocalInterval {
+    AsyncIoInterval::interval(duration)
   }
 
   fn interval_at(start: Instant, period: Duration) -> Self::Interval {
-    Timer::interval_at(start, period)
+    AsyncIoInterval::interval_at(start, period)
+  }
+
+  fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval {
+    AsyncIoInterval::interval_at(start, period)
   }
 
   fn sleep(duration: Duration) -> Self::Sleep {
-    Timer::after(duration).into()
+    AsyncIoSleep::sleep(duration)
   }
 
-  fn sleep_until(deadline: Instant) -> Self::Sleep {
-    Timer::at(deadline).into()
+  fn sleep_local(duration: Duration) -> Self::LocalSleep {
+    AsyncIoSleep::sleep(duration)
   }
 
-  async fn yield_now() {
-    ::smol::future::yield_now().await
+  fn sleep_until(instant: Instant) -> Self::Sleep {
+    AsyncIoSleep::sleep_until(instant)
+  }
+
+  fn sleep_local_until(instant: Instant) -> Self::LocalSleep {
+    AsyncIoSleep::sleep_until(instant)
   }
 
   fn delay<F>(delay: Duration, fut: F) -> Self::Delay<F>
@@ -200,19 +182,5 @@ impl Runtime for SmolRuntime {
     F::Output: Send,
   {
     SmolDelay::new(delay, fut)
-  }
-
-  fn timeout<F>(duration: Duration, fut: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    Timeout::new(duration, fut)
-  }
-
-  fn timeout_at<F>(deadline: Instant, fut: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    Timeout::at(deadline, fut)
   }
 }

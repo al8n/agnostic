@@ -1,13 +1,11 @@
-use std::sync::{
-  atomic::{AtomicBool, Ordering},
-  Arc,
-};
-
-pub use super::timer::*;
 use super::*;
 use ::async_std::channel;
 use async_io::Timer;
 use futures_util::FutureExt;
+use std::sync::{
+  atomic::{AtomicBool, Ordering},
+  Arc,
+};
 
 #[cfg(feature = "net")]
 pub mod net;
@@ -94,41 +92,26 @@ impl core::fmt::Display for AsyncStdRuntime {
 }
 
 impl Runtime for AsyncStdRuntime {
-  type JoinHandle<T> = ::async_std::task::JoinHandle<T>
-  where
-    T: Send + 'static,
-    <Self::JoinHandle<T> as Future>::Output: Send;
+  type Spawner = AsyncStdSpawner;
+  type LocalSpawner = AsyncStdLocalSpawner;
+  type Interval = AsyncIoInterval;
+  type LocalInterval = AsyncIoInterval;
+  type Sleep = AsyncIoSleep;
+  type LocalSleep = AsyncIoSleep;
+  type Timeout<F> = AsyncIoTimeout<F> where F: Future + Send;
+  type LocalTimeout<F> = AsyncIoTimeout<F> where F: Future;
+
   type BlockJoinHandle<R>
   where
     R: Send + 'static,
   = ::async_std::task::JoinHandle<R>;
-  type LocalJoinHandle<F> = ::async_std::task::JoinHandle<F>;
-  type Interval = Timer;
-  type Sleep = AsyncSleep;
   type Delay<F> = AsyncStdDelay<F> where F: Future + Send + 'static, F::Output: Send;
-  type Timeout<F> = Timeout<F> where F: Future + Send;
 
   #[cfg(feature = "net")]
   type Net = net::AsyncStdNet;
 
   fn new() -> Self {
     Self
-  }
-
-  fn spawn<F>(fut: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    ::async_std::task::spawn(fut)
-  }
-
-  fn spawn_local<F>(fut: F) -> Self::LocalJoinHandle<F::Output>
-  where
-    F: Future + 'static,
-    F::Output: 'static,
-  {
-    ::async_std::task::spawn_local(fut)
   }
 
   fn spawn_blocking<F, R>(f: F) -> Self::BlockJoinHandle<R>
@@ -143,22 +126,6 @@ impl Runtime for AsyncStdRuntime {
     ::async_std::task::block_on(f)
   }
 
-  fn interval(interval: Duration) -> Self::Interval {
-    Timer::interval(interval)
-  }
-
-  fn interval_at(start: Instant, period: Duration) -> Self::Interval {
-    Timer::interval_at(start, period)
-  }
-
-  fn sleep(duration: Duration) -> Self::Sleep {
-    Timer::after(duration).into()
-  }
-
-  fn sleep_until(deadline: Instant) -> Self::Sleep {
-    Timer::at(deadline).into()
-  }
-
   async fn yield_now() {
     ::async_std::task::yield_now().await
   }
@@ -171,17 +138,35 @@ impl Runtime for AsyncStdRuntime {
     AsyncStdDelay::new(delay, fut)
   }
 
-  fn timeout<F>(duration: Duration, fut: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    Timeout::new(duration, fut)
+  fn interval(duration: Duration) -> Self::Interval {
+    AsyncIoInterval::interval(duration)
   }
 
-  fn timeout_at<F>(deadline: Instant, fut: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    Timeout::at(deadline, fut)
+  fn interval_local(duration: Duration) -> Self::LocalInterval {
+    AsyncIoInterval::interval(duration)
+  }
+
+  fn interval_at(start: Instant, period: Duration) -> Self::Interval {
+    AsyncIoInterval::interval_at(start, period)
+  }
+
+  fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval {
+    AsyncIoInterval::interval_at(start, period)
+  }
+
+  fn sleep(duration: Duration) -> Self::Sleep {
+    AsyncIoSleep::sleep(duration)
+  }
+
+  fn sleep_local(duration: Duration) -> Self::LocalSleep {
+    AsyncIoSleep::sleep(duration)
+  }
+
+  fn sleep_until(instant: Instant) -> Self::Sleep {
+    AsyncIoSleep::sleep_until(instant)
+  }
+
+  fn sleep_local_until(instant: Instant) -> Self::LocalSleep {
+    AsyncIoSleep::sleep_until(instant)
   }
 }

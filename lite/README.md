@@ -31,40 +31,17 @@ English | [简体中文][zh-cn-url]
 `agnostic-lite` splits the big `Runtime` trait in `agnostic` in multiple small traits:
 
 - `AsyncSpawner`: trait for spawning tasks
-  
-  Builtin supports runtimes
-  - `tokio`
-  - `async-std`
-  - `smol`
-  - `wasm-bindgen-futures`
 - `AsyncLocalSpawner`: trait for spawning local tasks
-  
-  Builtin supports runtimes
-  - `tokio`
-  - `async-std`
-  - `smol`
-  - `wasm-bindgen-futures`
 - `AsyncSleep`: trait for sleep functionality
-  
-  Builtin supports runtimes
-  - `tokio`
-  - `async-std`
-  - `smol`
-  - `wasm-bindgen-futures`
 - `AsyncInterval`: trait for interval functionality
-  
-  Builtin supports runtimes
-  - `tokio`
-  - `async-std`
-  - `smol`
-  - `wasm-bindgen-futures`
 - `AsyncTimeout`: trait for timeout functionality
-  
-  Builtin supports runtimes
-  - `tokio`
-  - `async-std`
-  - `smol`
-  - `wasm-bindgen-futures`
+
+Builtin supports runtimes:
+
+- `tokio`
+- `async-std`
+- `smol`
+- `wasm-bindgen-futures`
 
 ## Installation
 

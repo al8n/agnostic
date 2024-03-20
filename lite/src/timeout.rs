@@ -5,7 +5,9 @@ use std::{
 
 /// The timeout abstraction for async runtime.
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-pub trait AsyncTimeout<F: Future>: Future<Output = Result<F::Output, Elapsed>> {
+pub trait AsyncTimeout<F: Future + Send>:
+  Future<Output = Result<F::Output, Elapsed>> + Send
+{
   /// Requires a `Future` to complete before the specified duration has elapsed.
   ///
   /// The behavior of this function may different in different runtime implementations.
@@ -17,6 +19,24 @@ pub trait AsyncTimeout<F: Future>: Future<Output = Result<F::Output, Elapsed>> {
   ///
   /// The behavior of this function may different in different runtime implementations.
   fn timeout_at(deadline: Instant, fut: F) -> Self
+  where
+    Self: Sized;
+}
+
+/// Like [`AsyncTimeout`], but this does not require `Send`.
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+pub trait AsyncLocalTimeout<F: Future>: Future<Output = Result<F::Output, Elapsed>> {
+  /// Requires a `Future` to complete before the specified duration has elapsed.
+  ///
+  /// The behavior of this function may different in different runtime implementations.
+  fn timeout_local(timeout: Duration, fut: F) -> Self
+  where
+    Self: Sized;
+
+  /// Requires a `Future` to complete before the specified instant in time.
+  ///
+  /// The behavior of this function may different in different runtime implementations.
+  fn timeout_local_at(deadline: Instant, fut: F) -> Self
   where
     Self: Sized;
 }
@@ -93,8 +113,27 @@ mod _tokio {
     }
   }
 
-  impl<F: Future> AsyncTimeout<F> for TokioTimeout<F> {
+  impl<F: Future + Send> AsyncTimeout<F> for TokioTimeout<F> {
     fn timeout(t: Duration, fut: F) -> Self
+    where
+      Self: Sized,
+    {
+      <Self as AsyncLocalTimeout<F>>::timeout_local(t, fut)
+    }
+
+    fn timeout_at(deadline: Instant, fut: F) -> Self
+    where
+      Self: Sized,
+    {
+      <Self as AsyncLocalTimeout<F>>::timeout_local_at(deadline, fut)
+    }
+  }
+
+  impl<F> AsyncLocalTimeout<F> for TokioTimeout<F>
+  where
+    F: Future,
+  {
+    fn timeout_local(t: Duration, fut: F) -> Self
     where
       Self: Sized,
     {
@@ -103,7 +142,7 @@ mod _tokio {
       }
     }
 
-    fn timeout_at(deadline: Instant, fut: F) -> Self
+    fn timeout_local_at(deadline: Instant, fut: F) -> Self
     where
       Self: Sized,
     {
@@ -115,7 +154,8 @@ mod _tokio {
 
   #[cfg(test)]
   mod tests {
-    use super::*;
+    use super::{AsyncTimeout, TokioTimeout};
+    use std::time::{Duration, Instant};
 
     const BAD: Duration = Duration::from_secs(1);
     const GOOD: Duration = Duration::from_millis(10);
@@ -212,8 +252,27 @@ mod _async_io {
     }
   }
 
-  impl<F: Future> AsyncTimeout<F> for AsyncIoTimeout<F> {
-    fn timeout(timeout: Duration, fut: F) -> Self
+  impl<F: Future + Send> AsyncTimeout<F> for AsyncIoTimeout<F> {
+    fn timeout(t: Duration, fut: F) -> Self
+    where
+      Self: Sized,
+    {
+      <Self as AsyncLocalTimeout<F>>::timeout_local(t, fut)
+    }
+
+    fn timeout_at(deadline: Instant, fut: F) -> Self
+    where
+      Self: Sized,
+    {
+      <Self as AsyncLocalTimeout<F>>::timeout_local_at(deadline, fut)
+    }
+  }
+
+  impl<F> AsyncLocalTimeout<F> for AsyncIoTimeout<F>
+  where
+    F: Future,
+  {
+    fn timeout_local(timeout: Duration, fut: F) -> Self
     where
       Self: Sized,
     {
@@ -222,7 +281,7 @@ mod _async_io {
       }
     }
 
-    fn timeout_at(deadline: Instant, fut: F) -> Self
+    fn timeout_local_at(deadline: Instant, fut: F) -> Self
     where
       Self: Sized,
     {
@@ -234,7 +293,8 @@ mod _async_io {
 
   #[cfg(test)]
   mod tests {
-    use super::*;
+    use super::{AsyncIoTimeout, AsyncTimeout, Timer};
+    use std::time::{Duration, Instant};
 
     const BAD: Duration = Duration::from_secs(1);
     const GOOD: Duration = Duration::from_millis(10);
@@ -330,8 +390,27 @@ mod _wasm {
     }
   }
 
-  impl<F: Future> AsyncTimeout<F> for WasmTimeout<F> {
-    fn timeout(timeout: Duration, fut: F) -> Self
+  impl<F: Future + Send> AsyncTimeout<F> for WasmTimeout<F> {
+    fn timeout(t: Duration, fut: F) -> Self
+    where
+      Self: Sized,
+    {
+      <Self as AsyncLocalTimeout<F>>::timeout_local(t, fut)
+    }
+
+    fn timeout_at(deadline: Instant, fut: F) -> Self
+    where
+      Self: Sized,
+    {
+      <Self as AsyncLocalTimeout<F>>::timeout_local_at(deadline, fut)
+    }
+  }
+
+  impl<F> AsyncLocalTimeout<F> for WasmTimeout<F>
+  where
+    F: Future,
+  {
+    fn timeout_local(timeout: Duration, fut: F) -> Self
     where
       Self: Sized,
     {
@@ -340,7 +419,7 @@ mod _wasm {
       }
     }
 
-    fn timeout_at(deadline: Instant, fut: F) -> Self
+    fn timeout_local_at(deadline: Instant, fut: F) -> Self
     where
       Self: Sized,
     {
@@ -353,7 +432,8 @@ mod _wasm {
 
   #[cfg(test)]
   mod tests {
-    use super::*;
+    use super::{AsyncTimeout, WasmTimeout};
+    use std::time::{Duration, Instant};
 
     const BAD: Duration = Duration::from_secs(1);
     const GOOD: Duration = Duration::from_millis(10);

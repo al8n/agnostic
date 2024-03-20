@@ -8,90 +8,6 @@ use super::*;
 #[cfg(feature = "net")]
 pub mod net;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct TimeoutError;
-
-impl core::fmt::Display for TimeoutError {
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    write!(f, "timeout")
-  }
-}
-
-impl std::error::Error for TimeoutError {}
-
-pin_project_lite::pin_project! {
-  pub struct TokioSleep {
-    #[pin]
-    inner: ::tokio::time::Sleep,
-  }
-}
-
-impl From<::tokio::time::Sleep> for TokioSleep {
-  fn from(sleep: ::tokio::time::Sleep) -> Self {
-    Self { inner: sleep }
-  }
-}
-
-impl From<TokioSleep> for ::tokio::time::Sleep {
-  fn from(sleep: TokioSleep) -> Self {
-    sleep.inner
-  }
-}
-
-impl futures_util::Future for TokioSleep {
-  type Output = Instant;
-
-  fn poll(
-    mut self: std::pin::Pin<&mut Self>,
-    cx: &mut std::task::Context<'_>,
-  ) -> Poll<Self::Output> {
-    let this = self.project();
-    let ddl = this.inner.deadline().into();
-    match this.inner.poll(cx) {
-      Poll::Ready(_) => Poll::Ready(ddl),
-      Poll::Pending => Poll::Pending,
-    }
-  }
-}
-
-impl super::Sleep for TokioSleep {
-  fn reset(mut self: std::pin::Pin<&mut Self>, deadline: Instant) {
-    self.project().inner.as_mut().reset(deadline.into())
-  }
-}
-
-pub struct TokioInterval(IntervalStream);
-
-impl From<IntervalStream> for TokioInterval {
-  fn from(stream: IntervalStream) -> Self {
-    Self(stream)
-  }
-}
-
-impl From<TokioInterval> for IntervalStream {
-  fn from(internal: TokioInterval) -> Self {
-    internal.0
-  }
-}
-
-impl futures_util::Stream for TokioInterval {
-  type Item = Instant;
-
-  fn poll_next(
-    mut self: std::pin::Pin<&mut Self>,
-    cx: &mut std::task::Context<'_>,
-  ) -> Poll<Option<Self::Item>> {
-    let pinned = std::pin::Pin::new(&mut self.0);
-    match pinned.poll_next(cx) {
-      Poll::Ready(Some(instant)) => Poll::Ready(Some(instant.into())),
-      Poll::Ready(None) => Poll::Ready(None),
-      Poll::Pending => Poll::Pending,
-    }
-  }
-}
-
-impl super::Interval for TokioInterval {}
-
 struct DelayFuncHandle<F: Future> {
   handle: ::tokio::task::JoinHandle<Option<F::Output>>,
   reset_tx: mpsc::Sender<Duration>,
@@ -166,52 +82,6 @@ where
   }
 }
 
-pin_project_lite::pin_project! {
-  pub struct TokioTimeout<F> {
-    #[pin] inner: ::tokio::time::Timeout<F>
-  }
-}
-
-impl<F> From<::tokio::time::Timeout<F>> for TokioTimeout<F> {
-  fn from(timeout: ::tokio::time::Timeout<F>) -> Self {
-    Self { inner: timeout }
-  }
-}
-
-impl<F> From<TokioTimeout<F>> for ::tokio::time::Timeout<F> {
-  fn from(timeout: TokioTimeout<F>) -> Self {
-    timeout.inner
-  }
-}
-
-impl<F: Future> Future for TokioTimeout<F> {
-  type Output = Result<F::Output, Elapsed>;
-
-  fn poll(
-    mut self: std::pin::Pin<&mut Self>,
-    cx: &mut std::task::Context<'_>,
-  ) -> Poll<Self::Output> {
-    match self.project().inner.poll(cx) {
-      Poll::Ready(Ok(rst)) => Poll::Ready(Ok(rst)),
-      Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
-      Poll::Pending => Poll::Pending,
-    }
-  }
-}
-
-impl<F: Future + Send> Timeoutable<F> for TokioTimeout<F> {
-  fn poll_elapsed(
-    self: std::pin::Pin<&mut Self>,
-    cx: &mut std::task::Context<'_>,
-  ) -> std::task::Poll<Result<F::Output, Elapsed>> {
-    match self.poll(cx) {
-      Poll::Ready(Ok(rst)) => Poll::Ready(Ok(rst)),
-      Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
-      Poll::Pending => Poll::Pending,
-    }
-  }
-}
-
 #[derive(Debug, Copy, Clone)]
 pub struct TokioRuntime;
 
@@ -222,41 +92,25 @@ impl core::fmt::Display for TokioRuntime {
 }
 
 impl Runtime for TokioRuntime {
-  type JoinHandle<T> = ::tokio::task::JoinHandle<T>
-  where
-    T: Send + 'static,
-    <Self::JoinHandle<T> as Future>::Output: Send;
+  type Spawner = TokioSpawner;
+  type LocalSpawner = TokioLocalSpawner;
   type BlockJoinHandle<R>
   where
     R: Send + 'static,
   = ::tokio::task::JoinHandle<R>;
-  type LocalJoinHandle<F> = ::tokio::task::JoinHandle<F>;
   type Interval = TokioInterval;
+  type LocalInterval = TokioInterval;
   type Sleep = TokioSleep;
+  type LocalSleep = TokioSleep;
   type Delay<F> = TokioDelay<F> where F: Future + Send + 'static, F::Output: Send;
   type Timeout<F> = TokioTimeout<F> where F: Future + Send;
+  type LocalTimeout<F> = TokioTimeout<F> where F: Future;
 
   #[cfg(feature = "net")]
   type Net = self::net::TokioNet;
 
   fn new() -> Self {
     Self
-  }
-
-  fn spawn<F>(fut: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    ::tokio::spawn(fut)
-  }
-
-  fn spawn_local<F>(fut: F) -> Self::LocalJoinHandle<F::Output>
-  where
-    F: Future + 'static,
-    F::Output: 'static,
-  {
-    ::tokio::task::spawn_local(fut)
   }
 
   fn spawn_blocking<F, R>(_f: F) -> Self::BlockJoinHandle<R>
@@ -279,24 +133,40 @@ impl Runtime for TokioRuntime {
     ::tokio::runtime::Handle::current().block_on(f)
   }
 
+  fn yield_now() -> impl Future<Output = ()> + Send {
+    ::tokio::task::yield_now()
+  }
+
   fn interval(interval: Duration) -> Self::Interval {
-    IntervalStream::new(::tokio::time::interval(interval)).into()
+    TokioInterval::interval(interval)
+  }
+
+  fn interval_local(interval: Duration) -> Self::LocalInterval {
+    TokioInterval::interval(interval)
   }
 
   fn interval_at(start: Instant, period: Duration) -> Self::Interval {
-    IntervalStream::new(::tokio::time::interval_at(start.into(), period)).into()
+    TokioInterval::interval_at(start, period)
+  }
+
+  fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval {
+    TokioInterval::interval_at(start, period)
   }
 
   fn sleep(duration: Duration) -> Self::Sleep {
-    ::tokio::time::sleep(duration).into()
+    TokioSleep::sleep(duration)
+  }
+
+  fn sleep_local(duration: Duration) -> Self::LocalSleep {
+    TokioSleep::sleep(duration)
   }
 
   fn sleep_until(instant: Instant) -> Self::Sleep {
-    ::tokio::time::sleep_until(instant.into()).into()
+    TokioSleep::sleep_until(instant)
   }
 
-  fn yield_now() -> impl Future<Output = ()> + Send {
-    ::tokio::task::yield_now()
+  fn sleep_local_until(instant: Instant) -> Self::LocalSleep {
+    TokioSleep::sleep_until(instant)
   }
 
   fn delay<F>(delay: Duration, fut: F) -> Self::Delay<F>
@@ -305,19 +175,5 @@ impl Runtime for TokioRuntime {
     F::Output: Send,
   {
     TokioDelay::new(delay, fut)
-  }
-
-  fn timeout<F>(duration: Duration, fut: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    ::tokio::time::timeout(duration, fut).into()
-  }
-
-  fn timeout_at<F>(deadline: Instant, fut: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    ::tokio::time::timeout_at(deadline.into(), fut).into()
   }
 }
