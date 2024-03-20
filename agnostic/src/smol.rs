@@ -21,8 +21,8 @@ impl core::fmt::Display for SmolRuntime {
 
 impl Runtime for SmolRuntime {
   type Spawner = SmolSpawner;
-  type LocalSpawner = SmolLocalSpawner;
-  type BlockJoinHandle<R> = ::smol::Task<R> where R: Send + 'static;
+  type LocalSpawner = SmolSpawner;
+  type BlockingSpawner = SmolSpawner;
   type Interval = AsyncIoInterval;
   type LocalInterval = AsyncIoInterval;
   type Sleep = AsyncIoSleep;
@@ -39,22 +39,6 @@ impl Runtime for SmolRuntime {
 
   fn new() -> Self {
     Self
-  }
-
-  fn spawn_blocking<F, R>(f: F) -> Self::BlockJoinHandle<R>
-  where
-    F: FnOnce() -> R + Send + 'static,
-    R: Send + 'static,
-  {
-    ::smol::unblock(f)
-  }
-
-  fn spawn_blocking_detach<F, R>(f: F)
-  where
-    F: FnOnce() -> R + Send + 'static,
-    R: Send + 'static,
-  {
-    ::smol::unblock(f).detach();
   }
 
   fn block_on<F: Future>(f: F) -> F::Output {

@@ -139,6 +139,6 @@ impl AsyncSpawner for WasmSpawner {
     F::Output: Send + 'static,
     F: core::future::Future + Send + 'static,
   {
-    <Self as super::AsyncLocalSpawner>::spawn(future)
+    <Self as super::AsyncLocalSpawner>::spawn_local(future)
   }
 }

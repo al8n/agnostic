@@ -8,33 +8,27 @@ pub trait AsyncLocalSpawner: Copy + 'static {
     F: 'static;
 
   /// Spawn a future.
-  fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: 'static,
     F: Future + 'static;
 
   /// Spawn a future and detach it.
-  fn spawn_detach<F>(future: F)
+  fn spawn_local_detach<F>(future: F)
   where
     F::Output: 'static,
     F: Future + 'static,
   {
-    core::mem::drop(Self::spawn(future));
+    core::mem::drop(Self::spawn_local(future));
   }
 }
 
-/// A [`AsyncLocalSpawner`] that uses the [`tokio`] runtime.
 #[cfg(feature = "tokio")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
-#[derive(Debug, Clone, Copy)]
-pub struct TokioLocalSpawner;
-
-#[cfg(feature = "tokio")]
-impl AsyncLocalSpawner for TokioLocalSpawner {
+impl AsyncLocalSpawner for super::TokioSpawner {
   type JoinHandle<F> = tokio::task::JoinHandle<F> where
   F: 'static;
 
-  fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: 'static,
     F: core::future::Future + 'static,
@@ -43,17 +37,11 @@ impl AsyncLocalSpawner for TokioLocalSpawner {
   }
 }
 
-/// A [`AsyncLocalSpawner`] that uses the [`async-std`](async_std) runtime.
 #[cfg(feature = "async-std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
-#[derive(Debug, Clone, Copy)]
-pub struct AsyncStdLocalSpawner;
-
-#[cfg(feature = "async-std")]
-impl AsyncLocalSpawner for AsyncStdLocalSpawner {
+impl AsyncLocalSpawner for super::AsyncStdSpawner {
   type JoinHandle<F> = async_std::task::JoinHandle<F> where F: 'static;
 
-  fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: 'static,
     F: core::future::Future + 'static,
@@ -62,17 +50,11 @@ impl AsyncLocalSpawner for AsyncStdLocalSpawner {
   }
 }
 
-/// A [`AsyncLocalSpawner`] that uses the [`smol`] runtime.
 #[cfg(feature = "smol")]
-#[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
-#[derive(Debug, Clone, Copy)]
-pub struct SmolLocalSpawner;
-
-#[cfg(feature = "smol")]
-impl AsyncLocalSpawner for SmolLocalSpawner {
+impl AsyncLocalSpawner for super::SmolSpawner {
   type JoinHandle<F> = smol::Task<F> where F: 'static;
 
-  fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: 'static,
     F: core::future::Future + 'static,
@@ -80,7 +62,7 @@ impl AsyncLocalSpawner for SmolLocalSpawner {
     smol::LocalExecutor::new().spawn(future)
   }
 
-  fn spawn_detach<F>(future: F)
+  fn spawn_local_detach<F>(future: F)
   where
     F::Output: 'static,
     F: Future + 'static,
@@ -93,7 +75,7 @@ impl AsyncLocalSpawner for SmolLocalSpawner {
 impl AsyncLocalSpawner for super::WasmSpawner {
   type JoinHandle<F> = super::WasmJoinHandle<F> where F: 'static;
 
-  fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: 'static,
     F: core::future::Future + 'static,

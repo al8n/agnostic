@@ -17,8 +17,8 @@ impl core::fmt::Display for AsyncStdRuntime {
 
 impl Runtime for AsyncStdRuntime {
   type Spawner = AsyncStdSpawner;
-  type LocalSpawner = AsyncStdLocalSpawner;
-  type BlockJoinHandle<R> = ::async_std::task::JoinHandle<R> where R: Send + 'static;
+  type LocalSpawner = AsyncStdSpawner;
+  type BlockingSpawner = AsyncStdSpawner;
   type Interval = AsyncIoInterval;
   type LocalInterval = AsyncIoInterval;
   type Sleep = AsyncIoSleep;
@@ -34,14 +34,6 @@ impl Runtime for AsyncStdRuntime {
 
   fn new() -> Self {
     Self
-  }
-
-  fn spawn_blocking<F, R>(f: F) -> Self::BlockJoinHandle<R>
-  where
-    F: FnOnce() -> R + Send + 'static,
-    R: Send + 'static,
-  {
-    ::async_std::task::spawn_blocking(f)
   }
 
   fn block_on<F: Future>(f: F) -> F::Output {

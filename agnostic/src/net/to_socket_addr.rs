@@ -5,6 +5,8 @@ use std::{
   vec,
 };
 
+use agnostic_lite::AsyncBlockingSpawner;
+
 use crate::{net::ToSocketAddrs, Runtime};
 
 #[doc(hidden)]
@@ -111,11 +113,14 @@ impl<R: Runtime> ToSocketAddrs<R> for [SocketAddr] {
 
 impl<R: Runtime> ToSocketAddrs<R> for (String, u16)
 where
-  ToSocketAddrsFuture<R::BlockJoinHandle<io::Result<sealed::OneOrMore>>>:
-    Future<Output = io::Result<sealed::OneOrMore>> + Send,
+  ToSocketAddrsFuture<
+    <R::BlockingSpawner as AsyncBlockingSpawner>::JoinHandle<io::Result<sealed::OneOrMore>>,
+  >: Future<Output = io::Result<sealed::OneOrMore>> + Send,
 {
   type Iter = sealed::OneOrMore;
-  type Future = ToSocketAddrsFuture<R::BlockJoinHandle<io::Result<sealed::OneOrMore>>>;
+  type Future = ToSocketAddrsFuture<
+    <R::BlockingSpawner as AsyncBlockingSpawner>::JoinHandle<io::Result<sealed::OneOrMore>>,
+  >;
 
   fn to_socket_addrs(&self) -> Self::Future {
     ToSocketAddrs::<R>::to_socket_addrs(&(self.0.as_str(), self.1))
@@ -124,8 +129,9 @@ where
 
 impl<R: Runtime> ToSocketAddrs<R> for String
 where
-  ToSocketAddrsFuture<R::BlockJoinHandle<io::Result<sealed::OneOrMore>>>:
-    Future<Output = io::Result<sealed::OneOrMore>> + Send,
+  ToSocketAddrsFuture<
+    <R::BlockingSpawner as AsyncBlockingSpawner>::JoinHandle<io::Result<sealed::OneOrMore>>,
+  >: Future<Output = io::Result<sealed::OneOrMore>> + Send,
 {
   type Iter = <str as ToSocketAddrs<R>>::Iter;
   type Future = <str as ToSocketAddrs<R>>::Future;
@@ -137,12 +143,15 @@ where
 
 impl<R: Runtime> ToSocketAddrs<R> for str
 where
-  ToSocketAddrsFuture<R::BlockJoinHandle<io::Result<sealed::OneOrMore>>>:
-    Future<Output = io::Result<sealed::OneOrMore>> + Send,
+  ToSocketAddrsFuture<
+    <R::BlockingSpawner as AsyncBlockingSpawner>::JoinHandle<io::Result<sealed::OneOrMore>>,
+  >: Future<Output = io::Result<sealed::OneOrMore>> + Send,
 {
   type Iter = sealed::OneOrMore;
 
-  type Future = ToSocketAddrsFuture<R::BlockJoinHandle<io::Result<sealed::OneOrMore>>>;
+  type Future = ToSocketAddrsFuture<
+    <R::BlockingSpawner as AsyncBlockingSpawner>::JoinHandle<io::Result<sealed::OneOrMore>>,
+  >;
 
   fn to_socket_addrs(&self) -> Self::Future {
     // First check if the input parses as a socket address
@@ -163,11 +172,14 @@ where
 
 impl<R: Runtime> ToSocketAddrs<R> for (&str, u16)
 where
-  ToSocketAddrsFuture<R::BlockJoinHandle<io::Result<sealed::OneOrMore>>>:
-    Future<Output = io::Result<sealed::OneOrMore>> + Send,
+  ToSocketAddrsFuture<
+    <R::BlockingSpawner as AsyncBlockingSpawner>::JoinHandle<io::Result<sealed::OneOrMore>>,
+  >: Future<Output = io::Result<sealed::OneOrMore>> + Send,
 {
   type Iter = sealed::OneOrMore;
-  type Future = ToSocketAddrsFuture<R::BlockJoinHandle<io::Result<sealed::OneOrMore>>>;
+  type Future = ToSocketAddrsFuture<
+    <R::BlockingSpawner as AsyncBlockingSpawner>::JoinHandle<io::Result<sealed::OneOrMore>>,
+  >;
 
   fn to_socket_addrs(&self) -> Self::Future {
     let (host, port) = *self;

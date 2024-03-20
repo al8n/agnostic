@@ -50,10 +50,8 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
   type Spawner: AsyncSpawner;
   /// The local spawner type for this runtime
   type LocalSpawner: AsyncLocalSpawner;
-  /// The join handle type for blocking tasks
-  type BlockJoinHandle<R>
-  where
-    R: Send + 'static;
+  /// The blocking spawner type for this runtime
+  type BlockingSpawner: AsyncBlockingSpawner;
   /// The interval type for this runtime
   type Interval: AsyncInterval;
   /// The local interval type for this runtime
@@ -111,7 +109,7 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
     F: Future + 'static,
     F::Output: 'static,
   {
-    <Self::LocalSpawner as AsyncLocalSpawner>::spawn(future)
+    <Self::LocalSpawner as AsyncLocalSpawner>::spawn_local(future)
   }
 
   /// Spawn a future onto the local runtime and detach it
@@ -120,14 +118,17 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
     F: Future + 'static,
     F::Output: 'static,
   {
-    <Self::LocalSpawner as AsyncLocalSpawner>::spawn_detach(future)
+    <Self::LocalSpawner as AsyncLocalSpawner>::spawn_local_detach(future)
   }
 
   /// Spawn a blocking function onto the runtime
-  fn spawn_blocking<F, R>(f: F) -> Self::BlockJoinHandle<R>
+  fn spawn_blocking<F, R>(f: F) -> <Self::BlockingSpawner as AsyncBlockingSpawner>::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
-    R: Send + 'static;
+    R: Send + 'static,
+  {
+    <Self::BlockingSpawner as AsyncBlockingSpawner>::spawn_blocking(f)
+  }
 
   /// Spawn a blocking function onto the runtime and detach it
   fn spawn_blocking_detach<F, R>(f: F)
@@ -135,7 +136,7 @@ pub trait Runtime: Sized + Unpin + Copy + Send + Sync + 'static {
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    <Self as Runtime>::spawn_blocking(f);
+    <Self::BlockingSpawner as AsyncBlockingSpawner>::spawn_blocking_detach(f);
   }
 
   /// Block the current thread on the given future

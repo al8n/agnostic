@@ -17,8 +17,8 @@ impl core::fmt::Display for TokioRuntime {
 
 impl Runtime for TokioRuntime {
   type Spawner = TokioSpawner;
-  type LocalSpawner = TokioLocalSpawner;
-  type BlockJoinHandle<R> = ::tokio::task::JoinHandle<R> where R: Send + 'static;
+  type LocalSpawner = TokioSpawner;
+  type BlockingSpawner = TokioSpawner;
   type Interval = TokioInterval;
   type LocalInterval = TokioInterval;
   type Sleep = TokioSleep;
@@ -33,22 +33,6 @@ impl Runtime for TokioRuntime {
 
   fn new() -> Self {
     Self
-  }
-
-  fn spawn_blocking<F, R>(_f: F) -> Self::BlockJoinHandle<R>
-  where
-    F: FnOnce() -> R + Send + 'static,
-    R: Send + 'static,
-  {
-    #[cfg(not(target_family = "wasm"))]
-    {
-      ::tokio::task::spawn_blocking(_f)
-    }
-
-    #[cfg(target_family = "wasm")]
-    {
-      panic!("TokioRuntime::spawn_blocking is not supported on wasm")
-    }
   }
 
   fn block_on<F: Future>(f: F) -> F::Output {

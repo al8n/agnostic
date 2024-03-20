@@ -14,6 +14,9 @@ pub use spawner::*;
 mod local_spawner;
 pub use local_spawner::*;
 
+mod block_spawner;
+pub use block_spawner::*;
+
 #[cfg(feature = "std")]
 mod sleep;
 #[cfg(feature = "std")]
