@@ -1,28 +1,23 @@
 use std::{
-  future::Future,
   io,
   net::SocketAddr,
   pin::Pin,
-  sync::{atomic::Ordering, Arc},
   task::{Context, Poll},
-  time::Duration,
 };
 
 use ::async_std::net::{TcpListener, TcpStream, UdpSocket};
-use futures_util::{AsyncReadExt, AsyncWriteExt, FutureExt};
+use futures_util::FutureExt;
 #[cfg(feature = "compat")]
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
 
-use crate::{
-  net::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs},
-  Runtime,
-};
+use crate::net::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs};
 
 use super::AsyncStdRuntime;
 
 #[cfg(feature = "quinn")]
 pub use quinn_::AsyncStdQuinnRuntime;
 
+/// Network abstractions for [`async-std`](::async_std) runtime
 #[derive(Debug, Default, Clone, Copy)]
 pub struct AsyncStdNet;
 
@@ -41,6 +36,7 @@ impl Net for AsyncStdNet {
 mod quinn_ {
   use quinn::{AsyncStdRuntime, Runtime};
 
+  /// Quinn abstractions for [`async-std`](::async_std) runtime
   #[derive(Debug)]
   #[repr(transparent)]
   pub struct AsyncStdQuinnRuntime(AsyncStdRuntime);
@@ -72,6 +68,7 @@ mod quinn_ {
   }
 }
 
+/// [`TcpListener`](crate::net::TcpListener) implementation for [`async-std`](::async_std) runtime
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct AsyncStdTcpListener {
@@ -82,38 +79,34 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
   type Stream = AsyncStdTcpStream;
   type Runtime = AsyncStdRuntime;
 
-  fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> impl Future<Output = io::Result<Self>> + Send
+  async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
   {
-    async move {
-      let mut addrs = addr.to_socket_addrs().await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
-      let res = if addrs.size_hint().0 <= 1 {
-        if let Some(addr) = addrs.next() {
-          TcpListener::bind(addr).await
-        } else {
-          return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "invalid socket address",
-          ));
-        }
+    let res = if addrs.size_hint().0 <= 1 {
+      if let Some(addr) = addrs.next() {
+        TcpListener::bind(addr).await
       } else {
-        TcpListener::bind(addrs.collect::<Vec<_>>().as_slice()).await
-      };
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    } else {
+      TcpListener::bind(addrs.collect::<Vec<_>>().as_slice()).await
+    };
 
-      res.map(|ln| Self { ln })
-    }
+    res.map(|ln| Self { ln })
   }
 
-  fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send {
-    async move {
-      self
-        .ln
-        .accept()
-        .await
-        .map(|(stream, addr)| (AsyncStdTcpStream { stream }, addr))
-    }
+  async fn accept(&self) -> io::Result<(Self::Stream, SocketAddr)> {
+    self
+      .ln
+      .accept()
+      .await
+      .map(|(stream, addr)| (AsyncStdTcpStream { stream }, addr))
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -121,6 +114,7 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
   }
 }
 
+/// [`TcpStream`](crate::net::TcpStream) implementation for [`async-std`](::async_std) runtime
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct AsyncStdTcpStream {
@@ -216,24 +210,19 @@ impl core::fmt::Display for ReuniteError {
 
 impl std::error::Error for ReuniteError {}
 
+/// The owned read half of a [`TcpStream`](crate::net::TcpStream) for the [`async-std`](::async_std) runtime
 #[derive(Debug)]
 pub struct AsyncStdTcpStreamOwnedReadHalf {
   stream: TcpStream,
   id: usize,
 }
 
+/// The owned write half of a [`TcpStream`](crate::net::TcpStream) for the [`async-std`](::async_std) runtime
 #[derive(Debug)]
 pub struct AsyncStdTcpStreamOwnedWriteHalf {
   stream: TcpStream,
   shutdown_on_drop: bool,
   id: usize,
-}
-
-impl AsyncStdTcpStreamOwnedWriteHalf {
-  pub fn forget(mut self) {
-    self.shutdown_on_drop = false;
-    drop(self);
-  }
 }
 
 impl Drop for AsyncStdTcpStreamOwnedWriteHalf {
@@ -349,30 +338,26 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
   type OwnedWriteHalf = AsyncStdTcpStreamOwnedWriteHalf;
   type ReuniteError = ReuniteError;
 
-  fn connect<A: ToSocketAddrs<Self::Runtime>>(
-    addr: A,
-  ) -> impl Future<Output = io::Result<Self>> + Send
+  async fn connect<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
   {
-    async move {
-      let mut addrs = addr.to_socket_addrs().await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
-      let res = if addrs.size_hint().0 <= 1 {
-        if let Some(addr) = addrs.next() {
-          TcpStream::connect(addr).await
-        } else {
-          return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "invalid socket address",
-          ));
-        }
+    let res = if addrs.size_hint().0 <= 1 {
+      if let Some(addr) = addrs.next() {
+        TcpStream::connect(addr).await
       } else {
-        TcpStream::connect(&addrs.collect::<Vec<_>>().as_slice()).await
-      };
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    } else {
+      TcpStream::connect(&addrs.collect::<Vec<_>>().as_slice()).await
+    };
 
-      res.map(|stream| Self { stream })
-    }
+    res.map(|stream| Self { stream })
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -451,6 +436,7 @@ impl crate::net::TcpStream for AsyncStdTcpStream {
   }
 }
 
+/// [`UdpSocket`](crate::net::UdpSocket) implementation for [`async-std`](::async_std) runtime
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct AsyncStdUdpSocket {
@@ -460,84 +446,72 @@ pub struct AsyncStdUdpSocket {
 impl crate::net::UdpSocket for AsyncStdUdpSocket {
   type Runtime = AsyncStdRuntime;
 
-  fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> impl Future<Output = io::Result<Self>> + Send
+  async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
   {
-    async move {
-      let mut addrs = addr.to_socket_addrs().await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
-      let res = if addrs.size_hint().0 <= 1 {
-        if let Some(addr) = addrs.next() {
-          UdpSocket::bind(addr).await
-        } else {
-          return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "invalid socket address",
-          ));
-        }
-      } else {
-        UdpSocket::bind(&addrs.collect::<Vec<_>>().as_slice()).await
-      };
-      res.map(|socket| Self { socket })
-    }
-  }
-
-  fn connect<A: ToSocketAddrs<Self::Runtime>>(
-    &self,
-    addr: A,
-  ) -> impl Future<Output = io::Result<()>> + Send {
-    async move {
-      let mut addrs = addr.to_socket_addrs().await?;
-
-      if addrs.size_hint().0 <= 1 {
-        if let Some(addr) = addrs.next() {
-          self.socket.connect(addr).await
-        } else {
-          return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "invalid socket address",
-          ));
-        }
-      } else {
-        self
-          .socket
-          .connect(&addrs.collect::<Vec<_>>().as_slice())
-          .await
-      }
-    }
-  }
-
-  fn recv(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send {
-    async move { self.socket.recv(buf).await }
-  }
-
-  fn recv_from(
-    &self,
-    buf: &mut [u8],
-  ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send {
-    async move { self.socket.recv_from(buf).await }
-  }
-
-  fn send(&self, buf: &[u8]) -> impl Future<Output = io::Result<usize>> + Send {
-    async move { self.socket.send(buf).await }
-  }
-
-  fn send_to<A: ToSocketAddrs<Self::Runtime>>(
-    &self,
-    buf: &[u8],
-    target: A,
-  ) -> impl Future<Output = io::Result<usize>> + Send {
-    async move {
-      let mut addrs = target.to_socket_addrs().await?;
+    let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
-        self.socket.send_to(buf, addr).await
+        UdpSocket::bind(addr).await
       } else {
         return Err(io::Error::new(
           io::ErrorKind::InvalidInput,
           "invalid socket address",
         ));
       }
+    } else {
+      UdpSocket::bind(&addrs.collect::<Vec<_>>().as_slice()).await
+    };
+    res.map(|socket| Self { socket })
+  }
+
+  async fn connect<A: ToSocketAddrs<Self::Runtime>>(&self, addr: A) -> io::Result<()> {
+    let mut addrs = addr.to_socket_addrs().await?;
+
+    if addrs.size_hint().0 <= 1 {
+      if let Some(addr) = addrs.next() {
+        self.socket.connect(addr).await
+      } else {
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    } else {
+      self
+        .socket
+        .connect(&addrs.collect::<Vec<_>>().as_slice())
+        .await
+    }
+  }
+
+  async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
+    self.socket.recv(buf).await
+  }
+
+  async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+    self.socket.recv_from(buf).await
+  }
+
+  async fn send(&self, buf: &[u8]) -> io::Result<usize> {
+    self.socket.send(buf).await
+  }
+
+  async fn send_to<A: ToSocketAddrs<Self::Runtime>>(
+    &self,
+    buf: &[u8],
+    target: A,
+  ) -> io::Result<usize> {
+    let mut addrs = target.to_socket_addrs().await?;
+    if let Some(addr) = addrs.next() {
+      self.socket.send_to(buf, addr).await
+    } else {
+      return Err(io::Error::new(
+        io::ErrorKind::InvalidInput,
+        "invalid socket address",
+      ));
     }
   }
 

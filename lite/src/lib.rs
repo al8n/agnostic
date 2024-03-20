@@ -5,14 +5,14 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
+#[cfg(any(feature = "std", test))]
+extern crate std;
+
 mod spawner;
 pub use spawner::*;
 
 mod local_spawner;
 pub use local_spawner::*;
-
-#[cfg(any(feature = "std", test))]
-extern crate std;
 
 #[cfg(feature = "std")]
 mod sleep;
@@ -28,3 +28,8 @@ pub use interval::*;
 mod timeout;
 #[cfg(feature = "std")]
 pub use timeout::*;
+
+#[cfg(feature = "std")]
+mod delay;
+#[cfg(feature = "std")]
+pub use delay::*;

@@ -2,7 +2,6 @@ use std::{
   future::Future,
   io,
   pin::Pin,
-  sync::Arc,
   task::{Context, Poll},
   time::Instant,
 };

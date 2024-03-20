@@ -1,30 +1,21 @@
 use std::{
-  future::Future,
   io,
   net::SocketAddr,
-  ops::Deref,
   pin::Pin,
-  sync::{atomic::Ordering, Arc},
   task::{Context, Poll},
-  time::Duration,
 };
 
-use tokio::{
-  io::{AsyncReadExt, AsyncWriteExt, ReadBuf},
-  net::{TcpListener, TcpStream, UdpSocket},
-};
+use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-use crate::{
-  net::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs},
-  Runtime,
-};
+use crate::net::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs};
 
 use super::TokioRuntime;
 
 #[cfg(feature = "quinn")]
 pub use quinn_::TokioQuinnRuntime;
 
+/// The [`Net`] implementation for [`tokio`] runtime.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TokioNet;
 
@@ -43,6 +34,7 @@ impl Net for TokioNet {
 mod quinn_ {
   use quinn::{Runtime, TokioRuntime};
 
+  /// A Quinn runtime for tokio
   #[derive(Debug)]
   #[repr(transparent)]
   pub struct TokioQuinnRuntime(TokioRuntime);
@@ -71,6 +63,7 @@ mod quinn_ {
   }
 }
 
+/// A [`TcpListener`](crate::net::TcpListener) implementation for [`tokio`] runtime.
 pub struct TokioTcpListener {
   ln: TcpListener,
 }
@@ -79,38 +72,34 @@ impl crate::net::TcpListener for TokioTcpListener {
   type Stream = TokioTcpStream;
   type Runtime = TokioRuntime;
 
-  fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> impl Future<Output = io::Result<Self>> + Send
+  async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
   {
-    async move {
-      let mut addrs = addr.to_socket_addrs().await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
-      let res = if addrs.size_hint().0 <= 1 {
-        if let Some(addr) = addrs.next() {
-          TcpListener::bind(addr).await
-        } else {
-          return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "invalid socket address",
-          ));
-        }
+    let res = if addrs.size_hint().0 <= 1 {
+      if let Some(addr) = addrs.next() {
+        TcpListener::bind(addr).await
       } else {
-        TcpListener::bind(addrs.collect::<Vec<_>>().as_slice()).await
-      };
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    } else {
+      TcpListener::bind(addrs.collect::<Vec<_>>().as_slice()).await
+    };
 
-      res.map(|ln| Self { ln })
-    }
+    res.map(|ln| Self { ln })
   }
 
-  fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send {
-    async move {
-      self
-        .ln
-        .accept()
-        .await
-        .map(|(stream, addr)| (TokioTcpStream { stream }, addr))
-    }
+  async fn accept(&self) -> io::Result<(Self::Stream, SocketAddr)> {
+    self
+      .ln
+      .accept()
+      .await
+      .map(|(stream, addr)| (TokioTcpStream { stream }, addr))
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -118,6 +107,7 @@ impl crate::net::TcpListener for TokioTcpListener {
   }
 }
 
+/// A [`TcpStream`](crate::net::TcpStream) implementation for [`tokio`] runtime.
 pub struct TokioTcpStream {
   stream: TcpStream,
 }
@@ -184,6 +174,7 @@ impl tokio::io::AsyncWrite for TokioTcpStream {
   }
 }
 
+/// The [`TcpStreamOwnedReadHalf`] implementation for [`tokio`] runtime.
 pub struct TokioTcpStreamOwnedReadHalf {
   stream: ::tokio::net::tcp::OwnedReadHalf,
 }
@@ -211,6 +202,7 @@ impl tokio::io::AsyncRead for TokioTcpStreamOwnedReadHalf {
   }
 }
 
+/// The [`TcpStreamOwnedWriteHalf`] implementation for [`tokio`] runtime.
 pub struct TokioTcpStreamOwnedWriteHalf {
   stream: ::tokio::net::tcp::OwnedWriteHalf,
 }
@@ -288,37 +280,33 @@ impl crate::net::TcpStream for TokioTcpStream {
   type OwnedWriteHalf = TokioTcpStreamOwnedWriteHalf;
   type ReuniteError = ::tokio::net::tcp::ReuniteError;
 
-  fn connect<A: ToSocketAddrs<Self::Runtime>>(
-    addr: A,
-  ) -> impl Future<Output = io::Result<Self>> + Send
+  async fn connect<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
   {
-    async move {
-      let mut addrs = addr.to_socket_addrs().await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
-      let res = if addrs.size_hint().0 <= 1 {
-        if let Some(addr) = addrs.next() {
-          ::std::net::TcpStream::connect(addr)
-        } else {
-          return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "invalid socket address",
-          ));
-        }
+    let res = if addrs.size_hint().0 <= 1 {
+      if let Some(addr) = addrs.next() {
+        ::std::net::TcpStream::connect(addr)
       } else {
-        ::std::net::TcpStream::connect(&addrs.collect::<Vec<_>>().as_slice())
-      };
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    } else {
+      ::std::net::TcpStream::connect(addrs.collect::<Vec<_>>().as_slice())
+    };
 
-      res.and_then(|stream| {
-        Ok(Self {
-          stream: {
-            stream.set_nonblocking(true)?;
-            TcpStream::from_std(stream)?
-          },
-        })
+    res.and_then(|stream| {
+      Ok(Self {
+        stream: {
+          stream.set_nonblocking(true)?;
+          TcpStream::from_std(stream)?
+        },
       })
-    }
+    })
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -383,6 +371,7 @@ impl crate::net::TcpStream for TokioTcpStream {
   }
 }
 
+/// The [`UdpSocket`](crate::net::UdpSocket) implementation for [`tokio`] runtime.
 pub struct TokioUdpSocket {
   socket: UdpSocket,
 }
@@ -390,91 +379,79 @@ pub struct TokioUdpSocket {
 impl crate::net::UdpSocket for TokioUdpSocket {
   type Runtime = TokioRuntime;
 
-  fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> impl Future<Output = io::Result<Self>> + Send
+  async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
   where
     Self: Sized,
   {
-    async move {
-      let mut addrs = addr.to_socket_addrs().await?;
+    let mut addrs = addr.to_socket_addrs().await?;
 
-      let res = if addrs.size_hint().0 <= 1 {
-        if let Some(addr) = addrs.next() {
-          std::net::UdpSocket::bind(addr)
-        } else {
-          return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "invalid socket address",
-          ));
-        }
-      } else {
-        std::net::UdpSocket::bind(&addrs.collect::<Vec<_>>().as_slice())
-      };
-      res.and_then(|socket| {
-        Ok(Self {
-          socket: {
-            socket.set_nonblocking(true)?;
-            UdpSocket::from_std(socket)?
-          },
-        })
-      })
-    }
-  }
-
-  fn connect<A: ToSocketAddrs<Self::Runtime>>(
-    &self,
-    addr: A,
-  ) -> impl Future<Output = io::Result<()>> + Send {
-    async move {
-      let mut addrs = addr.to_socket_addrs().await?;
-
-      if addrs.size_hint().0 <= 1 {
-        if let Some(addr) = addrs.next() {
-          self.socket.connect(addr).await
-        } else {
-          return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "invalid socket address",
-          ));
-        }
-      } else {
-        self
-          .socket
-          .connect(&addrs.collect::<Vec<_>>().as_slice())
-          .await
-      }
-    }
-  }
-
-  fn recv(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send {
-    async move { self.socket.recv(buf).await }
-  }
-
-  fn recv_from(
-    &self,
-    buf: &mut [u8],
-  ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send {
-    async move { self.socket.recv_from(buf).await }
-  }
-
-  fn send(&self, buf: &[u8]) -> impl Future<Output = io::Result<usize>> + Send {
-    async move { self.socket.send(buf).await }
-  }
-
-  fn send_to<A: ToSocketAddrs<Self::Runtime>>(
-    &self,
-    buf: &[u8],
-    target: A,
-  ) -> impl Future<Output = io::Result<usize>> + Send {
-    async move {
-      let mut addrs = target.to_socket_addrs().await?;
+    let res = if addrs.size_hint().0 <= 1 {
       if let Some(addr) = addrs.next() {
-        self.socket.send_to(buf, addr).await
+        std::net::UdpSocket::bind(addr)
       } else {
         return Err(io::Error::new(
           io::ErrorKind::InvalidInput,
           "invalid socket address",
         ));
       }
+    } else {
+      std::net::UdpSocket::bind(addrs.collect::<Vec<_>>().as_slice())
+    };
+    res.and_then(|socket| {
+      Ok(Self {
+        socket: {
+          socket.set_nonblocking(true)?;
+          UdpSocket::from_std(socket)?
+        },
+      })
+    })
+  }
+
+  async fn connect<A: ToSocketAddrs<Self::Runtime>>(&self, addr: A) -> io::Result<()> {
+    let mut addrs = addr.to_socket_addrs().await?;
+
+    if addrs.size_hint().0 <= 1 {
+      if let Some(addr) = addrs.next() {
+        self.socket.connect(addr).await
+      } else {
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    } else {
+      self
+        .socket
+        .connect(&addrs.collect::<Vec<_>>().as_slice())
+        .await
+    }
+  }
+
+  async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
+    self.socket.recv(buf).await
+  }
+
+  async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+    self.socket.recv_from(buf).await
+  }
+
+  async fn send(&self, buf: &[u8]) -> io::Result<usize> {
+    self.socket.send(buf).await
+  }
+
+  async fn send_to<A: ToSocketAddrs<Self::Runtime>>(
+    &self,
+    buf: &[u8],
+    target: A,
+  ) -> io::Result<usize> {
+    let mut addrs = target.to_socket_addrs().await?;
+    if let Some(addr) = addrs.next() {
+      self.socket.send_to(buf, addr).await
+    } else {
+      return Err(io::Error::new(
+        io::ErrorKind::InvalidInput,
+        "invalid socket address",
+      ));
     }
   }
 

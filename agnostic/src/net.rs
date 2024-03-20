@@ -2,7 +2,6 @@ use std::{
   io,
   net::SocketAddr,
   task::{Context, Poll},
-  time::Duration,
 };
 
 use super::Runtime;
@@ -24,6 +23,7 @@ pub mod dns;
 pub trait ToSocketAddrs<R: Runtime>: Send + Sync {
   /// Returned iterator over socket addresses which this type may correspond to.
   type Iter: Iterator<Item = SocketAddr> + Send + 'static;
+  /// The future type used to resolve addresses.
   type Future: Future<Output = io::Result<Self::Iter>> + Send + 'static;
 
   /// Converts this object to an iterator of resolved `SocketAddr`s.
@@ -130,51 +130,73 @@ pub trait IOWrite: tokio::io::AsyncWrite + futures_util::io::AsyncWrite {}
 #[cfg(feature = "tokio-compat")]
 impl<T: tokio::io::AsyncWrite + futures_util::io::AsyncWrite> IOWrite for T {}
 
+/// The abstraction of a owned read half of a TcpStream.
 pub trait TcpStreamOwnedReadHalf: IORead + Unpin + Send + Sync + 'static {
+  /// The async runtime.
   type Runtime: Runtime;
 
+  /// Returns the local address that this stream is bound to.
   fn local_addr(&self) -> io::Result<SocketAddr>;
 
+  /// Returns the remote address that this stream is connected to.
   fn peer_addr(&self) -> io::Result<SocketAddr>;
 }
 
+/// The abstraction of a owned write half of a TcpStream.
 pub trait TcpStreamOwnedWriteHalf: IOWrite + Unpin + Send + Sync + 'static {
+  /// The async runtime.
   type Runtime: Runtime;
 
+  /// Shuts down the write half and without closing the read half.
   fn forget(self);
 
+  /// Returns the local address that this stream is bound to.
   fn local_addr(&self) -> io::Result<SocketAddr>;
 
+  /// Returns the remote address that this stream is connected to.
   fn peer_addr(&self) -> io::Result<SocketAddr>;
 }
 
+/// The abstraction of a TCP stream.
 pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
+  /// The async runtime.
   type Runtime: Runtime;
+  /// The owned read half of the stream.
   type OwnedReadHalf: TcpStreamOwnedReadHalf;
+  /// The owned write half of the stream.
   type OwnedWriteHalf: TcpStreamOwnedWriteHalf;
   /// Error indicating that two halves were not from the same socket, and thus could not be reunited.
   type ReuniteError: std::error::Error + Unpin + Send + Sync + 'static;
 
+  /// Connects to the specified address.
   fn connect<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
   ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
+  /// Returns the local address that this stream is bound to.
   fn local_addr(&self) -> io::Result<SocketAddr>;
 
+  /// Returns the remote address that this stream is connected to.
   fn peer_addr(&self) -> io::Result<SocketAddr>;
 
+  /// Sets the time-to-live value for this socket.  
   fn set_ttl(&self, ttl: u32) -> io::Result<()>;
 
+  /// Gets the time-to-live value of this socket.
   fn ttl(&self) -> io::Result<u32>;
 
+  /// Sets the value of the `TCP_NODELAY` option on this socket.
   fn set_nodelay(&self, nodelay: bool) -> io::Result<()>;
 
+  /// Gets the value of the `TCP_NODELAY` option on this socket.
   fn nodelay(&self) -> io::Result<bool>;
 
+  /// Splits the stream to read and write halves.
   fn into_split(self) -> (Self::OwnedReadHalf, Self::OwnedWriteHalf);
 
+  /// Shuts down the read, write, or both halves of this connection.
   fn shutdown(&self, how: std::net::Shutdown) -> io::Result<()>;
 
   /// Attempts to put the two halves of a TcpStream back together and recover the original socket. Succeeds only if the two halves originated from the same call to [`into_split`][TcpStream::into_split].
@@ -186,45 +208,59 @@ pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
     Self: Sized;
 }
 
+/// The abstraction of a UDP socket.
 pub trait UdpSocket: Unpin + Send + Sync + 'static {
+  /// The async runtime.
   type Runtime: Runtime;
 
+  /// Binds this socket to the specified address.
   fn bind<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
   ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
 
+  /// Connects this socket to the specified address.
   fn connect<A: ToSocketAddrs<Self::Runtime>>(
     &self,
     addr: A,
   ) -> impl Future<Output = io::Result<()>> + Send;
 
+  /// Receives data from the socket. Returns the number of bytes read and the source address.
   fn recv(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
 
+  /// Receives data from the socket, returning the number of bytes read and the source address.
   fn recv_from(
     &self,
     buf: &mut [u8],
   ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send;
 
+  /// Sends data by the socket.
   fn send(&self, buf: &[u8]) -> impl Future<Output = io::Result<usize>> + Send;
 
+  /// Sends data by the socket to the given address.
   fn send_to<A: ToSocketAddrs<Self::Runtime>>(
     &self,
     buf: &[u8],
     target: A,
   ) -> impl Future<Output = io::Result<usize>> + Send;
 
+  /// Sets the ttl of this UDP socket.
   fn set_ttl(&self, ttl: u32) -> io::Result<()>;
 
+  /// Gets the ttl of this UDP socket.
   fn ttl(&self) -> io::Result<u32>;
 
+  /// Sets the broadcast flag for this UDP socket.
   fn set_broadcast(&self, broadcast: bool) -> io::Result<()>;
 
+  /// Gets the broadcast flag of this UDP socket.
   fn broadcast(&self) -> io::Result<bool>;
 
+  /// Sets the read buffer size of this UDP socket.
   fn set_read_buffer(&self, size: usize) -> io::Result<()>;
 
+  /// Sets the write buffer size of this UDP socket.
   fn set_write_buffer(&self, size: usize) -> io::Result<()>;
 
   /// Attempts to receive a single datagram on the socket.
@@ -283,16 +319,23 @@ pub trait UdpSocket: Unpin + Send + Sync + 'static {
     target: SocketAddr,
   ) -> Poll<io::Result<usize>>;
 
+  /// Returns the local address of the UDP socket.
   fn local_addr(&self) -> io::Result<SocketAddr>;
 }
 
+/// An abstraction layer for the async runtime's network.
 #[cfg(feature = "net")]
 pub trait Net {
+  /// The [`TcpListener`] implementation
   type TcpListener: TcpListener<Stream = Self::TcpStream>;
+  /// The [`TcpStream`] implementation
   type TcpStream: TcpStream;
+  /// The [`UdpSocket`] implementation
   type UdpSocket: UdpSocket;
 
+  /// The [`quinn`] runtime
   #[cfg(feature = "quinn")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
   type Quinn: quinn::Runtime + Default;
 }
 

@@ -67,6 +67,7 @@ impl<R> Clone for AsyncRuntimeProvider<R> {
 
 impl<R> Copy for AsyncRuntimeProvider<R> {}
 
+/// Timer implementation for the dns.
 pub struct Timer<R>(PhantomData<R>);
 
 #[async_trait::async_trait]
@@ -279,16 +280,13 @@ pub use dns_util::read_resolv_conf;
 mod dns_util {
   use std::{io, path::Path};
 
-  use hickory_resolver::{
-    config::{ResolverConfig, ResolverOpts},
-    error::ResolveResult,
-  };
+  use hickory_resolver::config::{ResolverConfig, ResolverOpts};
 
   /// Read the DNS configuration from a file.
   pub fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {
     std::fs::read_to_string(path).and_then(|conf| {
       hickory_resolver::system_conf::parse_resolv_conf(conf)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, "Error parsing resolv.conf"))
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error parsing resolv.conf"))
     })
   }
 }
