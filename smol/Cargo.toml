@@ -1,0 +1,17 @@
+[package]
+name = "feature-extension-for-smol"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Feature extension for smol"
+
+[features]
+default = []
+time = ["async-io"]
+
+[dependencies]
+smol = { version = "2", default-features = false }
+async-io = { workspace = true, optional = true }

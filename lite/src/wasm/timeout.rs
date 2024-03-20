@@ -4,9 +4,9 @@ use core::{
   task::{Context, Poll},
   time::Duration,
 };
-use futures_timer::Delay;
 use futures_util::future::{select, Either, Select};
 use std::time::Instant;
+use wasm::Delay;
 
 use crate::time::{AsyncLocalTimeout, AsyncTimeout, Elapsed};
 
@@ -85,7 +85,7 @@ mod tests {
   fn test_timeout() {
     futures::executor::block_on(async {
       let fut = async {
-        futures_timer::Delay::new(BAD).await;
+        wasm::Delay::new(BAD).await;
         1
       };
       let start = Instant::now();
@@ -95,7 +95,7 @@ mod tests {
       assert!(elapsed >= TIMEOUT && elapsed <= TIMEOUT + BOUND);
 
       let fut = async {
-        futures_timer::Delay::new(GOOD).await;
+        wasm::Delay::new(GOOD).await;
         1
       };
 
@@ -111,7 +111,7 @@ mod tests {
   fn test_timeout_at() {
     futures::executor::block_on(async {
       let fut = async {
-        futures_timer::Delay::new(BAD).await;
+        wasm::Delay::new(BAD).await;
         1
       };
       let start = Instant::now();
@@ -121,7 +121,7 @@ mod tests {
       assert!(elapsed >= TIMEOUT && elapsed <= TIMEOUT + BOUND);
 
       let fut = async {
-        futures_timer::Delay::new(GOOD).await;
+        wasm::Delay::new(GOOD).await;
         1
       };
 

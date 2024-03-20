@@ -1,21 +1,21 @@
-#[cfg(feature = "wasm-time")]
+#[cfg(feature = "time")]
 mod timeout;
-#[cfg(feature = "wasm-time")]
+#[cfg(feature = "time")]
 pub use timeout::*;
 
-#[cfg(feature = "wasm-time")]
+#[cfg(feature = "time")]
 mod sleep;
-#[cfg(feature = "wasm-time")]
+#[cfg(feature = "time")]
 pub use sleep::*;
 
-#[cfg(feature = "wasm-time")]
+#[cfg(feature = "time")]
 mod interval;
-#[cfg(feature = "wasm-time")]
+#[cfg(feature = "time")]
 pub use interval::*;
 
-#[cfg(feature = "wasm-time")]
+#[cfg(feature = "time")]
 mod delay;
-#[cfg(feature = "wasm-time")]
+#[cfg(feature = "time")]
 pub use delay::*;
 
 use core::{
@@ -24,7 +24,7 @@ use core::{
   task::{Context, Poll},
 };
 
-#[cfg(feature = "wasm-time")]
+#[cfg(feature = "time")]
 use std::time::{Duration, Instant};
 
 use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner};
@@ -88,7 +88,7 @@ impl AsyncLocalSpawner for WasmSpawner {
 
     let (tx, rx) = futures_channel::oneshot::channel();
     let (stop_tx, stop_rx) = futures_channel::oneshot::channel();
-    wasm_bindgen_futures::spawn_local(async {
+    wasm::spawn_local(async {
       futures_util::pin_mut!(future);
 
       futures_util::select! {

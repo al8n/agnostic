@@ -11,7 +11,6 @@ keywords.workspace = true
 description = "`agnostic-lite` is WASM friendly and light version of `agnostic`, for users who want to write async runtime-agnostic crate."
 documentation = "https://docs.rs/agnostic-lite"
 readme = "README.md"
-
 categories = ["asynchronous", "no-std"]
 
 
@@ -22,7 +21,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["std"]
 std = []
-time = ["std", "tokio?/time"]
+time = ["std", "tokio?/time", "wasm?/time", "smol?/time", "async-std?/time"]
 
 tokio = ["dep:tokio"]
 
@@ -31,33 +30,28 @@ smol = ["dep:smol", "async-io"]
 async-std = ["dep:async-std", "async-io"]
 
 wasm = [
-  "dep:wasm-bindgen-futures",
+  "dep:wasm",
   "futures-channel",
   "futures-util/async-await-macro",
   "futures-util/async-await",
   "futures-util/std",
 ]
 
-# enable `AsyncSleep` `AsyncInterval` and `AsyncTimeout` implementation for wasm target
-wasm-time = ["time", "dep:futures-timer", "futures-timer/wasm-bindgen"]
-
 [dependencies]
 futures-util.workspace = true
 pin-project-lite.workspace = true
 
-async-io = { version = "2", optional = true }
 tokio = { version = "1", optional = true, default-features = false, features = [
   "rt",
 ] }
 
-smol = { version = "2", optional = true, default-features = false }
-async-std = { version = "1", optional = true, features = ["unstable"] }
+async-io = { workspace = true, optional = true }
+async-std = { workspace = true, optional = true, features = ["std", "unstable"] }
+smol = { workspace = true, optional = true }
 
+wasm = { workspace = true, optional = true }
 futures-channel = { version = "=0.3.29", optional = true }
-futures-timer = { version = "3", optional = true }
-wasm-bindgen-futures = { version = "0.4", optional = true }
 
 [dev-dependencies]
 futures = { version = "=0.3.29", features = ["executor"] }
-tokio = { version = "1", features = ["full"] }
-async-std = { version = "1", features = ["attributes"] }
+tokio = { workspace = true, features = ["full"] }

@@ -1,0 +1,19 @@
+[package]
+name = "feature-extension-for-async-std"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Feature extension for async-std"
+
+[features]
+default = ["async-std/default"]
+std = ["async-std/std"]
+time = ["async-io"]
+unstable = ["async-std/unstable"]
+
+[dependencies]
+async-std = { version = "1", default-features = false }
+async-io = { workspace = true, optional = true }

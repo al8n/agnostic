@@ -70,10 +70,10 @@ tokio = { version = "1", default-features = false, optional = true }
 tokio-stream = { version = "0.1", default-features = false, optional = true, features = ["time"] }
 tokio-util = { version = "0.7", default-features = false, optional = true, features = ["compat"] }
 
-async-std = { version = "1.12", optional = true, features = ["unstable"] }
-async-io = { version = "2.1", optional = true }
+async-std = { workspace = true, optional = true, features = ["unstable"] }
+async-io = { workspace = true, optional = true }
 pin-project-lite = { workspace = true, optional = true }
-smol = { version = "2", default-features = false, optional = true }
+smol = { workspace = true, default-features = false, optional = true }
 
 async-channel = { version = "2", optional = true }
 
@@ -87,4 +87,4 @@ quinn-udp = { version = "0.4", optional = true, default-features = false }
 tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }

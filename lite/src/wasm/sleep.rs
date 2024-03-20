@@ -4,8 +4,8 @@ use core::{
   task::{Context, Poll},
   time::Duration,
 };
-use futures_timer::Delay;
 use std::time::Instant;
+use wasm::Delay;
 
 use crate::time::{AsyncLocalSleep, AsyncLocalSleepExt};
 
