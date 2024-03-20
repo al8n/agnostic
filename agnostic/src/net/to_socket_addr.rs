@@ -289,33 +289,6 @@ cfg_smol!(
   }
 );
 
-cfg_monoio!(
-  mod sealed_monoio {
-    use super::*;
-    use std::{
-      pin::Pin,
-      task::{Context, Poll},
-    };
-
-    impl Future for ToSocketAddrsFuture<monoio::task::JoinHandle<io::Result<sealed::OneOrMore>>> {
-      type Output = io::Result<sealed::OneOrMore>;
-
-      fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.get_mut() {
-          Self::Ready(ref mut i) => Poll::Ready(Ok(sealed::OneOrMore::One(i.take().into_iter()))),
-          Self::Blocking(ref mut i) => {
-            let res = Pin::new(i).poll(cx)?;
-            match res {
-              Poll::Ready(res) => Poll::Ready(Ok(res)),
-              Poll::Pending => Poll::Pending,
-            }
-          }
-        }
-      }
-    }
-  }
-);
-
 mod sealed {
   use super::*;
   use std::option;

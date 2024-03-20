@@ -39,7 +39,7 @@ wasm = [
 ]
 
 # enable `AsyncSleep` `AsyncInterval` and `AsyncTimeout` implementation for wasm target
-wasm-time = ["std", "dep:futures-timer", "futures-timer/wasm-bindgen"]
+wasm-time = ["time", "dep:futures-timer", "futures-timer/wasm-bindgen"]
 
 [dependencies]
 futures-util.workspace = true

@@ -1,4 +1,6 @@
-#[cfg(feature = "net")]
+/// Macro to conditionally compile items for `async-std` feature
+#[cfg(feature = "async-std")]
+#[macro_export]
 macro_rules! cfg_async_std {
   ($($item:item)*) => {
     $(
@@ -9,7 +11,9 @@ macro_rules! cfg_async_std {
   }
 }
 
-#[cfg(feature = "net")]
+/// Macro to conditionally compile items for `tokio` feature
+#[cfg(feature = "tokio")]
+#[macro_export]
 macro_rules! cfg_tokio {
   ($($item:item)*) => {
     $(
@@ -20,23 +24,14 @@ macro_rules! cfg_tokio {
   }
 }
 
-#[cfg(feature = "net")]
+/// Macro to conditionally compile items for `smol` feature
+#[cfg(feature = "smol")]
+#[macro_export]
 macro_rules! cfg_smol {
   ($($item:item)*) => {
     $(
       #[cfg(feature = "smol")]
       #[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
-      $item
-    )*
-  }
-}
-
-#[cfg(feature = "net")]
-macro_rules! cfg_monoio {
-  ($($item:item)*) => {
-    $(
-      #[cfg(feature = "monoio")]
-      #[cfg_attr(docsrs, doc(cfg(feature = "monoio")))]
       $item
     )*
   }
