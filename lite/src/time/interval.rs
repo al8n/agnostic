@@ -6,7 +6,6 @@ use std::{
 use futures_util::stream::Stream;
 
 /// The interval abstraction for a runtime.
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncInterval: Stream<Item = Instant> + Send {
   /// Resets the interval to a [`Duration`]. Sets the next tick after the specified [`Duration`].
   ///
@@ -64,7 +63,6 @@ impl<T: Send + AsyncLocalIntervalExt> AsyncIntervalExt for T {
 }
 
 /// Extension trait for [`AsyncInterval`].
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncIntervalExt: AsyncInterval {
   /// Creates a timer that emits events periodically.
   fn interval(period: Duration) -> Self
@@ -78,7 +76,6 @@ pub trait AsyncIntervalExt: AsyncInterval {
 }
 
 /// Like [`AsyncInterval`], but does not require `Send`.
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncLocalInterval: Stream<Item = Instant> {
   /// Resets the interval to a [`Duration`]. Sets the next tick after the specified [`Duration`].
   ///
@@ -106,7 +103,6 @@ pub trait AsyncLocalInterval: Stream<Item = Instant> {
 }
 
 /// Extension trait for [`AsyncLocalInterval`].
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncLocalIntervalExt: AsyncInterval {
   /// Creates a timer that emits events periodically.
   fn interval_local(period: Duration) -> Self

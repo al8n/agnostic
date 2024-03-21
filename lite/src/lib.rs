@@ -15,6 +15,7 @@ use std::time::{Duration, Instant};
 
 /// Time related traits
 #[cfg(feature = "time")]
+#[cfg_attr(docsrs, doc(cfg(feature = "time")))]
 pub mod time;
 
 /// Concrete runtime implementations based on [`tokio`](::tokio) runtime.

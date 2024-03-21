@@ -4,7 +4,6 @@ use std::{
 };
 
 /// The timeout abstraction for async runtime.
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncTimeout<F: Future + Send>:
   Future<Output = Result<F::Output, Elapsed>> + Send
 {
@@ -24,7 +23,6 @@ pub trait AsyncTimeout<F: Future + Send>:
 }
 
 /// Like [`AsyncTimeout`], but this does not require `Send`.
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncLocalTimeout<F: Future>: Future<Output = Result<F::Output, Elapsed>> {
   /// Requires a `Future` to complete before the specified duration has elapsed.
   ///
@@ -43,7 +41,6 @@ pub trait AsyncLocalTimeout<F: Future>: Future<Output = Result<F::Output, Elapse
 
 /// Elapsed error
 #[derive(Debug, PartialEq, Eq)]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub struct Elapsed;
 
 impl core::fmt::Display for Elapsed {

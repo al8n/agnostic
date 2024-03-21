@@ -5,7 +5,6 @@ use std::{
 };
 
 /// The sleep abstraction for a runtime.
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncSleep: Future<Output = Instant> + Send {
   /// Resets the Sleep instance to a new deadline.
   ///
@@ -14,7 +13,6 @@ pub trait AsyncSleep: Future<Output = Instant> + Send {
 }
 
 /// Extension trait for [`AsyncSleep`].
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncSleepExt: AsyncSleep {
   /// Creates a timer that emits an event once after the given duration of time.
   fn sleep(after: Duration) -> Self
@@ -50,7 +48,6 @@ impl<T: Send + AsyncLocalSleepExt> AsyncSleepExt for T {
 }
 
 /// Like [`AsyncSleep`], but does not requires `Send`.
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncLocalSleep: Future<Output = Instant> {
   /// Resets the Sleep instance to a new deadline.
   ///
@@ -59,7 +56,6 @@ pub trait AsyncLocalSleep: Future<Output = Instant> {
 }
 
 /// Extension trait for [`AsyncLocalSleep`].
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub trait AsyncLocalSleepExt: AsyncLocalSleep {
   /// Creates a timer that emits an event once after the given duration of time.
   fn sleep_local(after: Duration) -> Self
