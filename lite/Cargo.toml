@@ -30,6 +30,7 @@ smol = ["dep:smol", "async-io"]
 async-std = ["dep:async-std", "async-io"]
 
 wasm = [
+  "std",
   "dep:wasm",
   "futures-channel",
   "futures-util/async-await-macro",
@@ -46,7 +47,7 @@ tokio = { version = "1", optional = true, default-features = false, features = [
 ] }
 
 async-io = { workspace = true, optional = true }
-async-std = { workspace = true, optional = true, features = ["std", "unstable"] }
+async-std = { workspace = true, optional = true, features = ["default", "unstable"] }
 smol = { workspace = true, optional = true }
 
 wasm = { workspace = true, optional = true }

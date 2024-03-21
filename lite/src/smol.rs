@@ -1,4 +1,3 @@
-#[cfg(feature = "time")]
 use core::future::Future;
 
 #[cfg(feature = "time")]

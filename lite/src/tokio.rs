@@ -18,7 +18,6 @@ mod delay;
 #[cfg(feature = "time")]
 pub use delay::*;
 
-#[cfg(feature = "time")]
 use core::future::Future;
 #[cfg(feature = "time")]
 use std::time::{Duration, Instant};
