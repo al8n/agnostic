@@ -8,7 +8,7 @@ pub mod net;
 // TODO: remove this when quinn support SmolRuntime
 #[cfg(all(feature = "quinn", feature = "net"))]
 mod quinn_;
-use agnostic_lite::smol::*;
+pub use agnostic_lite::smol::*;
 
 impl Runtime for SmolRuntime {
   #[cfg(feature = "net")]
