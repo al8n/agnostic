@@ -17,8 +17,8 @@ mod tests {
     time::{Duration, Instant},
   };
 
-  const DELAY: Duration = Duration::from_millis(1);
-  const RESET: Duration = Duration::from_millis(2);
+  const DELAY: Duration = Duration::from_millis(10);
+  const RESET: Duration = Duration::from_millis(20);
   const BOUND: Duration = Duration::from_millis(50);
 
   #[test]
