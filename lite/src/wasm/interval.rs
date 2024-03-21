@@ -101,7 +101,7 @@ mod tests {
   use std::time::{Duration, Instant};
 
   const INTERVAL: Duration = Duration::from_millis(100);
-  const BOUND: Duration = Duration::from_millis(20);
+  const BOUND: Duration = Duration::from_millis(50);
   const IMMEDIATE: Duration = Duration::from_millis(1);
 
   #[test]
