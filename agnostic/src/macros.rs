@@ -1,5 +1,4 @@
 /// Macro to conditionally compile items for `async-std` feature
-#[cfg(feature = "async-std")]
 #[macro_export]
 macro_rules! cfg_async_std {
   ($($item:item)*) => {
@@ -12,7 +11,6 @@ macro_rules! cfg_async_std {
 }
 
 /// Macro to conditionally compile items for `tokio` feature
-#[cfg(feature = "tokio")]
 #[macro_export]
 macro_rules! cfg_tokio {
   ($($item:item)*) => {
@@ -25,7 +23,6 @@ macro_rules! cfg_tokio {
 }
 
 /// Macro to conditionally compile items for `smol` feature
-#[cfg(feature = "smol")]
 #[macro_export]
 macro_rules! cfg_smol {
   ($($item:item)*) => {

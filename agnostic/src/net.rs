@@ -339,7 +339,7 @@ pub trait Net {
   type Quinn: quinn::Runtime + Default;
 }
 
-#[cfg(all(unix, feature = "socket2"))]
+#[cfg(all(unix, feature = "net", any(feature = "tokio", feature = "smol", feature = "async-std")))]
 #[inline]
 pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Result<()> {
   use socket2::Socket;
@@ -367,7 +367,8 @@ pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Re
   }
 }
 
-#[cfg(all(unix, feature = "socket2"))]
+
+#[cfg(all(unix, feature = "net", any(feature = "tokio", feature = "smol", feature = "async-std")))]
 #[inline]
 pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Result<()> {
   use socket2::Socket;
@@ -395,7 +396,7 @@ pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::R
   }
 }
 
-#[cfg(all(windows, feature = "socket2"))]
+#[cfg(all(windows, feature = "net", any(feature = "tokio", feature = "smol", feature = "async-std")))]
 #[inline]
 pub(crate) fn set_read_buffer(
   fd: std::os::windows::io::RawSocket,
@@ -427,7 +428,7 @@ pub(crate) fn set_read_buffer(
   }
 }
 
-#[cfg(all(windows, feature = "socket2"))]
+#[cfg(all(windows, feature = "net", any(feature = "tokio", feature = "smol", feature = "async-std")))]
 #[inline]
 pub(crate) fn set_write_buffer(
   fd: std::os::windows::io::RawSocket,

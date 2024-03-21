@@ -1,5 +1,5 @@
 use super::{Runtime, UdpSocket};
-use futures_util::{future::FutureExt, select_biased};
+use futures_util::future::FutureExt;
 use std::{future::Future, io, marker::PhantomData, net::SocketAddr, pin::Pin, time::Duration};
 
 use hickory_proto::Time;
@@ -80,14 +80,7 @@ impl<R: Runtime> Time for Timer<R> {
     duration: Duration,
     future: F,
   ) -> Result<F::Output, std::io::Error> {
-    select_biased! {
-      rst = future.fuse() => {
-        return Ok(rst);
-      }
-      _ = R::sleep(duration).fuse() => {
-        return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "timed out"));
-      }
-    }
+    R::timeout(duration, future).await.map_err(Into::into)
   }
 }
 
