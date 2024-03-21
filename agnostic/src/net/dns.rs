@@ -306,7 +306,7 @@ mod dns_util {
     let mut file = File::open(path)?;
     file.read_to_string(&mut data)?;
     parse_resolv_conf(&data)
-      .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, "Error parsing resolv.conf"))
+      .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error parsing resolv.conf"))
   }
 
   fn parse_resolv_conf<T: AsRef<[u8]>>(data: T) -> io::Result<(ResolverConfig, ResolverOpts)> {
