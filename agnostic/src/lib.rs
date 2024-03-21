@@ -11,7 +11,11 @@ compile_error!("`compat` feature is enabled, but `net` feature is disabled, `com
 #[macro_use]
 mod macros;
 
-pub use agnostic_lite::*;
+#[cfg(feature = "async-io")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async-io")))]
+pub use agnostic_lite::async_io::*;
+
+pub use agnostic_lite::{time, AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, RuntimeLite};
 
 /// [`tokio`] runtime adapter
 ///
