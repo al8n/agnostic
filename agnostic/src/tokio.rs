@@ -1,5 +1,5 @@
 use super::*;
-use agnostic_lite::tokio::TokioRuntime;
+use agnostic_lite::tokio::*;
 
 /// Network abstractions for [`tokio`](::tokio) runtime
 #[cfg(feature = "net")]

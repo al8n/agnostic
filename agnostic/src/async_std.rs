@@ -1,5 +1,5 @@
 use super::*;
-use agnostic_lite::async_std::AsyncStdRuntime;
+use agnostic_lite::async_std::*;
 
 /// Network abstractions for [`async-std`](::async_std) runtime
 #[cfg(feature = "net")]
