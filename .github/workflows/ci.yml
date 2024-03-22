@@ -79,7 +79,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Install Rust
-      # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
       run: rustup update --no-self-update && rustup default nightly
     - name: Install OpenSSL (Windows)
       if: matrix.os == 'windows-latest'
@@ -91,10 +90,7 @@ jobs:
       run: cargo install cargo-hack
     - name: Build (unix)
       run: cargo hack build --each-feature
-      if: matrix.os != 'windows-latest'
-    - name: Build (windows)
-      run: cargo hack build --each-feature
-      if: matrix.os == 'windows-latest'
+
 
   coverage:
     name: coverage

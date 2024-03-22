@@ -6,15 +6,15 @@ use core::{
   task::{Context, Poll},
   time::Duration,
 };
-use futures_util::future::{select, Either, Select};
 use std::time::Instant;
 
 pin_project_lite::pin_project! {
-  /// The [`AsyncSleep`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
-  #[repr(transparent)]
+  /// The [`AsyncTimeout`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
   pub struct AsyncIoTimeout<F> {
     #[pin]
-    inner: Select<Pin<Box<F>>, Timer>,
+    future: F,
+    #[pin]
+    delay: Timer,
   }
 }
 
@@ -23,10 +23,12 @@ impl<F: Future> Future for AsyncIoTimeout<F> {
 
   fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
     let this = self.project();
-    match this.inner.poll(cx) {
-      Poll::Ready(Either::Left((output, _))) => Poll::Ready(Ok(output)),
-      Poll::Ready(Either::Right(_)) => Poll::Ready(Err(Elapsed)),
-      Poll::Pending => Poll::Pending,
+    match this.future.poll(cx) {
+      Poll::Ready(v) => Poll::Ready(Ok(v)),
+      Poll::Pending => match this.delay.poll(cx) {
+        Poll::Ready(_) => Poll::Ready(Err(Elapsed)),
+        Poll::Pending => Poll::Pending,
+      },
     }
   }
 }
@@ -56,7 +58,8 @@ where
     Self: Sized,
   {
     Self {
-      inner: select(Box::pin(fut), Timer::after(timeout)),
+      future: fut,
+      delay: Timer::after(timeout),
     }
   }
 
@@ -65,7 +68,8 @@ where
     Self: Sized,
   {
     Self {
-      inner: select(Box::pin(fut), Timer::at(deadline)),
+      future: fut,
+      delay: Timer::at(deadline),
     }
   }
 }

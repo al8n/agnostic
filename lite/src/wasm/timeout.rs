@@ -4,7 +4,6 @@ use core::{
   task::{Context, Poll},
   time::Duration,
 };
-use futures_util::future::{select, Either, Select};
 use std::time::Instant;
 use wasm::Delay;
 
@@ -14,7 +13,9 @@ pin_project_lite::pin_project! {
   /// The [`AsyncTimeout`] implementation for wasm bindgen
   pub struct WasmTimeout<F> {
     #[pin]
-    inner: Select<Pin<Box<F>>, Delay>,
+    future: F,
+    #[pin]
+    delay: Delay,
   }
 }
 
@@ -23,10 +24,12 @@ impl<F: Future> Future for WasmTimeout<F> {
 
   fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
     let this = self.project();
-    match this.inner.poll(cx) {
-      Poll::Ready(Either::Left((output, _))) => Poll::Ready(Ok(output)),
-      Poll::Ready(Either::Right(_)) => Poll::Ready(Err(Elapsed)),
-      Poll::Pending => Poll::Pending,
+    match this.future.poll(cx) {
+      Poll::Ready(v) => Poll::Ready(Ok(v)),
+      Poll::Pending => match this.delay.poll(cx) {
+        Poll::Ready(_) => Poll::Ready(Err(Elapsed)),
+        Poll::Pending => Poll::Pending,
+      },
     }
   }
 }
@@ -56,7 +59,8 @@ where
     Self: Sized,
   {
     Self {
-      inner: select(Box::pin(fut), Delay::new(timeout)),
+      future: fut,
+      delay: Delay::new(timeout),
     }
   }
 
@@ -66,7 +70,8 @@ where
   {
     let duration = deadline - Instant::now();
     Self {
-      inner: select(Box::pin(fut), Delay::new(duration)),
+      future: fut,
+      delay: Delay::new(duration),
     }
   }
 }
