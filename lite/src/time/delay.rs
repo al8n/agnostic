@@ -195,3 +195,8 @@ where
     }
   }
 }
+
+#[test]
+fn test_aborted_error() {
+  assert_eq!(Aborted.to_string(), "delay aborted");
+}

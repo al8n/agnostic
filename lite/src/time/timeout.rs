@@ -57,9 +57,15 @@ impl From<Elapsed> for std::io::Error {
   }
 }
 
-#[cfg(all(feature = "tokio", feature = "time"))]
+#[cfg(feature = "tokio")]
 impl From<::tokio::time::error::Elapsed> for Elapsed {
   fn from(_: ::tokio::time::error::Elapsed) -> Self {
     Elapsed
   }
+}
+
+#[test]
+fn test_elapsed_error() {
+  assert_eq!(Elapsed.to_string(), "deadline has elapsed");
+  let _: std::io::Error = Elapsed.into();
 }

@@ -73,6 +73,25 @@ mod tests {
   }
 
   #[test]
+  fn test_delay_reset_at() {
+    futures::executor::block_on(async {
+      let start = Instant::now();
+      let ctr = Arc::new(AtomicUsize::new(0));
+      let ctr1 = ctr.clone();
+      let delay = AsyncIoDelay::delay(DELAY, async move {
+        ctr1.fetch_add(1, Ordering::SeqCst);
+      });
+      futures_util::pin_mut!(delay);
+      AsyncDelay::reset_at(delay.as_mut(), Instant::now() + RESET);
+      delay.await.unwrap();
+      let elapsed = start.elapsed();
+      assert!(elapsed >= RESET);
+      assert!(elapsed < RESET + BOUND);
+      assert_eq!(ctr.load(Ordering::SeqCst), 1);
+    });
+  }
+
+  #[test]
   fn test_delay_abort() {
     futures::executor::block_on(async {
       let start = Instant::now();

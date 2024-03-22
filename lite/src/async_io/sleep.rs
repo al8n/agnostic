@@ -47,7 +47,7 @@ impl AsyncLocalSleepExt for AsyncIoSleep {
     Self: Sized,
   {
     Self {
-      t: async_io::Timer::after(after),
+      t: Timer::after(after),
     }
   }
 
@@ -56,7 +56,7 @@ impl AsyncLocalSleepExt for AsyncIoSleep {
     Self: Sized,
   {
     Self {
-      t: async_io::Timer::at(deadline),
+      t: Timer::at(deadline),
     }
   }
 }

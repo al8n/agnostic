@@ -6,7 +6,7 @@ use std::{
 use futures_util::stream::Stream;
 
 /// The interval abstraction for a runtime.
-pub trait AsyncInterval: Stream<Item = Instant> + Send {
+pub trait AsyncInterval: Stream<Item = Instant> + Send + Unpin {
   /// Resets the interval to a [`Duration`]. Sets the next tick after the specified [`Duration`].
   ///
   /// The behavior of this function may different in different runtime implementations.
@@ -76,7 +76,7 @@ pub trait AsyncIntervalExt: AsyncInterval {
 }
 
 /// Like [`AsyncInterval`], but does not require `Send`.
-pub trait AsyncLocalInterval: Stream<Item = Instant> {
+pub trait AsyncLocalInterval: Stream<Item = Instant> + Unpin {
   /// Resets the interval to a [`Duration`]. Sets the next tick after the specified [`Duration`].
   ///
   /// The behavior of this function may different in different runtime implementations.
