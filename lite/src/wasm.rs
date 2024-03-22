@@ -4,6 +4,11 @@ mod timeout;
 pub use timeout::*;
 
 #[cfg(feature = "time")]
+mod after;
+#[cfg(feature = "time")]
+pub use after::*;
+
+#[cfg(feature = "time")]
 mod sleep;
 #[cfg(feature = "time")]
 pub use sleep::*;
@@ -27,16 +32,20 @@ use core::{
 #[cfg(feature = "time")]
 use std::time::{Duration, Instant};
 
+use wasm::channel::*;
+
 use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner};
+
+impl<T> super::Detach for WasmJoinHandle<T> {}
 
 /// The join handle returned by [`WasmSpawner`].
 pub struct WasmJoinHandle<F> {
-  pub(crate) stop_tx: futures_channel::oneshot::Sender<bool>,
-  pub(crate) rx: futures_channel::oneshot::Receiver<F>,
+  pub(crate) stop_tx: oneshot::Sender<bool>,
+  pub(crate) rx: oneshot::Receiver<F>,
 }
 
 impl<F> Future for WasmJoinHandle<F> {
-  type Output = Result<F, futures_channel::oneshot::Canceled>;
+  type Output = Result<F, oneshot::Canceled>;
 
   fn poll(
     mut self: core::pin::Pin<&mut Self>,
@@ -86,8 +95,8 @@ impl AsyncLocalSpawner for WasmSpawner {
   {
     use futures_util::FutureExt;
 
-    let (tx, rx) = futures_channel::oneshot::channel();
-    let (stop_tx, stop_rx) = futures_channel::oneshot::channel();
+    let (tx, rx) = oneshot::channel();
+    let (stop_tx, stop_rx) = oneshot::channel();
     wasm::spawn_local(async {
       futures_util::pin_mut!(future);
 
@@ -158,6 +167,11 @@ impl super::RuntimeLite for WasmRuntime {
   type Spawner = WasmSpawner;
   type LocalSpawner = WasmSpawner;
   type BlockingSpawner = WasmSpawner;
+
+  #[cfg(feature = "time")]
+  type AfterSpawner = WasmSpawner;
+  #[cfg(feature = "time")]
+  type LocalAfterSpawner = WasmSpawner;
 
   #[cfg(feature = "time")]
   type Interval = WasmInterval;

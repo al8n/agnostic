@@ -43,6 +43,6 @@ Copyright (c) 2024 Al Liu.
 [doc-url]: https://docs.rs/agnostic
 [agnostic-lite-doc-url]: https://docs.rs/agnostic-lite
 [crates-url]: https://crates.io/crates/agnostic
-[agnostic-lite-crates-url]: https://crates.io/agnostic-lite
+[agnostic-lite-crates-url]: https://crates.io/crates/agnostic-lite
 [codecov-url]: https://app.codecov.io/gh/al8n/agnostic/
 [zh-cn-url]: https://github.com/al8n/agnostic/tree/main/README-zh_CN.md

@@ -24,11 +24,14 @@ impl<F: Future> Future for AsyncIoTimeout<F> {
   fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
     let this = self.project();
     match this.future.poll(cx) {
-      Poll::Ready(v) => Poll::Ready(Ok(v)),
-      Poll::Pending => match this.delay.poll(cx) {
-        Poll::Ready(_) => Poll::Ready(Err(Elapsed)),
-        Poll::Pending => Poll::Pending,
-      },
+      Poll::Pending => {}
+      other => return other.map(Ok),
+    }
+
+    if this.delay.poll(cx).is_ready() {
+      Poll::Ready(Err(Elapsed))
+    } else {
+      Poll::Pending
     }
   }
 }

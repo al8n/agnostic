@@ -23,7 +23,9 @@ impl std::error::Error for Aborted {}
 fn _assert1(_: Box<dyn AsyncLocalDelay<impl Future>>) {}
 fn _assert2(_: Box<dyn AsyncDelay<impl Future>>) {}
 
-/// Simlilar to Go's `time.AfterFunc`
+/// Simlilar to Go's `time.AfterFunc`, but does not spawn a new thread.
+/// If you want the future to run in its own thread, you should use
+/// [`RuntimeLite::spawn_after`](crate::RuntimeLite::spawn_after) instead.
 pub trait AsyncDelay<F>: Future<Output = Result<F::Output, Aborted>> + Send
 where
   F: Future + Send,

@@ -21,13 +21,14 @@ keywords = ["async", "runtime", "agnostic", "trait"]
 async-io = "2"
 
 futures-util = { version = "=0.3.29", default-features = false }
+futures-channel = { version = "=0.3.29" }
 pin-project-lite = "0.2"
 agnostic-lite = { path = "./lite", version = "0.3" }
 
 # runtimes
-smol = { package = "feature-extension-for-smol", version = "0.1", path = "smol", default-features = false }
-async-std = { package = "feature-extension-for-async-std", version = "0.1", path = "async-std", default-features = false }
-wasm = { package = "feature-extension-for-wasm-bindgen-futures", version = "0.1", path = "wasm" }
+smol = { package = "feature-extension-for-smol", version = "0.2", path = "smol", default-features = false }
+async-std = { package = "feature-extension-for-async-std", version = "0.2", path = "async-std", default-features = false }
+wasm = { package = "feature-extension-for-wasm-bindgen-futures", version = "0.2", path = "wasm" }
 tokio = { version = "1", default-features = false }
 
 [workspace.metadata.docs.rs]

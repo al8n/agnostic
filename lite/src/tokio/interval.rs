@@ -62,7 +62,7 @@ impl AsyncLocalIntervalExt for TokioInterval {
     Self: Sized,
   {
     Self {
-      inner: tokio::time::interval(period),
+      inner: tokio::time::interval_at((Instant::now() + period).into(), period),
     }
   }
 
@@ -97,13 +97,7 @@ mod tests {
   async fn test_interval() {
     let start = Instant::now();
     let interval = TokioInterval::interval(INTERVAL);
-    let mut interval = interval.take(4);
-
-    // The first tick is immediate
-    let ins = interval.next().await.unwrap();
-    let elapsed = start.elapsed();
-    assert!(ins <= start + IMMEDIATE);
-    assert!(elapsed <= IMMEDIATE + BOUND);
+    let mut interval = interval.take(3);
 
     let ins = interval.next().await.unwrap();
     let elapsed = start.elapsed();
@@ -157,11 +151,6 @@ mod tests {
   async fn test_interval_reset() {
     let start = Instant::now();
     let mut interval = TokioInterval::interval(INTERVAL);
-    // The first tick is immediate
-    let ins = interval.next().await.unwrap();
-    let elapsed = start.elapsed();
-    assert!(ins <= start + IMMEDIATE);
-    assert!(elapsed <= IMMEDIATE + BOUND);
 
     let ins = interval.next().await.unwrap();
     let elapsed = start.elapsed();
@@ -187,11 +176,6 @@ mod tests {
   async fn test_interval_reset_at() {
     let start = Instant::now();
     let mut interval = TokioInterval::interval(INTERVAL);
-    // The first tick is immediate
-    let ins = interval.next().await.unwrap();
-    let elapsed = start.elapsed();
-    assert!(ins <= start + IMMEDIATE);
-    assert!(elapsed <= IMMEDIATE + BOUND);
 
     let ins = interval.next().await.unwrap();
     let elapsed = start.elapsed();

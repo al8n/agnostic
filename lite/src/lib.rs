@@ -46,12 +46,6 @@ pub mod async_io;
 mod spawner;
 pub use spawner::*;
 
-mod local_spawner;
-pub use local_spawner::*;
-
-mod block_spawner;
-pub use block_spawner::*;
-
 /// Runtime trait
 pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   /// The spawner type for this runtime
@@ -60,6 +54,16 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   type LocalSpawner: AsyncLocalSpawner;
   /// The blocking spawner type for this runtime
   type BlockingSpawner: AsyncBlockingSpawner;
+
+  /// The after spawner type for this runtime
+  #[cfg(feature = "time")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
+  type AfterSpawner: AsyncAfterSpawner;
+
+  /// The local after spawner type for this runtime
+  #[cfg(feature = "time")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
+  type LocalAfterSpawner: AsyncLocalAfterSpawner;
 
   /// The interval type for this runtime
   #[cfg(feature = "time")]
@@ -164,6 +168,66 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     R: Send + 'static,
   {
     <Self::BlockingSpawner as AsyncBlockingSpawner>::spawn_blocking_detach(f);
+  }
+
+  /// Spawn a future onto the runtime and run the given future after the given duration
+  #[cfg(feature = "time")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
+  fn spawn_after<F>(
+    duration: core::time::Duration,
+    future: F,
+  ) -> <Self::AfterSpawner as AsyncAfterSpawner>::JoinHandle<F::Output>
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static,
+  {
+    <Self::AfterSpawner as AsyncAfterSpawner>::spawn_after(duration, future)
+  }
+
+  /// Spawn a future onto the runtime and run the given future after the given instant.
+  #[cfg(feature = "time")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
+  fn spawn_after_at<F>(
+    at: std::time::Instant,
+    future: F,
+  ) -> <Self::AfterSpawner as AsyncAfterSpawner>::JoinHandle<F::Output>
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static,
+  {
+    <Self::AfterSpawner as AsyncAfterSpawner>::spawn_after_at(at, future)
+  }
+
+  /// Like [`spawn_after`](RuntimeLite::spawn_after), but does not require the `future` to be `Send`.
+  ///
+  /// Spawn a future onto the runtime and run the given future after the given duration
+  #[cfg(feature = "time")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
+  fn spawn_local_after<F>(
+    duration: core::time::Duration,
+    future: F,
+  ) -> <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::JoinHandle<F::Output>
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static,
+  {
+    <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::spawn_local_after(duration, future)
+  }
+
+  /// Like [`spawn_after_at`](RuntimeLite::spawn_after_at), but does not require the `future` to be `Send`.
+  ///
+  /// Spawn a future onto the runtime and run the given future after the given instant.
+  #[cfg(feature = "time")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
+  fn spawn_local_after_at<F>(
+    at: std::time::Instant,
+    future: F,
+  ) -> <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::JoinHandle<F::Output>
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static,
+  {
+    <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::spawn_local_after_at(at, future)
   }
 
   /// Block the current thread on the given future
@@ -312,5 +376,66 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     F: Future,
   {
     <Self::LocalTimeout<F> as time::AsyncLocalTimeout<F>>::timeout_local_at(deadline, future)
+  }
+}
+
+/// Unit test for the [`RuntimeLite`]
+#[cfg(any(test, feature = "test"))]
+#[cfg_attr(docsrs, doc(cfg(any(test, feature = "test"))))]
+pub mod tests {
+  use core::sync::atomic::{AtomicUsize, Ordering};
+  use std::sync::Arc;
+  use std::time::Duration;
+
+  use super::{AfterHandle, RuntimeLite};
+
+  /// Unit test for the [`RuntimeLite::spawn_after`] function
+  pub async fn spawn_after_unittest<R: RuntimeLite>() {
+    let ctr = Arc::new(AtomicUsize::new(1));
+    let ctr1 = ctr.clone();
+    let handle = R::spawn_after(Duration::from_secs(1), async move {
+      ctr1.fetch_add(1, Ordering::SeqCst);
+    });
+
+    R::sleep(Duration::from_millis(500)).await;
+    assert_eq!(ctr.load(Ordering::SeqCst), 1);
+
+    handle.await.unwrap();
+    assert_eq!(ctr.load(Ordering::SeqCst), 2);
+  }
+
+  /// Unit test for the [`RuntimeLite::spawn_after`] function
+  ///
+  /// The task will be canceled before it completes
+  pub async fn spawn_after_cancel_unittest<R: RuntimeLite>() {
+    let ctr = Arc::new(AtomicUsize::new(1));
+    let ctr1 = ctr.clone();
+    let handle = R::spawn_after(Duration::from_secs(1), async move {
+      ctr1.fetch_add(1, Ordering::SeqCst);
+    });
+
+    R::sleep(Duration::from_millis(500)).await;
+    assert_eq!(ctr.load(Ordering::SeqCst), 1);
+
+    let o = handle.cancel().await;
+    assert!(o.is_none());
+    assert_eq!(ctr.load(Ordering::SeqCst), 1);
+  }
+
+  /// Unit test for the [`RuntimeLite::spawn_after`] function
+  ///
+  /// The [`AfterHandle`] will be dropped immediately after it is created
+  pub async fn spawn_after_drop_unittest<R: RuntimeLite>() {
+    let ctr = Arc::new(AtomicUsize::new(1));
+    let ctr1 = ctr.clone();
+    drop(R::spawn_after(Duration::from_secs(1), async move {
+      ctr1.fetch_add(1, Ordering::SeqCst);
+    }));
+
+    R::sleep(Duration::from_millis(500)).await;
+    assert_eq!(ctr.load(Ordering::SeqCst), 1);
+
+    R::sleep(Duration::from_millis(600)).await;
+    assert_eq!(ctr.load(Ordering::SeqCst), 2);
   }
 }

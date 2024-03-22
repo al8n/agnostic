@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version.workspace = true
+version = "0.3.4"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -21,21 +21,77 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = []
 
 dns = ["net", "hickory-resolver", "resolv-conf", "hickory-proto", "thiserror"]
-dns-over-quic = ["dns", "hickory-resolver/dns-over-quic", "hickory-proto/dns-over-quic", "dns-over-rustls"]
-dns-over-h3 = ["dns", "hickory-resolver/dns-over-h3", "dns-over-rustls", "hickory-proto/dns-over-h3"]
-dns-over-https-rustls = ["dns", "hickory-resolver/dns-over-https-rustls", "hickory-proto/dns-over-https-rustls", "dns-over-rustls"]
-dns-over-rustls = ["dns", "hickory-resolver/dns-over-rustls", "hickory-proto/dns-over-rustls"]
-dns-over-openssl = ["dns", "hickory-resolver/dns-over-openssl", "hickory-proto/dns-over-openssl"]
-dns-over-native-tls = ["dns", "hickory-resolver/dns-over-native-tls", "hickory-proto/dns-over-native-tls"]
-dns-webpki-roots = ["dns", "hickory-proto/webpki-roots", "hickory-resolver/webpki-roots"]
-dns-native-certs = ["dns", "hickory-proto/native-certs", "hickory-resolver/native-certs"]
-dnssec-openssl = ["dns", "hickory-proto/dnssec-openssl", "hickory-resolver/dnssec-openssl"]
-dnssec-ring = ["dnssec", "hickory-proto/dnssec-ring", "hickory-resolver/dnssec-ring"]
+dns-over-quic = [
+  "dns",
+  "hickory-resolver/dns-over-quic",
+  "hickory-proto/dns-over-quic",
+  "dns-over-rustls",
+]
+dns-over-h3 = [
+  "dns",
+  "hickory-resolver/dns-over-h3",
+  "dns-over-rustls",
+  "hickory-proto/dns-over-h3",
+]
+dns-over-https-rustls = [
+  "dns",
+  "hickory-resolver/dns-over-https-rustls",
+  "hickory-proto/dns-over-https-rustls",
+  "dns-over-rustls",
+]
+dns-over-rustls = [
+  "dns",
+  "hickory-resolver/dns-over-rustls",
+  "hickory-proto/dns-over-rustls",
+]
+dns-over-openssl = [
+  "dns",
+  "hickory-resolver/dns-over-openssl",
+  "hickory-proto/dns-over-openssl",
+]
+dns-over-native-tls = [
+  "dns",
+  "hickory-resolver/dns-over-native-tls",
+  "hickory-proto/dns-over-native-tls",
+]
+dns-webpki-roots = [
+  "dns",
+  "hickory-proto/webpki-roots",
+  "hickory-resolver/webpki-roots",
+]
+dns-native-certs = [
+  "dns",
+  "hickory-proto/native-certs",
+  "hickory-resolver/native-certs",
+]
+dnssec-openssl = [
+  "dns",
+  "hickory-proto/dnssec-openssl",
+  "hickory-resolver/dnssec-openssl",
+]
+dnssec-ring = [
+  "dnssec",
+  "hickory-proto/dnssec-ring",
+  "hickory-resolver/dnssec-ring",
+]
 dnssec = ["dns", "hickory-proto/dnssec", "hickory-resolver/dnssec"]
 
-quinn = ["quinn/native-certs", "quinn/tls-rustls", "quinn/log", "quinn-udp", "net"]
+quinn = [
+  "quinn/native-certs",
+  "quinn/tls-rustls",
+  "quinn/log",
+  "quinn-udp",
+  "net",
+]
 
-net = ["io", "socket2", "tokio?/net", "tokio?/io-util", "tokio?/io-std", "async-std?/default"]
+net = [
+  "io",
+  "socket2",
+  "tokio?/net",
+  "tokio?/io-util",
+  "tokio?/io-std",
+  "async-std?/default",
+]
 io = ["futures-util/io"]
 
 # This feature must be used with net feature
@@ -44,19 +100,40 @@ io = ["futures-util/io"]
 # But if you are using tokio, this feature can be ignored.
 tokio-compat = ["tokio-util/compat", "dep:tokio"]
 
-tokio = ["dep:tokio", "agnostic-lite/tokio", "quinn?/runtime-tokio", "pin-project-lite", "tokio-stream", "tokio/rt", "tokio/sync", "tokio/macros", "tokio/time", "tokio-compat"]
-async-std = ["dep:async-std", "agnostic-lite/async-std", "quinn?/runtime-async-std", "async-io", "pin-project-lite"]
+tokio = [
+  "dep:tokio",
+  "agnostic-lite/tokio",
+  "quinn?/runtime-tokio",
+  "pin-project-lite",
+  "tokio-stream",
+  "tokio/rt",
+  "tokio/sync",
+  "tokio/macros",
+  "tokio/time",
+  "tokio-compat",
+]
+async-std = [
+  "dep:async-std",
+  "agnostic-lite/async-std",
+  "quinn?/runtime-async-std",
+  "async-io",
+  "pin-project-lite",
+]
 smol = ["dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
 
 tracing = ["dep:tracing"]
 
 [target.'cfg(unix)'.dependencies]
 socket2 = { version = "0.5", optional = true }
-hickory-resolver = { version = "0.24", default-features = false, optional = true, features = ["system-config"] }
+hickory-resolver = { version = "0.24", default-features = false, optional = true, features = [
+  "system-config",
+] }
 
 [target.'cfg(windows)'.dependencies]
 socket2 = { version = "0.5", optional = true }
-hickory-resolver = { version = "0.24", default-features = false, optional = true, features = ["system-config"] }
+hickory-resolver = { version = "0.24", default-features = false, optional = true, features = [
+  "system-config",
+] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 hickory-resolver = { version = "0.24", default-features = false, optional = true }
@@ -67,10 +144,17 @@ async-trait = "0.1"
 futures-util = { version = "=0.3.29" }
 
 tokio = { version = "1", default-features = false, optional = true }
-tokio-stream = { version = "0.1", default-features = false, optional = true, features = ["time"] }
-tokio-util = { version = "0.7", default-features = false, optional = true, features = ["compat"] }
+tokio-stream = { version = "0.1", default-features = false, optional = true, features = [
+  "time",
+] }
+tokio-util = { version = "0.7", default-features = false, optional = true, features = [
+  "compat",
+] }
 
-async-std = { workspace = true, optional = true, features = ["unstable", "default"] }
+async-std = { workspace = true, optional = true, features = [
+  "unstable",
+  "default",
+] }
 async-io = { workspace = true, optional = true }
 pin-project-lite = { workspace = true, optional = true }
 smol = { workspace = true, default-features = false, optional = true }

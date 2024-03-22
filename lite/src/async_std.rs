@@ -3,9 +3,17 @@ use core::future::Future;
 
 #[cfg(feature = "time")]
 use crate::async_io::*;
-use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner};
+#[cfg(feature = "time")]
+mod after;
+#[cfg(feature = "time")]
+pub use after::*;
+
 #[cfg(feature = "time")]
 use std::time::{Duration, Instant};
+
+use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner};
+
+impl<F> super::Detach for ::async_std::task::JoinHandle<F> {}
 
 /// A [`AsyncSpawner`] that uses the [`async-std`](async_std) runtime.
 #[derive(Debug, Clone, Copy)]
@@ -65,6 +73,11 @@ impl super::RuntimeLite for AsyncStdRuntime {
   type BlockingSpawner = AsyncStdSpawner;
 
   #[cfg(feature = "time")]
+  type AfterSpawner = AsyncStdSpawner;
+  #[cfg(feature = "time")]
+  type LocalAfterSpawner = AsyncStdSpawner;
+
+  #[cfg(feature = "time")]
   type Interval = AsyncIoInterval;
   #[cfg(feature = "time")]
   type LocalInterval = AsyncIoInterval;
@@ -91,29 +104,21 @@ impl super::RuntimeLite for AsyncStdRuntime {
 
   #[cfg(feature = "time")]
   fn interval(interval: Duration) -> Self::Interval {
-    use crate::time::AsyncIntervalExt;
-
     AsyncIoInterval::interval(interval)
   }
 
   #[cfg(feature = "time")]
   fn interval_at(start: Instant, period: Duration) -> Self::Interval {
-    use crate::time::AsyncIntervalExt;
-
     AsyncIoInterval::interval_at(start, period)
   }
 
   #[cfg(feature = "time")]
   fn interval_local(interval: Duration) -> Self::LocalInterval {
-    use crate::time::AsyncIntervalExt;
-
     AsyncIoInterval::interval(interval)
   }
 
   #[cfg(feature = "time")]
   fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval {
-    use crate::time::AsyncIntervalExt;
-
     AsyncIoInterval::interval_at(start, period)
   }
 

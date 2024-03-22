@@ -18,9 +18,15 @@ mod delay;
 #[cfg(feature = "time")]
 pub use delay::*;
 
-use core::future::Future;
 #[cfg(feature = "time")]
 use std::time::{Duration, Instant};
+
+#[cfg(feature = "time")]
+mod after;
+#[cfg(feature = "time")]
+pub use after::*;
+
+use core::future::Future;
 
 use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner};
 
@@ -53,6 +59,8 @@ impl AsyncLocalSpawner for TokioSpawner {
     tokio::task::spawn_local(future)
   }
 }
+
+impl<T> super::Detach for ::tokio::task::JoinHandle<T> {}
 
 impl AsyncBlockingSpawner for TokioSpawner {
   type JoinHandle<R> = ::tokio::task::JoinHandle<R>
@@ -90,6 +98,11 @@ impl super::RuntimeLite for TokioRuntime {
   type Spawner = TokioSpawner;
   type LocalSpawner = TokioSpawner;
   type BlockingSpawner = TokioSpawner;
+
+  #[cfg(feature = "time")]
+  type AfterSpawner = TokioSpawner;
+  #[cfg(feature = "time")]
+  type LocalAfterSpawner = TokioSpawner;
 
   #[cfg(feature = "time")]
   type Interval = TokioInterval;

@@ -1,75 +1,44 @@
 use core::{
-  pin::Pin,
   task::{Context, Poll},
   time::Duration,
 };
 use std::time::Instant;
 
 use ::async_io::Timer;
-use futures_util::{stream::Stream, FutureExt};
+use futures_util::FutureExt;
 
 use crate::time::{AsyncLocalInterval, AsyncLocalIntervalExt};
 
-pin_project_lite::pin_project! {
-  /// The [`AsyncInterval`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
-  #[repr(transparent)]
-  pub struct AsyncIoInterval {
-    #[pin]
-    inner: Timer,
-  }
-}
+/// The [`AsyncInterval`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
+pub type AsyncIoInterval = Timer;
 
-impl From<Timer> for AsyncIoInterval {
-  fn from(timer: Timer) -> Self {
-    Self { inner: timer }
-  }
-}
-
-impl From<AsyncIoInterval> for Timer {
-  fn from(interval: AsyncIoInterval) -> Self {
-    interval.inner
-  }
-}
-
-impl Stream for AsyncIoInterval {
-  type Item = Instant;
-
-  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    self.project().inner.poll_next(cx)
-  }
-}
-
-impl AsyncLocalInterval for AsyncIoInterval {
+impl AsyncLocalInterval for Timer {
   fn reset(&mut self, interval: Duration) {
-    self.inner.set_after(interval)
+    self.set_after(interval)
   }
 
   fn reset_at(&mut self, deadline: Instant) {
-    self.inner.set_at(deadline);
+    self.set_at(deadline);
   }
 
   fn poll_tick(&mut self, cx: &mut Context<'_>) -> Poll<Instant> {
-    self.inner.poll_unpin(cx)
+    self.poll_unpin(cx)
   }
 }
 
-impl AsyncLocalIntervalExt for AsyncIoInterval {
+impl AsyncLocalIntervalExt for Timer {
   fn interval_local(period: Duration) -> Self
   where
     Self: Sized,
   {
-    Self {
-      inner: Timer::interval_at(Instant::now(), period),
-    }
+    Timer::interval(period)
   }
 
   fn interval_local_at(start: Instant, period: Duration) -> Self
   where
     Self: Sized,
   {
-    Self {
-      inner: Timer::interval_at(start, period),
-    }
+    Timer::interval_at(start, period)
   }
 }
 
@@ -87,20 +56,15 @@ mod tests {
 
   #[test]
   fn test_object_safe() {
-    let _: Box<dyn AsyncInterval> = Box::new(AsyncIoInterval::interval(Duration::from_secs(1)));
+    let _x: Box<dyn AsyncInterval> = Box::new(AsyncIoInterval::interval(Duration::from_secs(1)));
   }
 
   #[test]
   fn test_interval() {
     futures::executor::block_on(async {
       let start = Instant::now();
-      let interval = AsyncIoInterval::interval(INTERVAL);
-      let mut interval = interval.take(4);
-      // The first tick is immediate
-      let ins = interval.next().await.unwrap();
-      let elapsed = start.elapsed();
-      assert!(ins <= start + IMMEDIATE);
-      assert!(elapsed <= IMMEDIATE + BOUND);
+      let interval = <AsyncIoInterval as AsyncIntervalExt>::interval(INTERVAL);
+      let mut interval = interval.take(3);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
@@ -125,7 +89,7 @@ mod tests {
   fn test_interval_at() {
     futures::executor::block_on(async {
       let start = Instant::now();
-      let interval = AsyncIoInterval::interval_at(Instant::now(), INTERVAL);
+      let interval = <AsyncIoInterval as AsyncIntervalExt>::interval_at(Instant::now(), INTERVAL);
       let mut interval = interval.take(4);
       // The first tick is immediate
       let ins = interval.next().await.unwrap();
@@ -156,13 +120,7 @@ mod tests {
   fn test_interval_reset() {
     futures::executor::block_on(async {
       let start = Instant::now();
-      let mut interval = AsyncIoInterval::interval(INTERVAL);
-
-      // The first tick is immediate
-      let ins = interval.next().await.unwrap();
-      let elapsed = start.elapsed();
-      assert!(ins <= start + IMMEDIATE);
-      assert!(elapsed <= IMMEDIATE + BOUND);
+      let mut interval = <AsyncIoInterval as AsyncIntervalExt>::interval(INTERVAL);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
@@ -189,13 +147,7 @@ mod tests {
   fn test_interval_reset_at() {
     futures::executor::block_on(async {
       let start = Instant::now();
-      let mut interval = AsyncIoInterval::interval(INTERVAL);
-
-      // The first tick is immediate
-      let ins = interval.next().await.unwrap();
-      let elapsed = start.elapsed();
-      assert!(ins <= start + IMMEDIATE);
-      assert!(elapsed <= IMMEDIATE + BOUND);
+      let mut interval = <AsyncIoInterval as AsyncIntervalExt>::interval(INTERVAL);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();

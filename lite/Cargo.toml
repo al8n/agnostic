@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-lite"
-version = "0.3.4"
+version = "0.3.9"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -21,7 +21,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["std"]
 std = []
-time = ["std", "tokio?/time", "wasm?/time", "smol?/time", "async-std?/time"]
+time = ["std", "tokio?/time", "tokio?/macros", "tokio?/sync", "wasm?/time", "wasm?/channel", "smol?/time", "smol?/channel", "async-std?/time", "async-std?/channel"]
 
 tokio = ["dep:tokio"]
 
@@ -32,15 +32,18 @@ async-std = ["dep:async-std", "async-io"]
 wasm = [
   "std",
   "dep:wasm",
-  "futures-channel",
+  "wasm/channel",
   "futures-util/async-await-macro",
   "futures-util/async-await",
   "futures-util/std",
 ]
 
+test = ["time"]
+
 [dependencies]
 futures-util.workspace = true
 pin-project-lite.workspace = true
+pin-project = "1"
 
 tokio = { version = "1", optional = true, default-features = false, features = [
   "rt",
@@ -49,9 +52,7 @@ tokio = { version = "1", optional = true, default-features = false, features = [
 async-io = { workspace = true, optional = true }
 async-std = { workspace = true, optional = true, features = ["default", "unstable"] }
 smol = { workspace = true, optional = true }
-
 wasm = { workspace = true, optional = true }
-futures-channel = { version = "=0.3.29", optional = true }
 
 [dev-dependencies]
 futures = { version = "=0.3.29", features = ["executor"] }

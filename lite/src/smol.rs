@@ -1,10 +1,21 @@
 use core::future::Future;
 
 #[cfg(feature = "time")]
+mod after;
+#[cfg(feature = "time")]
+pub use after::*;
+
+#[cfg(feature = "time")]
 use crate::async_io::*;
 use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner};
 #[cfg(feature = "time")]
 use std::time::{Duration, Instant};
+
+impl<T> super::Detach for ::smol::Task<T> {
+  fn detach(self) {
+    ::smol::Task::detach(self)
+  }
+}
 
 /// A [`AsyncSpawner`] that uses the [`smol`](::smol) runtime.
 #[derive(Debug, Clone, Copy)]
@@ -88,6 +99,11 @@ impl super::RuntimeLite for SmolRuntime {
   type BlockingSpawner = SmolSpawner;
 
   #[cfg(feature = "time")]
+  type AfterSpawner = SmolSpawner;
+  #[cfg(feature = "time")]
+  type LocalAfterSpawner = SmolSpawner;
+
+  #[cfg(feature = "time")]
   type Interval = AsyncIoInterval;
   #[cfg(feature = "time")]
   type LocalInterval = AsyncIoInterval;
@@ -114,29 +130,21 @@ impl super::RuntimeLite for SmolRuntime {
 
   #[cfg(feature = "time")]
   fn interval(interval: Duration) -> Self::Interval {
-    use crate::time::AsyncIntervalExt;
-
     AsyncIoInterval::interval(interval)
   }
 
   #[cfg(feature = "time")]
   fn interval_at(start: Instant, period: Duration) -> Self::Interval {
-    use crate::time::AsyncIntervalExt;
-
     AsyncIoInterval::interval_at(start, period)
   }
 
   #[cfg(feature = "time")]
   fn interval_local(interval: Duration) -> Self::LocalInterval {
-    use crate::time::AsyncIntervalExt;
-
     AsyncIoInterval::interval(interval)
   }
 
   #[cfg(feature = "time")]
   fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval {
-    use crate::time::AsyncIntervalExt;
-
     AsyncIoInterval::interval_at(start, period)
   }
 
