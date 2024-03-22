@@ -24,7 +24,7 @@ fn _assert1(_: Box<dyn AsyncLocalDelay<impl Future>>) {}
 fn _assert2(_: Box<dyn AsyncDelay<impl Future>>) {}
 
 /// Simlilar to Go's `time.AfterFunc`
-pub trait AsyncDelay<F>: Future<Output = Result<F::Output, Aborted>>
+pub trait AsyncDelay<F>: Future<Output = Result<F::Output, Aborted>> + Send
 where
   F: Future + Send,
 {
@@ -42,7 +42,7 @@ where
 }
 
 /// Extension trait for [`AsyncLocalDelay`]
-pub trait AsyncDelayExt<F>: Future<Output = Result<F::Output, Aborted>>
+pub trait AsyncDelayExt<F>: Future<Output = Result<F::Output, Aborted>> + Send
 where
   F: Future + Send,
 {
@@ -55,7 +55,7 @@ where
 
 impl<F: Future + Send, T> AsyncDelay<F> for T
 where
-  T: AsyncLocalDelay<F>,
+  T: AsyncLocalDelay<F> + Send,
 {
   fn abort(&self) {
     AsyncLocalDelay::abort(self);
@@ -76,7 +76,7 @@ where
 
 impl<F: Future + Send, T> AsyncDelayExt<F> for T
 where
-  T: AsyncLocalDelayExt<F>,
+  T: AsyncLocalDelayExt<F> + Send,
 {
   fn delay(dur: Duration, fut: F) -> Self {
     AsyncLocalDelayExt::delay(dur, fut)
