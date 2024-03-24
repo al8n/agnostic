@@ -60,6 +60,10 @@ where
     None
   }
 
+  fn reset(&self, _duration: core::time::Duration) {
+    todo!()
+  }
+
   #[inline]
   fn is_finished(&self) -> bool {
     self.signals.is_finished()
@@ -93,6 +97,10 @@ where
 
     let _ = self.tx.send(());
     None
+  }
+
+  fn reset(&self, _duration: core::time::Duration) {
+    todo!()
   }
 
   #[inline]

@@ -456,4 +456,40 @@ pub mod tests {
     R::sleep(Duration::from_millis(600)).await;
     assert_eq!(ctr.load(Ordering::SeqCst), 1);
   }
+
+  /// Unit test for the [`RuntimeLite::spawn_after`] function
+  ///
+  /// The [`AfterHandle`] will be reset to passed than the original duration after it is created, and the task will be executed after the reset duration.
+  pub async fn spawn_after_reset_to_pass_unittest<R: RuntimeLite>() {
+    let ctr = Arc::new(AtomicUsize::new(1));
+    let ctr1 = ctr.clone();
+    let handle = R::spawn_after(Duration::from_secs(1), async move {
+      ctr1.fetch_add(1, Ordering::SeqCst);
+    });
+
+    R::sleep(Duration::from_millis(500)).await;
+    assert_eq!(ctr.load(Ordering::SeqCst), 1);
+
+    handle.reset(Duration::from_millis(250));
+    R::sleep(Duration::from_millis(10)).await;
+    assert_eq!(ctr.load(Ordering::SeqCst), 2);
+  }
+
+  /// Unit test for the [`RuntimeLite::spawn_after`] function
+  ///
+  /// The [`AfterHandle`] will be reset to future than the original duration after it is created, and the task will be executed after the reset duration.
+  pub async fn spawn_after_reset_to_future_unittest<R: RuntimeLite>() {
+    let ctr = Arc::new(AtomicUsize::new(1));
+    let ctr1 = ctr.clone();
+    let handle = R::spawn_after(Duration::from_secs(1), async move {
+      ctr1.fetch_add(1, Ordering::SeqCst);
+    });
+
+    R::sleep(Duration::from_millis(500)).await;
+    assert_eq!(ctr.load(Ordering::SeqCst), 1);
+
+    handle.reset(Duration::from_millis(1250)); // now delay 1.25s
+    R::sleep(Duration::from_millis(750 + 10)).await; // we already delayed 500ms, so remaining is 750ms
+    assert_eq!(ctr.load(Ordering::SeqCst), 2);
+  }
 }

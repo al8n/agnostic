@@ -63,6 +63,10 @@ where
     None
   }
 
+  fn reset(&self, _duration: core::time::Duration) {
+    todo!()
+  }
+
   #[inline]
   fn abort(self) {
     let _ = self.tx.send(());
@@ -90,6 +94,10 @@ where
 
     let _ = self.tx.send(());
     None
+  }
+
+  fn reset(&self, _duration: core::time::Duration) {
+    todo!()
   }
 
   #[inline]

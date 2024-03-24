@@ -213,6 +213,9 @@ pub trait AfterHandle<F: Send + 'static, E: Send>:
   /// Returns the task’s output if it was completed just before it got canceled, or `None` if it didn’t complete.
   fn cancel(self) -> impl Future<Output = Option<Result<F, AfterHandleError<E>>>> + Send;
 
+  /// Resets the delay of the task related to this handle.
+  fn reset(&self, duration: core::time::Duration);
+
   /// Aborts the task related to this handle.
   fn abort(self);
 
@@ -278,6 +281,9 @@ pub trait LocalAfterHandle<F: 'static, E>:
   ///
   /// Returns the task’s output if it was completed just before it got canceled, or `None` if it didn’t complete.
   fn cancel(self) -> impl Future<Output = Option<Result<F, AfterHandleError<E>>>>;
+
+  /// Resets the delay of the task related to this handle.
+  fn reset(&self, duration: core::time::Duration);
 
   /// Aborts the task related to this handle.
   fn abort(self);

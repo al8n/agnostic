@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-lite"
-version = "0.3.11"
+version = "0.3.12"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -23,6 +23,7 @@ default = ["std"]
 std = []
 time = [
   "std",
+  "atomic-time",
   "tokio?/time",
   "tokio?/macros",
   "tokio?/sync",
@@ -52,6 +53,7 @@ wasm = [
 test = ["time"]
 
 [dependencies]
+atomic-time = { version = "0.1", optional = true }
 futures-util.workspace = true
 pin-project-lite.workspace = true
 pin-project = "1"
