@@ -38,6 +38,134 @@ impl Resetter {
   }
 }
 
+macro_rules! spawn_after {
+  ($spawn:ident, $sleep:ident -> ($instant:ident, $future:ident)) => {{
+    paste::paste! {
+      let (tx, rx) = channel::<()>();
+      let (reset_tx, mut reset_rx) = mpsc::unbounded_channel();
+      let signals = Arc::new(AfterHandleSignals::new());
+      let duration = Arc::new(AtomicOptionDuration::none());
+      let resetter = Resetter::new(duration.clone(), reset_tx);
+      let s1 = signals.clone();
+      let h = TokioRuntime::$spawn(async move {
+        let delay = TokioRuntime::$sleep($instant);
+        tokio::pin!(delay);
+        tokio::pin!(rx);
+        tokio::pin!($future);
+
+        loop {
+          tokio::select! {
+            biased;
+            canceled = &mut rx => {
+              if canceled.is_ok() {
+                return Err(Canceled);
+              }
+              delay.await;
+              s1.set_expired();
+              let res = $future.await;
+              s1.set_finished();
+              return Ok(res);
+            }
+            signal = reset_rx.recv() => {
+              if signal.is_some() {
+                if let Some(d) = duration.load(Ordering::Acquire) {
+                  if $instant.checked_sub(d).is_some() {
+                    s1.set_expired();
+
+                    tokio::select! {
+                      canceled = &mut rx => {
+                        if canceled.is_ok() {
+                          return Err(Canceled);
+                        }
+                        delay.await;
+                        s1.set_expired();
+                        let res = $future.await;
+                        s1.set_finished();
+                        return Ok(res);
+                      }
+                      res = &mut $future => {
+                        s1.set_finished();
+                        return Ok(res);
+                      }
+                    }
+                  }
+
+                  match $instant.checked_sub(d) {
+                    Some(v) => {
+                      delay.as_mut().reset(v);
+                    },
+                    None => {
+                      match d.checked_sub($instant.elapsed()) {
+                        Some(v) => {
+                          delay.as_mut().reset(Instant::now() + v);
+                        },
+                        None => {
+                          s1.set_expired();
+
+                          tokio::select! {
+                            canceled = &mut rx => {
+                              if canceled.is_ok() {
+                                return Err(Canceled);
+                              }
+                              delay.await;
+                              s1.set_expired();
+                              let res = $future.await;
+                              s1.set_finished();
+                              return Ok(res);
+                            }
+                            res = &mut $future => {
+                              s1.set_finished();
+                              return Ok(res);
+                            }
+                          }
+                        },
+                      }
+                    },
+                  }
+                }
+              } else {
+                delay.await;
+                s1.set_expired();
+                let res = $future.await;
+                s1.set_finished();
+                return Ok(res);
+              }
+            }
+            _ = &mut delay => {
+              s1.set_expired();
+
+              tokio::select! {
+                biased;
+                canceled = &mut rx => {
+                  if canceled.is_ok() {
+                    return Err(Canceled);
+                  }
+                  delay.await;
+                  s1.set_expired();
+                  let res = $future.await;
+                  s1.set_finished();
+                  return Ok(res);
+                }
+                res = &mut $future => {
+                  s1.set_finished();
+                  return Ok(res);
+                }
+              }
+            }
+          }
+        }
+      });
+
+      TokioAfterHandle {
+        handle: h,
+        signals,
+        resetter,
+        tx,
+      }
+    }
+  }};
+}
+
 /// The handle return by [`RuntimeLite::spawn_after`] or [`RuntimeLite::spawn_after_at`]
 #[pin_project::pin_project]
 pub struct TokioAfterHandle<O>
@@ -164,129 +292,7 @@ impl AsyncAfterSpawner for TokioSpawner {
     F::Output: Send + 'static,
     F: Future + Send + 'static,
   {
-    let (tx, rx) = channel::<()>();
-    let (reset_tx, mut reset_rx) = mpsc::unbounded_channel();
-    let signals = Arc::new(AfterHandleSignals::new());
-    let duration = Arc::new(AtomicOptionDuration::none());
-    let resetter = Resetter::new(duration.clone(), reset_tx);
-    let s1 = signals.clone();
-    let h = TokioRuntime::spawn(async move {
-      let delay = TokioRuntime::sleep_until(instant);
-      tokio::pin!(delay);
-      tokio::pin!(rx);
-      tokio::pin!(future);
-
-      loop {
-        tokio::select! {
-          biased;
-          canceled = &mut rx => {
-            if canceled.is_ok() {
-              return Err(Canceled);
-            }
-            delay.await;
-            s1.set_expired();
-            let res = future.await;
-            s1.set_finished();
-            return Ok(res);
-          }
-          signal = reset_rx.recv() => {
-            if signal.is_some() {
-              if let Some(d) = duration.load(Ordering::Acquire) {
-                if instant.checked_sub(d).is_some() {
-                  s1.set_expired();
-
-                  tokio::select! {
-                    canceled = &mut rx => {
-                      if canceled.is_ok() {
-                        return Err(Canceled);
-                      }
-                      delay.await;
-                      s1.set_expired();
-                      let res = future.await;
-                      s1.set_finished();
-                      return Ok(res);
-                    }
-                    res = &mut future => {
-                      s1.set_finished();
-                      return Ok(res);
-                    }
-                  }
-                }
-
-                match instant.checked_sub(d) {
-                  Some(v) => {
-                    delay.as_mut().reset(v);
-                  },
-                  None => {
-                    match d.checked_sub(instant.elapsed()) {
-                      Some(v) => {
-                        delay.as_mut().reset(Instant::now() + v);
-                      },
-                      None => {
-                        s1.set_expired();
-
-                        tokio::select! {
-                          canceled = &mut rx => {
-                            if canceled.is_ok() {
-                              return Err(Canceled);
-                            }
-                            delay.await;
-                            s1.set_expired();
-                            let res = future.await;
-                            s1.set_finished();
-                            return Ok(res);
-                          }
-                          res = &mut future => {
-                            s1.set_finished();
-                            return Ok(res);
-                          }
-                        }
-                      },
-                    }
-                  },
-                }
-              }
-            } else {
-              delay.await;
-              s1.set_expired();
-              let res = future.await;
-              s1.set_finished();
-              return Ok(res);
-            }
-          }
-          _ = &mut delay => {
-            s1.set_expired();
-
-            tokio::select! {
-              biased;
-              canceled = &mut rx => {
-                if canceled.is_ok() {
-                  return Err(Canceled);
-                }
-                delay.await;
-                s1.set_expired();
-                let res = future.await;
-                s1.set_finished();
-                return Ok(res);
-              }
-              res = &mut future => {
-                s1.set_finished();
-                return Ok(res);
-              }
-
-            }
-          }
-
-        }
-      }
-    });
-
-    TokioAfterHandle {
-      handle: h,
-      signals,
-      resetter,
-      tx,
-    }
+    spawn_after!(spawn, sleep_until -> (instant, future))
   }
 }
 
@@ -310,129 +316,7 @@ impl AsyncLocalAfterSpawner for TokioSpawner {
     F::Output: 'static,
     F: Future + 'static,
   {
-    let (tx, rx) = channel::<()>();
-    let (reset_tx, mut reset_rx) = mpsc::unbounded_channel();
-    let signals = Arc::new(AfterHandleSignals::new());
-    let duration = Arc::new(AtomicOptionDuration::none());
-    let resetter = Resetter::new(duration.clone(), reset_tx);
-    let s1 = signals.clone();
-    let h = TokioRuntime::spawn_local(async move {
-      let delay = TokioRuntime::sleep_local_until(instant);
-      tokio::pin!(delay);
-      tokio::pin!(rx);
-      tokio::pin!(future);
-
-      loop {
-        tokio::select! {
-          biased;
-          canceled = &mut rx => {
-            if canceled.is_ok() {
-              return Err(Canceled);
-            }
-            delay.await;
-            s1.set_expired();
-            let res = future.await;
-            s1.set_finished();
-            return Ok(res);
-          }
-          signal = reset_rx.recv() => {
-            if signal.is_some() {
-              if let Some(d) = duration.load(Ordering::Acquire) {
-                if instant.checked_sub(d).is_some() {
-                  s1.set_expired();
-
-                  tokio::select! {
-                    canceled = &mut rx => {
-                      if canceled.is_ok() {
-                        return Err(Canceled);
-                      }
-                      delay.await;
-                      s1.set_expired();
-                      let res = future.await;
-                      s1.set_finished();
-                      return Ok(res);
-                    }
-                    res = &mut future => {
-                      s1.set_finished();
-                      return Ok(res);
-                    }
-                  }
-                }
-
-                match instant.checked_sub(d) {
-                  Some(v) => {
-                    delay.as_mut().reset(v);
-                  },
-                  None => {
-                    match d.checked_sub(instant.elapsed()) {
-                      Some(v) => {
-                        delay.as_mut().reset(Instant::now() + v);
-                      },
-                      None => {
-                        s1.set_expired();
-
-                        tokio::select! {
-                          canceled = &mut rx => {
-                            if canceled.is_ok() {
-                              return Err(Canceled);
-                            }
-                            delay.await;
-                            s1.set_expired();
-                            let res = future.await;
-                            s1.set_finished();
-                            return Ok(res);
-                          }
-                          res = &mut future => {
-                            s1.set_finished();
-                            return Ok(res);
-                          }
-                        }
-                      },
-                    }
-                  },
-                }
-              }
-            } else {
-              delay.await;
-              s1.set_expired();
-              let res = future.await;
-              s1.set_finished();
-              return Ok(res);
-            }
-          }
-          _ = &mut delay => {
-            s1.set_expired();
-
-            tokio::select! {
-              biased;
-              canceled = &mut rx => {
-                if canceled.is_ok() {
-                  return Err(Canceled);
-                }
-                delay.await;
-                s1.set_expired();
-                let res = future.await;
-                s1.set_finished();
-                return Ok(res);
-              }
-              res = &mut future => {
-                s1.set_finished();
-                return Ok(res);
-              }
-
-            }
-          }
-
-        }
-      }
-    });
-
-    TokioAfterHandle {
-      handle: h,
-      signals,
-      resetter,
-      tx,
-    }
+    spawn_after!(spawn_local, sleep_local_until -> (instant, future))
   }
 }
 
