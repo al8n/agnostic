@@ -205,7 +205,7 @@ impl AfterHandleSignals {
 /// Drop the handle to detach the task.
 #[cfg(feature = "time")]
 #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-pub trait AfterHandle<F: Send + 'static, E>:
+pub trait AfterHandle<F: Send + 'static, E: Send>:
   Send + Detach + Future<Output = Result<F, AfterHandleError<E>>> + 'static
 {
   /// Cancels the task related to this handle.
@@ -228,7 +228,7 @@ pub trait AfterHandle<F: Send + 'static, E>:
 #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
 pub trait AsyncAfterSpawner: Copy + Send + Sync + 'static {
   /// The join error type for the join handle
-  type JoinError: core::fmt::Debug + core::fmt::Display + 'static;
+  type JoinError: core::fmt::Debug + core::fmt::Display + Send + 'static;
 
   /// The handle returned by the spawner when a future is spawned.
   type JoinHandle<F>: AfterHandle<F, Self::JoinError>
