@@ -40,6 +40,164 @@ impl Resetter {
   }
 }
 
+macro_rules! spawn_after {
+  ($spawn:ident, $sleep:ident($trait:ident) -> ($instant:ident, $future:ident)) => {{
+    let (tx, rx) = channel::<()>();
+    let (abort_tx, abort_rx) = channel::<()>();
+    let (handle_tx, handle) = channel::<Result<F::Output, Canceled>>();
+    let (reset_tx, mut reset_rx) = unbounded();
+    let duration = Arc::new(AtomicOptionDuration::none());
+    let resetter = Resetter::new(duration.clone(), reset_tx);
+    let signals = Arc::new(AfterHandleSignals::new());
+    let s1 = signals.clone();
+    SmolRuntime::$spawn(async move {
+      let delay = SmolRuntime::$sleep($instant);
+      let future = $future.fuse();
+      futures_util::pin_mut!(delay);
+      futures_util::pin_mut!(rx);
+      futures_util::pin_mut!(abort_rx);
+      futures_util::pin_mut!(future);
+
+      loop {
+        futures_util::select_biased! {
+          res = abort_rx => {
+            if res.is_ok() {
+              let _ = handle_tx.send(Err(Canceled));
+              return;
+            }
+            delay.await;
+            let res = future.await;
+            s1.set_finished();
+            let _ = handle_tx.send(Ok(res));
+            return;
+          }
+          res = rx => {
+            if res.is_ok() {
+              let _ = handle_tx.send(Err(Canceled));
+              return;
+            }
+
+            delay.await;
+            let res = future.await;
+            s1.set_finished();
+            let _ = handle_tx.send(Ok(res));
+            return;
+          }
+          signal = reset_rx.next().fuse() => {
+            if signal.is_some() {
+              if let Some(d) = duration.load(Ordering::Acquire) {
+                if $instant.checked_sub(d).is_some() {
+                  s1.set_expired();
+
+                  futures_util::select_biased! {
+                    res = &mut future => {
+                      s1.set_finished();
+                      let _ = handle_tx.send(Ok(res));
+                      return;
+                    }
+                    canceled = &mut rx => {
+                      if canceled.is_ok() {
+                        let _ = handle_tx.send(Err(Canceled));
+                        return;
+                      }
+                      delay.await;
+                      s1.set_expired();
+                      let res = future.await;
+                      s1.set_finished();
+                      let _ = handle_tx.send(Ok(res));
+                      return;
+                    }
+                  }
+                }
+
+                match $instant.checked_sub(d) {
+                  Some(v) => {
+                    $trait::reset(delay.as_mut(), v);
+                  },
+                  None => {
+                    match d.checked_sub($instant.elapsed()) {
+                      Some(v) => {
+                        $trait::reset(delay.as_mut(), Instant::now() + v);
+                      },
+                      None => {
+                        s1.set_expired();
+
+                        futures_util::select_biased! {
+                          res = &mut future => {
+                            s1.set_finished();
+                            let _ = handle_tx.send(Ok(res));
+                            return;
+                          }
+                          canceled = &mut rx => {
+                            if canceled.is_ok() {
+                              let _ = handle_tx.send(Err(Canceled));
+                              return;
+                            }
+                            delay.await;
+                            s1.set_expired();
+                            let res = future.await;
+                            s1.set_finished();
+                            let _ = handle_tx.send(Ok(res));
+                            return;
+                          }
+                        }
+                      },
+                    }
+                  },
+                }
+              }
+            } else {
+              delay.await;
+              let res = future.await;
+              s1.set_finished();
+              let _ = handle_tx.send(Ok(res));
+              return;
+            }
+          }
+          _ = delay.as_mut().fuse() => {
+            s1.set_expired();
+            futures_util::select_biased! {
+              res = abort_rx => {
+                if res.is_ok() {
+                  let _ = handle_tx.send(Err(Canceled));
+                  return;
+                }
+                let res = future.await;
+                s1.set_finished();
+                let _ = handle_tx.send(Ok(res));
+                return;
+              }
+              res = rx => {
+                if res.is_ok() {
+                  let _ = handle_tx.send(Err(Canceled));
+                  return;
+                }
+                let res = future.await;
+                s1.set_finished();
+                let _ = handle_tx.send(Ok(res));
+                return;
+              }
+              res = future => {
+                s1.set_finished();
+                let _ = handle_tx.send(Ok(res));
+                return;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    SmolAfterHandle {
+      handle,
+      resetter,
+      signals,
+      abort_tx,
+      tx,
+    }
+  }};
+}
+
 /// The handle return by [`RuntimeLite::spawn_after`] or [`RuntimeLite::spawn_after_at`]
 #[pin_project::pin_project]
 pub struct SmolAfterHandle<O>
@@ -130,8 +288,9 @@ where
     None
   }
 
-  fn reset(&self, _duration: core::time::Duration) {
-    todo!()
+  fn reset(&self, duration: core::time::Duration) {
+    self.resetter.reset(duration);
+    let _ = self.resetter.tx.unbounded_send(());
   }
 
   #[inline]
@@ -170,159 +329,7 @@ impl AsyncAfterSpawner for SmolSpawner {
     F::Output: Send + 'static,
     F: Future + Send + 'static,
   {
-    let (tx, rx) = channel::<()>();
-    let (abort_tx, abort_rx) = channel::<()>();
-    let (handle_tx, handle) = channel::<Result<F::Output, Canceled>>();
-    let (reset_tx, mut reset_rx) = unbounded();
-    let duration = Arc::new(AtomicOptionDuration::none());
-    let resetter = Resetter::new(duration.clone(), reset_tx);
-    let signals = Arc::new(AfterHandleSignals::new());
-    let s1 = signals.clone();
-    SmolRuntime::spawn_detach(async move {
-      let delay = SmolRuntime::sleep_until(instant);
-      let future = future.fuse();
-      futures_util::pin_mut!(delay);
-      futures_util::pin_mut!(rx);
-      futures_util::pin_mut!(abort_rx);
-      futures_util::pin_mut!(future);
-
-      loop {
-        futures_util::select_biased! {
-          res = abort_rx => {
-            if res.is_ok() {
-              let _ = handle_tx.send(Err(Canceled));
-              return;
-            }
-            delay.await;
-            let res = future.await;
-            s1.set_finished();
-            let _ = handle_tx.send(Ok(res));
-            return;
-          }
-          res = rx => {
-            if res.is_ok() {
-              let _ = handle_tx.send(Err(Canceled));
-              return;
-            }
-
-            delay.await;
-            let res = future.await;
-            s1.set_finished();
-            let _ = handle_tx.send(Ok(res));
-            return;
-          }
-          signal = reset_rx.next().fuse() => {
-            if signal.is_some() {
-              if let Some(d) = duration.load(Ordering::Acquire) {
-                if instant.checked_sub(d).is_some() {
-                  s1.set_expired();
-
-                  futures_util::select_biased! {
-                    res = &mut future => {
-                      s1.set_finished();
-                      let _ = handle_tx.send(Ok(res));
-                      return;
-                    }
-                    canceled = &mut rx => {
-                      if canceled.is_ok() {
-                        let _ = handle_tx.send(Err(Canceled));
-                        return;
-                      }
-                      delay.await;
-                      s1.set_expired();
-                      let res = future.await;
-                      s1.set_finished();
-                      let _ = handle_tx.send(Ok(res));
-                      return;
-                    }
-                  }
-                }
-
-                match instant.checked_sub(d) {
-                  Some(v) => {
-                    AsyncSleep::reset(delay.as_mut(), v);
-                  },
-                  None => {
-                    match d.checked_sub(instant.elapsed()) {
-                      Some(v) => {
-                        AsyncSleep::reset(delay.as_mut(), Instant::now() + v);
-                      },
-                      None => {
-                        s1.set_expired();
-
-                        futures_util::select_biased! {
-                          res = &mut future => {
-                            s1.set_finished();
-                            let _ = handle_tx.send(Ok(res));
-                            return;
-                          }
-                          canceled = &mut rx => {
-                            if canceled.is_ok() {
-                              let _ = handle_tx.send(Err(Canceled));
-                              return;
-                            }
-                            delay.await;
-                            s1.set_expired();
-                            let res = future.await;
-                            s1.set_finished();
-                            let _ = handle_tx.send(Ok(res));
-                            return;
-                          }
-                        }
-                      },
-                    }
-                  },
-                }
-              }
-            } else {
-              delay.await;
-              let res = future.await;
-              s1.set_finished();
-              let _ = handle_tx.send(Ok(res));
-              return;
-            }
-          }
-          _ = delay.as_mut().fuse() => {
-            s1.set_expired();
-            futures_util::select_biased! {
-              res = abort_rx => {
-                if res.is_ok() {
-                  let _ = handle_tx.send(Err(Canceled));
-                  return;
-                }
-                let res = future.await;
-                s1.set_finished();
-                let _ = handle_tx.send(Ok(res));
-                return;
-              }
-              res = rx => {
-                if res.is_ok() {
-                  let _ = handle_tx.send(Err(Canceled));
-                  return;
-                }
-                let res = future.await;
-                s1.set_finished();
-                let _ = handle_tx.send(Ok(res));
-                return;
-              }
-              res = future => {
-                s1.set_finished();
-                let _ = handle_tx.send(Ok(res));
-                return;
-              }
-            }
-          }
-        }
-      }
-    });
-
-    SmolAfterHandle {
-      handle,
-      resetter,
-      signals,
-      abort_tx,
-      tx,
-    }
+    spawn_after!(spawn_detach, sleep_until(AsyncSleep) -> (instant, future))
   }
 }
 
@@ -345,159 +352,7 @@ impl AsyncLocalAfterSpawner for SmolSpawner {
     F::Output: 'static,
     F: Future + 'static,
   {
-    let (tx, rx) = channel::<()>();
-    let (abort_tx, abort_rx) = channel::<()>();
-    let (handle_tx, handle) = channel::<Result<F::Output, Canceled>>();
-    let (reset_tx, mut reset_rx) = unbounded();
-    let duration = Arc::new(AtomicOptionDuration::none());
-    let resetter = Resetter::new(duration.clone(), reset_tx);
-    let signals = Arc::new(AfterHandleSignals::new());
-    let s1 = signals.clone();
-    SmolRuntime::spawn_local_detach(async move {
-      let delay = SmolRuntime::sleep_local_until(instant);
-      let future = future.fuse();
-      futures_util::pin_mut!(delay);
-      futures_util::pin_mut!(rx);
-      futures_util::pin_mut!(abort_rx);
-      futures_util::pin_mut!(future);
-
-      loop {
-        futures_util::select_biased! {
-          res = abort_rx => {
-            if res.is_ok() {
-              let _ = handle_tx.send(Err(Canceled));
-              return;
-            }
-            delay.await;
-            let res = future.await;
-            s1.set_finished();
-            let _ = handle_tx.send(Ok(res));
-            return;
-          }
-          res = rx => {
-            if res.is_ok() {
-              let _ = handle_tx.send(Err(Canceled));
-              return;
-            }
-
-            delay.await;
-            let res = future.await;
-            s1.set_finished();
-            let _ = handle_tx.send(Ok(res));
-            return;
-          }
-          signal = reset_rx.next().fuse() => {
-            if signal.is_some() {
-              if let Some(d) = duration.load(Ordering::Acquire) {
-                if instant.checked_sub(d).is_some() {
-                  s1.set_expired();
-
-                  futures_util::select_biased! {
-                    res = &mut future => {
-                      s1.set_finished();
-                      let _ = handle_tx.send(Ok(res));
-                      return;
-                    }
-                    canceled = &mut rx => {
-                      if canceled.is_ok() {
-                        let _ = handle_tx.send(Err(Canceled));
-                        return;
-                      }
-                      delay.await;
-                      s1.set_expired();
-                      let res = future.await;
-                      s1.set_finished();
-                      let _ = handle_tx.send(Ok(res));
-                      return;
-                    }
-                  }
-                }
-
-                match instant.checked_sub(d) {
-                  Some(v) => {
-                    AsyncLocalSleep::reset(delay.as_mut(), v);
-                  },
-                  None => {
-                    match d.checked_sub(instant.elapsed()) {
-                      Some(v) => {
-                        AsyncLocalSleep::reset(delay.as_mut(), Instant::now() + v);
-                      },
-                      None => {
-                        s1.set_expired();
-
-                        futures_util::select_biased! {
-                          res = &mut future => {
-                            s1.set_finished();
-                            let _ = handle_tx.send(Ok(res));
-                            return;
-                          }
-                          canceled = &mut rx => {
-                            if canceled.is_ok() {
-                              let _ = handle_tx.send(Err(Canceled));
-                              return;
-                            }
-                            delay.await;
-                            s1.set_expired();
-                            let res = future.await;
-                            s1.set_finished();
-                            let _ = handle_tx.send(Ok(res));
-                            return;
-                          }
-                        }
-                      },
-                    }
-                  },
-                }
-              }
-            } else {
-              delay.await;
-              let res = future.await;
-              s1.set_finished();
-              let _ = handle_tx.send(Ok(res));
-              return;
-            }
-          }
-          _ = delay.as_mut().fuse() => {
-            s1.set_expired();
-            futures_util::select_biased! {
-              res = abort_rx => {
-                if res.is_ok() {
-                  let _ = handle_tx.send(Err(Canceled));
-                  return;
-                }
-                let res = future.await;
-                s1.set_finished();
-                let _ = handle_tx.send(Ok(res));
-                return;
-              }
-              res = rx => {
-                if res.is_ok() {
-                  let _ = handle_tx.send(Err(Canceled));
-                  return;
-                }
-                let res = future.await;
-                s1.set_finished();
-                let _ = handle_tx.send(Ok(res));
-                return;
-              }
-              res = future => {
-                s1.set_finished();
-                let _ = handle_tx.send(Ok(res));
-                return;
-              }
-            }
-          }
-        }
-      }
-    });
-
-    SmolAfterHandle {
-      handle,
-      resetter,
-      signals,
-      abort_tx,
-      tx,
-    }
+    spawn_after!(spawn_local_detach, sleep_local_until(AsyncLocalSleep) -> (instant, future))
   }
 }
 
