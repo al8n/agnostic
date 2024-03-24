@@ -206,7 +206,7 @@ impl AfterHandleSignals {
 #[cfg(feature = "time")]
 #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
 pub trait AfterHandle<F: Send + 'static, E: Send>:
-  Send + Detach + Future<Output = Result<F, AfterHandleError<E>>> + 'static
+  Send + Sync + Detach + Future<Output = Result<F, AfterHandleError<E>>> + 'static
 {
   /// Cancels the task related to this handle.
   ///
