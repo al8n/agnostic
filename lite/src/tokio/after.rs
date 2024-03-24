@@ -1,6 +1,5 @@
 use core::{
   pin::Pin,
-  sync::atomic::{AtomicBool, Ordering},
   task::{Context, Poll},
 };
 
@@ -13,7 +12,8 @@ use tokio::{
 
 use crate::{
   spawner::{AfterHandle, LocalAfterHandle},
-  AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner, Canceled, Detach,
+  AfterHandleError, AfterHandleSignals, AsyncAfterSpawner, AsyncLocalAfterSpawner, Canceled,
+  Detach,
 };
 
 use super::{super::RuntimeLite, *};
@@ -26,7 +26,7 @@ where
 {
   #[pin]
   handle: JoinHandle<Result<O, Canceled>>,
-  finished: Arc<AtomicBool>,
+  signals: Arc<AfterHandleSignals>,
   tx: Sender<()>,
 }
 
@@ -52,7 +52,7 @@ where
   O: Send + 'static,
 {
   async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
-    if self.finished.load(Ordering::Acquire) {
+    if self.signals.is_finished() {
       return Some(
         self
           .handle
@@ -65,6 +65,21 @@ where
     let _ = self.tx.send(());
     None
   }
+
+  #[inline]
+  fn abort(self) {
+    self.handle.abort();
+  }
+
+  #[inline]
+  fn is_expired(&self) -> bool {
+    self.signals.is_expired()
+  }
+
+  #[inline]
+  fn is_finished(&self) -> bool {
+    self.signals.is_finished()
+  }
 }
 
 impl<O> LocalAfterHandle<O, JoinError> for TokioAfterHandle<O>
@@ -72,7 +87,7 @@ where
   O: 'static,
 {
   async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
-    if self.finished.load(Ordering::Acquire) {
+    if self.is_finished() {
       return Some(
         self
           .handle
@@ -84,6 +99,18 @@ where
 
     let _ = self.tx.send(());
     None
+  }
+
+  fn is_finished(&self) -> bool {
+    self.signals.is_finished()
+  }
+
+  fn is_expired(&self) -> bool {
+    self.signals.is_expired()
+  }
+
+  fn abort(self) {
+    self.handle.abort()
   }
 }
 
@@ -108,8 +135,9 @@ impl AsyncAfterSpawner for TokioSpawner {
     F: Future + Send + 'static,
   {
     let (tx, rx) = channel::<()>();
-    let finished = Arc::new(AtomicBool::new(false));
-    let f1 = finished.clone();
+
+    let signals = Arc::new(AfterHandleSignals::new());
+    let s1 = signals.clone();
     let h = TokioRuntime::spawn(async move {
       let delay = TokioRuntime::sleep_until(instant);
       tokio::pin!(delay);
@@ -118,9 +146,11 @@ impl AsyncAfterSpawner for TokioSpawner {
 
       tokio::select! {
         _ = &mut delay => {
+          s1.set_expired();
+
           tokio::select! {
             res = &mut future => {
-              f1.store(true, std::sync::atomic::Ordering::Release);
+              s1.set_finished();
               Ok(res)
             }
             canceled = &mut rx => {
@@ -128,7 +158,10 @@ impl AsyncAfterSpawner for TokioSpawner {
                 return Err(Canceled);
               }
               delay.await;
-              Ok(future.await)
+              s1.set_expired();
+              let res = future.await;
+              s1.set_finished();
+              Ok(res)
             }
           }
         }
@@ -137,14 +170,17 @@ impl AsyncAfterSpawner for TokioSpawner {
             return Err(Canceled);
           }
           delay.await;
-          Ok(future.await)
+          s1.set_expired();
+          let res = future.await;
+          s1.set_finished();
+          Ok(res)
         }
       }
     });
 
     TokioAfterHandle {
       handle: h,
-      finished,
+      signals,
       tx,
     }
   }
@@ -171,8 +207,9 @@ impl AsyncLocalAfterSpawner for TokioSpawner {
     F: Future + 'static,
   {
     let (tx, rx) = channel::<()>();
-    let finished = Arc::new(AtomicBool::new(false));
-    let f1 = finished.clone();
+
+    let signals = Arc::new(AfterHandleSignals::new());
+    let s1 = signals.clone();
     let h = TokioRuntime::spawn_local(async move {
       let delay = TokioRuntime::sleep_local_until(instant);
       tokio::pin!(delay);
@@ -181,9 +218,11 @@ impl AsyncLocalAfterSpawner for TokioSpawner {
 
       tokio::select! {
         _ = &mut delay => {
+          s1.set_expired();
+
           tokio::select! {
             res = &mut future => {
-              f1.store(true, std::sync::atomic::Ordering::Release);
+              s1.set_finished();
               Ok(res)
             }
             canceled = &mut rx => {
@@ -191,7 +230,10 @@ impl AsyncLocalAfterSpawner for TokioSpawner {
                 return Err(Canceled);
               }
               delay.await;
-              Ok(future.await)
+              s1.set_expired();
+              let res = future.await;
+              s1.set_finished();
+              Ok(res)
             }
           }
         }
@@ -200,14 +242,17 @@ impl AsyncLocalAfterSpawner for TokioSpawner {
             return Err(Canceled);
           }
           delay.await;
-          Ok(future.await)
+          s1.set_expired();
+          let res = future.await;
+          s1.set_finished();
+          Ok(res)
         }
       }
     });
 
     TokioAfterHandle {
       handle: h,
-      finished,
+      signals,
       tx,
     }
   }
@@ -217,24 +262,23 @@ impl AsyncLocalAfterSpawner for TokioSpawner {
 mod tests {
   use super::*;
 
-  #[test]
-  fn test_after_handle() {
-    futures::executor::block_on(async {
-      crate::tests::spawn_after_unittest::<TokioRuntime>().await;
-    });
+  #[tokio::test]
+  async fn test_after_handle() {
+    crate::tests::spawn_after_unittest::<TokioRuntime>().await;
   }
 
-  #[test]
-  fn test_after_drop() {
-    futures::executor::block_on(async {
-      crate::tests::spawn_after_drop_unittest::<TokioRuntime>().await;
-    });
+  #[tokio::test]
+  async fn test_after_drop() {
+    crate::tests::spawn_after_drop_unittest::<TokioRuntime>().await;
   }
 
-  #[test]
-  fn test_after_cancel() {
-    futures::executor::block_on(async {
-      crate::tests::spawn_after_cancel_unittest::<TokioRuntime>().await;
-    });
+  #[tokio::test]
+  async fn test_after_cancel() {
+    crate::tests::spawn_after_cancel_unittest::<TokioRuntime>().await;
+  }
+
+  #[tokio::test]
+  async fn test_after_abort() {
+    crate::tests::spawn_after_abort_unittest::<TokioRuntime>().await;
   }
 }

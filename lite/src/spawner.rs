@@ -143,6 +143,63 @@ impl<E: core::fmt::Display> core::fmt::Display for AfterHandleError<E> {
 #[cfg(feature = "time")]
 impl<E: core::fmt::Debug + core::fmt::Display> std::error::Error for AfterHandleError<E> {}
 
+#[cfg(all(
+  feature = "time",
+  any(
+    feature = "async-std",
+    feature = "tokio",
+    feature = "smol",
+    feature = "wasm"
+  )
+))]
+pub(crate) struct AfterHandleSignals {
+  finished: core::sync::atomic::AtomicBool,
+  expired: core::sync::atomic::AtomicBool,
+}
+
+#[cfg(all(
+  feature = "time",
+  any(
+    feature = "async-std",
+    feature = "tokio",
+    feature = "smol",
+    feature = "wasm"
+  )
+))]
+impl AfterHandleSignals {
+  #[inline]
+  pub(crate) const fn new() -> Self {
+    Self {
+      finished: core::sync::atomic::AtomicBool::new(false),
+      expired: core::sync::atomic::AtomicBool::new(false),
+    }
+  }
+
+  #[inline]
+  pub(crate) fn set_finished(&self) {
+    self
+      .finished
+      .store(true, core::sync::atomic::Ordering::Release);
+  }
+
+  #[inline]
+  pub(crate) fn set_expired(&self) {
+    self
+      .expired
+      .store(true, core::sync::atomic::Ordering::Release);
+  }
+
+  #[inline]
+  pub(crate) fn is_finished(&self) -> bool {
+    self.finished.load(core::sync::atomic::Ordering::Acquire)
+  }
+
+  #[inline]
+  pub(crate) fn is_expired(&self) -> bool {
+    self.expired.load(core::sync::atomic::Ordering::Acquire)
+  }
+}
+
 /// The handle returned by the [`AsyncAfterSpawner`] when a after future is spawned.
 ///
 /// Drop the handle to detach the task.
@@ -155,6 +212,15 @@ pub trait AfterHandle<F: Send + 'static, E>:
   ///
   /// Returns the task’s output if it was completed just before it got canceled, or `None` if it didn’t complete.
   fn cancel(self) -> impl Future<Output = Option<Result<F, AfterHandleError<E>>>> + Send;
+
+  /// Aborts the task related to this handle.
+  fn abort(self);
+
+  /// Returns `true` if the timer has expired.
+  fn is_expired(&self) -> bool;
+
+  /// Returns `true` if the task has finished.
+  fn is_finished(&self) -> bool;
 }
 
 /// A spawner trait for spawning futures. Go's `time.AfterFunc` equivalent.
@@ -212,6 +278,15 @@ pub trait LocalAfterHandle<F: 'static, E>:
   ///
   /// Returns the task’s output if it was completed just before it got canceled, or `None` if it didn’t complete.
   fn cancel(self) -> impl Future<Output = Option<Result<F, AfterHandleError<E>>>>;
+
+  /// Aborts the task related to this handle.
+  fn abort(self);
+
+  /// Returns `true` if the timer has expired.
+  fn is_expired(&self) -> bool;
+
+  /// Returns `true` if the task has finished.
+  fn is_finished(&self) -> bool;
 }
 
 /// A spawner trait for spawning futures locally. Go's `time.AfterFunc` equivalent.

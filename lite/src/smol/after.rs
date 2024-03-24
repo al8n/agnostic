@@ -1,17 +1,18 @@
 use core::{
   pin::Pin,
-  sync::atomic::{AtomicBool, Ordering},
   task::{Context, Poll},
 };
 
 use std::sync::Arc;
 
-use futures_util::future::{select, Either};
+use futures_util::FutureExt;
+// use futures_util::future::{select, Either};
 use smol::sync::oneshot::{channel, Canceled as JoinError, Receiver, Sender};
 
 use crate::{
   spawner::{AfterHandle, LocalAfterHandle},
-  AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner, Canceled, Detach,
+  AfterHandleError, AfterHandleSignals, AsyncAfterSpawner, AsyncLocalAfterSpawner, Canceled,
+  Detach,
 };
 
 use super::{super::RuntimeLite, *};
@@ -24,7 +25,8 @@ where
 {
   #[pin]
   handle: Receiver<Result<O, Canceled>>,
-  finished: Arc<AtomicBool>,
+  signals: Arc<AfterHandleSignals>,
+  abort_tx: Sender<()>,
   tx: Sender<()>,
 }
 
@@ -50,7 +52,7 @@ where
   O: Send + 'static,
 {
   async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
-    if self.finished.load(Ordering::Acquire) {
+    if AfterHandle::is_finished(&self) {
       return Some(
         self
           .handle
@@ -63,6 +65,21 @@ where
     let _ = self.tx.send(());
     None
   }
+
+  #[inline]
+  fn abort(self) {
+    let _ = self.abort_tx.send(());
+  }
+
+  #[inline]
+  fn is_expired(&self) -> bool {
+    self.signals.is_expired()
+  }
+
+  #[inline]
+  fn is_finished(&self) -> bool {
+    self.signals.is_finished()
+  }
 }
 
 impl<O> LocalAfterHandle<O, JoinError> for SmolAfterHandle<O>
@@ -70,7 +87,7 @@ where
   O: 'static,
 {
   async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
-    if self.finished.load(Ordering::Acquire) {
+    if LocalAfterHandle::is_finished(&self) {
       return Some(
         self
           .handle
@@ -82,6 +99,21 @@ where
 
     let _ = self.tx.send(());
     None
+  }
+
+  #[inline]
+  fn abort(self) {
+    let _ = self.abort_tx.send(());
+  }
+
+  #[inline]
+  fn is_expired(&self) -> bool {
+    self.signals.is_expired()
+  }
+
+  #[inline]
+  fn is_finished(&self) -> bool {
+    self.signals.is_finished()
   }
 }
 
@@ -106,45 +138,74 @@ impl AsyncAfterSpawner for SmolSpawner {
     F: Future + Send + 'static,
   {
     let (tx, rx) = channel::<()>();
+    let (abort_tx, abort_rx) = channel::<()>();
     let (handle_tx, handle) = channel::<Result<F::Output, Canceled>>();
-    let finished = Arc::new(AtomicBool::new(false));
-    let f1 = finished.clone();
+    let signals = Arc::new(AfterHandleSignals::new());
+    let s1 = signals.clone();
     SmolRuntime::spawn_detach(async move {
-      let delay = SmolRuntime::sleep_until(instant);
+      let delay = SmolRuntime::sleep_until(instant).fuse();
+      let future = future.fuse();
       futures_util::pin_mut!(delay);
       futures_util::pin_mut!(rx);
+      futures_util::pin_mut!(abort_rx);
+      futures_util::pin_mut!(future);
 
-      match select(&mut delay, rx).await {
-        Either::Left((_, rx)) => {
-          futures_util::pin_mut!(future);
-          match select(future, rx).await {
-            Either::Left((res, _)) => {
-              f1.store(true, Ordering::Release);
-              let _ = handle_tx.send(Ok(res));
-            }
-            Either::Right((canceled, fut)) => {
-              if canceled.is_ok() {
-                let _ = handle_tx.send(Err(Canceled));
-                return;
-              }
-              let _ = handle_tx.send(Ok(fut.await));
-            }
-          }
-        }
-        Either::Right((canceled, _)) => {
-          if canceled.is_ok() {
+      futures_util::select_biased! {
+        res = abort_rx => {
+          if res.is_ok() {
             let _ = handle_tx.send(Err(Canceled));
             return;
           }
           delay.await;
-          let _ = handle_tx.send(Ok(future.await));
+          let res = future.await;
+          s1.set_finished();
+          let _ = handle_tx.send(Ok(res));
+        }
+        res = rx => {
+          if res.is_ok() {
+            let _ = handle_tx.send(Err(Canceled));
+            return;
+          }
+
+          delay.await;
+          let res = future.await;
+          s1.set_finished();
+          let _ = handle_tx.send(Ok(res));
+        }
+        _ = delay => {
+          s1.set_expired();
+          futures_util::select_biased! {
+            res = abort_rx => {
+              if res.is_ok() {
+                let _ = handle_tx.send(Err(Canceled));
+                return;
+              }
+              let res = future.await;
+              s1.set_finished();
+              let _ = handle_tx.send(Ok(res));
+            }
+            res = rx => {
+              if res.is_ok() {
+                let _ = handle_tx.send(Err(Canceled));
+                return;
+              }
+              let res = future.await;
+              s1.set_finished();
+              let _ = handle_tx.send(Ok(res));
+            }
+            res = future => {
+              s1.set_finished();
+              let _ = handle_tx.send(Ok(res));
+            }
+          }
         }
       }
     });
 
     SmolAfterHandle {
       handle,
-      finished,
+      signals,
+      abort_tx,
       tx,
     }
   }
@@ -170,45 +231,76 @@ impl AsyncLocalAfterSpawner for SmolSpawner {
     F: Future + 'static,
   {
     let (tx, rx) = channel::<()>();
+    let (abort_tx, abort_rx) = channel::<()>();
     let (handle_tx, handle) = channel::<Result<F::Output, Canceled>>();
-    let finished = Arc::new(AtomicBool::new(false));
-    let f1 = finished.clone();
+    let signals = Arc::new(AfterHandleSignals::new());
+    let s1 = signals.clone();
     SmolRuntime::spawn_local_detach(async move {
-      let delay = SmolRuntime::sleep_until(instant);
+      let delay = SmolRuntime::sleep_local_until(instant).fuse();
+      let future = future.fuse();
       futures_util::pin_mut!(delay);
       futures_util::pin_mut!(rx);
+      futures_util::pin_mut!(abort_rx);
+      futures_util::pin_mut!(future);
 
-      match select(&mut delay, rx).await {
-        Either::Left((_, rx)) => {
-          futures_util::pin_mut!(future);
-          match select(future, rx).await {
-            Either::Left((res, _)) => {
-              f1.store(true, Ordering::Release);
-              let _ = handle_tx.send(Ok(res));
-            }
-            Either::Right((canceled, fut)) => {
-              if canceled.is_ok() {
-                let _ = handle_tx.send(Err(Canceled));
-                return;
-              }
-              let _ = handle_tx.send(Ok(fut.await));
-            }
-          }
-        }
-        Either::Right((canceled, _)) => {
-          if canceled.is_ok() {
+      futures_util::select_biased! {
+        res = abort_rx => {
+          if res.is_ok() {
             let _ = handle_tx.send(Err(Canceled));
             return;
           }
           delay.await;
-          let _ = handle_tx.send(Ok(future.await));
+          s1.set_expired();
+          let res = future.await;
+          s1.set_finished();
+          let _ = handle_tx.send(Ok(res));
+        }
+        res = rx => {
+          if res.is_ok() {
+            let _ = handle_tx.send(Err(Canceled));
+            return;
+          }
+
+          delay.await;
+          s1.set_expired();
+          let res = future.await;
+          s1.set_finished();
+          let _ = handle_tx.send(Ok(res));
+        }
+        _ = delay => {
+          s1.set_expired();
+          futures_util::select_biased! {
+            res = abort_rx => {
+              if res.is_ok() {
+                let _ = handle_tx.send(Err(Canceled));
+                return;
+              }
+              let res = future.await;
+              s1.set_finished();
+              let _ = handle_tx.send(Ok(res));
+            }
+            res = rx => {
+              if res.is_ok() {
+                let _ = handle_tx.send(Err(Canceled));
+                return;
+              }
+              let res = future.await;
+              s1.set_finished();
+              let _ = handle_tx.send(Ok(res));
+            }
+            res = future => {
+              s1.set_finished();
+              let _ = handle_tx.send(Ok(res));
+            }
+          }
         }
       }
     });
 
     SmolAfterHandle {
       handle,
-      finished,
+      signals,
+      abort_tx,
       tx,
     }
   }
@@ -236,6 +328,13 @@ mod tests {
   fn test_after_cancel() {
     futures::executor::block_on(async {
       crate::tests::spawn_after_cancel_unittest::<SmolRuntime>().await;
+    });
+  }
+
+  #[test]
+  fn test_after_abort() {
+    futures::executor::block_on(async {
+      crate::tests::spawn_after_abort_unittest::<SmolRuntime>().await;
     });
   }
 }

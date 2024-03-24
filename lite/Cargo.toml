@@ -21,7 +21,18 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["std"]
 std = []
-time = ["std", "tokio?/time", "tokio?/macros", "tokio?/sync", "wasm?/time", "wasm?/channel", "smol?/time", "smol?/channel", "async-std?/time", "async-std?/channel"]
+time = [
+  "std",
+  "tokio?/time",
+  "tokio?/macros",
+  "tokio?/sync",
+  "wasm?/time",
+  "wasm?/channel",
+  "smol?/time",
+  "smol?/channel",
+  "async-std?/time",
+  "async-std?/channel",
+]
 
 tokio = ["dep:tokio"]
 

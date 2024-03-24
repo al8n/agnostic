@@ -438,4 +438,22 @@ pub mod tests {
     R::sleep(Duration::from_millis(600)).await;
     assert_eq!(ctr.load(Ordering::SeqCst), 2);
   }
+
+  /// Unit test for the [`RuntimeLite::spawn_after`] function
+  ///
+  /// The [`AfterHandle`] will be abort after it is created, and the task will not be executed.
+  pub async fn spawn_after_abort_unittest<R: RuntimeLite>() {
+    let ctr = Arc::new(AtomicUsize::new(1));
+    let ctr1 = ctr.clone();
+    let handle = R::spawn_after(Duration::from_secs(1), async move {
+      ctr1.fetch_add(1, Ordering::SeqCst);
+    });
+
+    R::sleep(Duration::from_millis(500)).await;
+    assert_eq!(ctr.load(Ordering::SeqCst), 1);
+
+    handle.abort();
+    R::sleep(Duration::from_millis(600)).await;
+    assert_eq!(ctr.load(Ordering::SeqCst), 1);
+  }
 }

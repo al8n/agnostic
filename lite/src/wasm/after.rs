@@ -1,13 +1,12 @@
-use core::sync::atomic::{AtomicBool, Ordering};
-
 use std::sync::Arc;
 
-use futures_util::future::{select, Either};
+use futures_util::FutureExt;
 use wasm::channel::oneshot::{channel, Canceled as JoinError, Sender};
 
 use crate::{
   spawner::{AfterHandle, LocalAfterHandle},
-  AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner, Canceled, Detach,
+  AfterHandleError, AfterHandleSignals, AsyncAfterSpawner, AsyncLocalAfterSpawner, Canceled,
+  Detach,
 };
 
 use super::{super::RuntimeLite, *};
@@ -20,7 +19,8 @@ where
 {
   #[pin]
   handle: WasmJoinHandle<Result<O, Canceled>>,
-  finished: Arc<AtomicBool>,
+  signals: Arc<AfterHandleSignals>,
+  abort_tx: Sender<()>,
   tx: Sender<()>,
 }
 
@@ -46,7 +46,7 @@ where
   O: Send + 'static,
 {
   async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
-    if self.finished.load(Ordering::Acquire) {
+    if AfterHandle::is_finished(&self) {
       return Some(
         self
           .handle
@@ -59,6 +59,21 @@ where
     let _ = self.tx.send(());
     None
   }
+
+  #[inline]
+  fn is_finished(&self) -> bool {
+    self.signals.is_finished()
+  }
+
+  #[inline]
+  fn is_expired(&self) -> bool {
+    self.signals.is_expired()
+  }
+
+  #[inline]
+  fn abort(self) {
+    let _ = self.abort_tx.send(());
+  }
 }
 
 impl<O> LocalAfterHandle<O, JoinError> for WasmAfterHandle<O>
@@ -66,7 +81,7 @@ where
   O: 'static,
 {
   async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
-    if self.finished.load(Ordering::Acquire) {
+    if LocalAfterHandle::is_finished(&self) {
       return Some(
         self
           .handle
@@ -78,6 +93,21 @@ where
 
     let _ = self.tx.send(());
     None
+  }
+
+  #[inline]
+  fn is_finished(&self) -> bool {
+    self.signals.is_finished()
+  }
+
+  #[inline]
+  fn is_expired(&self) -> bool {
+    self.signals.is_expired()
+  }
+
+  #[inline]
+  fn abort(self) {
+    let _ = self.abort_tx.send(());
   }
 }
 
@@ -102,42 +132,69 @@ impl AsyncAfterSpawner for WasmSpawner {
     F: Future + Send + 'static,
   {
     let (tx, rx) = channel::<()>();
-    let finished = Arc::new(AtomicBool::new(false));
-    let f1 = finished.clone();
+    let (abort_tx, abort_rx) = channel::<()>();
+    let signals = Arc::new(AfterHandleSignals::new());
+    let s1 = signals.clone();
     let h = WasmRuntime::spawn(async move {
-      let delay = WasmRuntime::sleep_until(instant);
+      let delay = WasmRuntime::sleep_until(instant).fuse();
+      let future = future.fuse();
       futures_util::pin_mut!(delay);
       futures_util::pin_mut!(rx);
+      futures_util::pin_mut!(abort_rx);
+      futures_util::pin_mut!(future);
 
-      match select(&mut delay, rx).await {
-        Either::Left((_, rx)) => {
-          futures_util::pin_mut!(future);
-          match select(future, rx).await {
-            Either::Left((res, _)) => {
-              f1.store(true, Ordering::Release);
-              Ok(res)
-            }
-            Either::Right((canceled, fut)) => {
-              if canceled.is_ok() {
-                return Err(Canceled);
-              }
-              Ok(fut.await)
-            }
-          }
-        }
-        Either::Right((canceled, _)) => {
-          if canceled.is_ok() {
+      futures_util::select_biased! {
+        res = abort_rx => {
+          if res.is_ok() {
             return Err(Canceled);
           }
           delay.await;
-          Ok(future.await)
+          let res = future.await;
+          s1.set_finished();
+          Ok(res)
+        }
+        res = rx => {
+          if res.is_ok() {
+            return Err(Canceled);
+          }
+
+          delay.await;
+          let res = future.await;
+          s1.set_finished();
+          Ok(res)
+        }
+        _ = delay => {
+          s1.set_expired();
+          futures_util::select_biased! {
+            res = abort_rx => {
+              if res.is_ok() {
+                return Err(Canceled);
+              }
+              let res = future.await;
+              s1.set_finished();
+              Ok(res)
+            }
+            res = rx => {
+              if res.is_ok() {
+                return Err(Canceled);
+              }
+              let res = future.await;
+              s1.set_finished();
+              Ok(res)
+            }
+            res = future => {
+              s1.set_finished();
+              Ok(res)
+            }
+          }
         }
       }
     });
 
     WasmAfterHandle {
       handle: h,
-      finished,
+      signals,
+      abort_tx,
       tx,
     }
   }
@@ -163,42 +220,69 @@ impl AsyncLocalAfterSpawner for WasmSpawner {
     F: Future + 'static,
   {
     let (tx, rx) = channel::<()>();
-    let finished = Arc::new(AtomicBool::new(false));
-    let f1 = finished.clone();
+    let (abort_tx, abort_rx) = channel::<()>();
+    let signals = Arc::new(AfterHandleSignals::new());
+    let s1 = signals.clone();
     let h = WasmRuntime::spawn_local(async move {
-      let delay = WasmRuntime::sleep_local_until(instant);
+      let delay = WasmRuntime::sleep_local_until(instant).fuse();
+      let future = future.fuse();
       futures_util::pin_mut!(delay);
       futures_util::pin_mut!(rx);
+      futures_util::pin_mut!(abort_rx);
+      futures_util::pin_mut!(future);
 
-      match select(&mut delay, rx).await {
-        Either::Left((_, rx)) => {
-          futures_util::pin_mut!(future);
-          match select(future, rx).await {
-            Either::Left((res, _)) => {
-              f1.store(true, Ordering::Release);
-              Ok(res)
-            }
-            Either::Right((canceled, fut)) => {
-              if canceled.is_ok() {
-                return Err(Canceled);
-              }
-              Ok(fut.await)
-            }
-          }
-        }
-        Either::Right((canceled, _)) => {
-          if canceled.is_ok() {
+      futures_util::select_biased! {
+        res = abort_rx => {
+          if res.is_ok() {
             return Err(Canceled);
           }
           delay.await;
-          Ok(future.await)
+          let res = future.await;
+          s1.set_finished();
+          Ok(res)
+        }
+        res = rx => {
+          if res.is_ok() {
+            return Err(Canceled);
+          }
+
+          delay.await;
+          let res = future.await;
+          s1.set_finished();
+          Ok(res)
+        }
+        _ = delay => {
+          s1.set_expired();
+          futures_util::select_biased! {
+            res = abort_rx => {
+              if res.is_ok() {
+                return Err(Canceled);
+              }
+              let res = future.await;
+              s1.set_finished();
+              Ok(res)
+            }
+            res = rx => {
+              if res.is_ok() {
+                return Err(Canceled);
+              }
+              let res = future.await;
+              s1.set_finished();
+              Ok(res)
+            }
+            res = future => {
+              s1.set_finished();
+              Ok(res)
+            }
+          }
         }
       }
     });
 
     WasmAfterHandle {
       handle: h,
-      finished,
+      signals,
+      abort_tx,
       tx,
     }
   }

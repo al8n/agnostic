@@ -1,6 +1,6 @@
 [package]
 name = "feature-extension-for-smol"
-version = "0.2.0"
+version = "0.2.1"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -10,10 +10,11 @@ description = "Feature extension for smol"
 
 [features]
 default = []
-time = ["async-io"]
+time = ["async-io", "futures-util/async-await-macro"]
 channel = ["futures-channel"]
 
 [dependencies]
 smol = { version = "2", default-features = false }
 async-io = { workspace = true, optional = true }
 futures-channel = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
