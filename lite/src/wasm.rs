@@ -80,8 +80,17 @@ impl AsyncSpawner for WasmSpawner {
   where
     F::Output: Send + 'static,
     F: core::future::Future + Send + 'static,
+    <<Self as AsyncSpawner>::JoinHandle<F> as Future>::Output: Send,
   {
     <Self as super::AsyncLocalSpawner>::spawn_local(future)
+  }
+
+  fn spawn_detach<F>(future: F)
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static,
+  {
+    <Self as super::AsyncLocalSpawner>::spawn_local_detach(future)
   }
 }
 

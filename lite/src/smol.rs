@@ -27,7 +27,8 @@ impl AsyncSpawner for SmolSpawner {
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
-    F: core::future::Future + Send + 'static,
+    F: Future + Send + 'static,
+    <<Self as AsyncSpawner>::JoinHandle<F> as Future>::Output: Send,
   {
     ::smol::spawn(future)
   }
