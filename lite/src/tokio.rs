@@ -42,17 +42,8 @@ impl AsyncSpawner for TokioSpawner {
   where
     F::Output: Send + 'static,
     F: core::future::Future + Send + 'static,
-    <<Self as AsyncSpawner>::JoinHandle<F> as Future>::Output: Send,
   {
     ::tokio::task::spawn(future)
-  }
-
-  fn spawn_detach<F>(future: F)
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    drop(::tokio::task::spawn(future));
   }
 }
 

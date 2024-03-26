@@ -22,14 +22,16 @@ pub trait AsyncSpawner: Copy + Send + Sync + 'static {
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
-    F: Future + Send + 'static,
-    <<Self as AsyncSpawner>::JoinHandle<F> as Future>::Output: Send;
+    F: Future + Send + 'static;
 
   /// Spawn a future and detach it.
   fn spawn_detach<F>(future: F)
   where
     F::Output: Send + 'static,
-    F: Future + Send + 'static;
+    F: Future + Send + 'static,
+  {
+    core::mem::drop(Self::spawn(future));
+  }
 }
 
 /// A spawner trait for spawning futures.
@@ -58,7 +60,7 @@ pub trait AsyncLocalSpawner: Copy + 'static {
 /// A spawner trait for spawning blocking.
 pub trait AsyncBlockingSpawner: Copy + 'static {
   /// The join handle type for blocking tasks
-  type JoinHandle<R>: Detach + Send
+  type JoinHandle<R>: Detach
   where
     R: Send + 'static;
 

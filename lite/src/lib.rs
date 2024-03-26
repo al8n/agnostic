@@ -121,7 +121,6 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static,
-    <<Self::Spawner as AsyncSpawner>::JoinHandle<F> as Future>::Output: Send,
   {
     <Self::Spawner as AsyncSpawner>::spawn(future)
   }
@@ -384,21 +383,13 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
 #[cfg(any(test, feature = "test"))]
 #[cfg_attr(docsrs, doc(cfg(any(test, feature = "test"))))]
 pub mod tests {
-  #[cfg(feature = "time")]
-  use std::{
-    sync::{
-      atomic::{AtomicUsize, Ordering},
-      Arc,
-    },
-    time::Duration,
-  };
+  use core::sync::atomic::{AtomicUsize, Ordering};
+  use std::sync::Arc;
+  use std::time::Duration;
 
-  #[cfg(feature = "time")]
   use super::{AfterHandle, RuntimeLite};
 
   /// Unit test for the [`RuntimeLite::spawn_after`] function
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
   pub async fn spawn_after_unittest<R: RuntimeLite>() {
     let ctr = Arc::new(AtomicUsize::new(1));
     let ctr1 = ctr.clone();
@@ -416,8 +407,6 @@ pub mod tests {
   /// Unit test for the [`RuntimeLite::spawn_after`] function
   ///
   /// The task will be canceled before it completes
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
   pub async fn spawn_after_cancel_unittest<R: RuntimeLite>() {
     let ctr = Arc::new(AtomicUsize::new(1));
     let ctr1 = ctr.clone();
@@ -436,8 +425,6 @@ pub mod tests {
   /// Unit test for the [`RuntimeLite::spawn_after`] function
   ///
   /// The [`AfterHandle`] will be dropped immediately after it is created
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
   pub async fn spawn_after_drop_unittest<R: RuntimeLite>() {
     let ctr = Arc::new(AtomicUsize::new(1));
     let ctr1 = ctr.clone();
@@ -455,8 +442,6 @@ pub mod tests {
   /// Unit test for the [`RuntimeLite::spawn_after`] function
   ///
   /// The [`AfterHandle`] will be abort after it is created, and the task will not be executed.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
   pub async fn spawn_after_abort_unittest<R: RuntimeLite>() {
     let ctr = Arc::new(AtomicUsize::new(1));
     let ctr1 = ctr.clone();
@@ -475,8 +460,6 @@ pub mod tests {
   /// Unit test for the [`RuntimeLite::spawn_after`] function
   ///
   /// The [`AfterHandle`] will be reset to passed than the original duration after it is created, and the task will be executed after the reset duration.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
   pub async fn spawn_after_reset_to_pass_unittest<R: RuntimeLite>() {
     let ctr = Arc::new(AtomicUsize::new(1));
     let ctr1 = ctr.clone();
@@ -495,8 +478,6 @@ pub mod tests {
   /// Unit test for the [`RuntimeLite::spawn_after`] function
   ///
   /// The [`AfterHandle`] will be reset to future than the original duration after it is created, and the task will be executed after the reset duration.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
   pub async fn spawn_after_reset_to_future_unittest<R: RuntimeLite>() {
     let ctr = Arc::new(AtomicUsize::new(1));
     let ctr1 = ctr.clone();
