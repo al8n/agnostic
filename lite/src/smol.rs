@@ -7,7 +7,7 @@ pub use after::*;
 
 #[cfg(feature = "time")]
 use crate::async_io::*;
-use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner};
+use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, Yielder};
 #[cfg(feature = "time")]
 use std::time::{Duration, Instant};
 
@@ -20,6 +20,12 @@ impl<T> super::Detach for ::smol::Task<T> {
 /// A [`AsyncSpawner`] that uses the [`smol`](::smol) runtime.
 #[derive(Debug, Clone, Copy)]
 pub struct SmolSpawner;
+
+impl Yielder for SmolSpawner {
+  async fn yield_now() {
+    ::smol::future::yield_now().await
+  }
+}
 
 impl AsyncSpawner for SmolSpawner {
   type JoinHandle<F> = ::smol::Task<F> where F: Send + 'static;

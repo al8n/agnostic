@@ -328,3 +328,39 @@ impl AsyncLocalAfterSpawner for WasmSpawner {
     spawn_after!(spawn_local, sleep_local_until(AsyncLocalSleep) -> (instant, future))
   }
 }
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod tests {
+  use super::*;
+  use wasm_bindgen_test::*;
+
+  #[wasm_bindgen_test]
+  async fn test_after_handle() {
+    crate::tests::spawn_after_unittest::<WasmRuntime>().await;
+  }
+
+  #[wasm_bindgen_test]
+  async fn test_after_drop() {
+    crate::tests::spawn_after_drop_unittest::<WasmRuntime>().await;
+  }
+
+  #[wasm_bindgen_test]
+  async fn test_after_cancel() {
+    crate::tests::spawn_after_cancel_unittest::<WasmRuntime>().await;
+  }
+
+  #[wasm_bindgen_test]
+  async fn test_after_abort() {
+    crate::tests::spawn_after_abort_unittest::<WasmRuntime>().await;
+  }
+
+  #[wasm_bindgen_test]
+  async fn test_after_reset_to_pass() {
+    crate::tests::spawn_after_reset_to_pass_unittest::<WasmRuntime>().await;
+  }
+
+  #[wasm_bindgen_test]
+  async fn test_after_reset_to_future() {
+    crate::tests::spawn_after_reset_to_future_unittest::<WasmRuntime>().await;
+  }
+}

@@ -46,6 +46,12 @@ pub mod async_io;
 mod spawner;
 pub use spawner::*;
 
+/// Yielder hints the runtime to execution back
+pub trait Yielder {
+  /// Yields execution back to the runtime.
+  fn yield_now() -> impl Future<Output = ()>;
+}
+
 /// Runtime trait
 pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   /// The spawner type for this runtime

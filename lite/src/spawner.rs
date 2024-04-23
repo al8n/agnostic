@@ -1,5 +1,7 @@
 use core::future::Future;
 
+use crate::Yielder;
+
 /// Detaches the task related to the join handle to let it keep running in the background.
 pub trait Detach: Sized {
   /// Detaches the task to let it keep running in the background.
@@ -12,7 +14,7 @@ pub trait Detach: Sized {
 impl<T> Detach for std::thread::JoinHandle<T> {}
 
 /// A spawner trait for spawning futures.
-pub trait AsyncSpawner: Copy + Send + Sync + 'static {
+pub trait AsyncSpawner: Yielder + Copy + Send + Sync + 'static {
   /// The handle returned by the spawner when a future is spawned.
   type JoinHandle<F>: Detach + Future + Send + Sync + 'static
   where
@@ -35,7 +37,7 @@ pub trait AsyncSpawner: Copy + Send + Sync + 'static {
 }
 
 /// A spawner trait for spawning futures.
-pub trait AsyncLocalSpawner: Copy + 'static {
+pub trait AsyncLocalSpawner: Yielder + Copy + 'static {
   /// The handle returned by the spawner when a future is spawned.
   type JoinHandle<F>: Detach + Future + 'static
   where
@@ -58,7 +60,7 @@ pub trait AsyncLocalSpawner: Copy + 'static {
 }
 
 /// A spawner trait for spawning blocking.
-pub trait AsyncBlockingSpawner: Copy + 'static {
+pub trait AsyncBlockingSpawner: Yielder + Copy + 'static {
   /// The join handle type for blocking tasks
   type JoinHandle<R>: Detach
   where

@@ -34,7 +34,7 @@ use std::time::{Duration, Instant};
 
 use wasm::channel::*;
 
-use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner};
+use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, Yielder};
 
 impl<T> super::Detach for WasmJoinHandle<T> {}
 
@@ -131,6 +131,12 @@ impl AsyncBlockingSpawner for WasmSpawner {
     R: Send + 'static,
   {
     std::thread::spawn(f)
+  }
+}
+
+impl Yielder for WasmSpawner {
+  async fn yield_now() {
+    YieldNow(false).await
   }
 }
 

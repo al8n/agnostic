@@ -28,11 +28,17 @@ pub use after::*;
 
 use core::future::Future;
 
-use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner};
+use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, Yielder};
 
 /// A [`AsyncSpawner`] that uses the [`tokio`] runtime.
 #[derive(Debug, Clone, Copy)]
 pub struct TokioSpawner;
+
+impl Yielder for TokioSpawner {
+  async fn yield_now() {
+    ::tokio::task::yield_now().await
+  }
+}
 
 impl AsyncSpawner for TokioSpawner {
   type JoinHandle<F> = tokio::task::JoinHandle<F> where

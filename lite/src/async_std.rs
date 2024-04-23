@@ -11,13 +11,19 @@ pub use after::*;
 #[cfg(feature = "time")]
 use std::time::{Duration, Instant};
 
-use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner};
+use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, Yielder};
 
 impl<F> super::Detach for ::async_std::task::JoinHandle<F> {}
 
 /// A [`AsyncSpawner`] that uses the [`async-std`](async_std) runtime.
 #[derive(Debug, Clone, Copy)]
 pub struct AsyncStdSpawner;
+
+impl Yielder for AsyncStdSpawner {
+  async fn yield_now() {
+    ::async_std::task::yield_now().await
+  }
+}
 
 impl AsyncSpawner for AsyncStdSpawner {
   type JoinHandle<F> = ::async_std::task::JoinHandle<F> where F: Send + 'static;
