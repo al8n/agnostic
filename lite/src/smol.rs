@@ -25,6 +25,10 @@ impl Yielder for SmolSpawner {
   async fn yield_now() {
     ::smol::future::yield_now().await
   }
+
+  async fn yield_now_local() {
+    ::smol::future::yield_now().await
+  }
 }
 
 impl AsyncSpawner for SmolSpawner {

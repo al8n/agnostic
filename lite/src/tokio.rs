@@ -38,6 +38,10 @@ impl Yielder for TokioSpawner {
   async fn yield_now() {
     ::tokio::task::yield_now().await
   }
+
+  async fn yield_now_local() {
+    ::tokio::task::yield_now().await
+  }
 }
 
 impl AsyncSpawner for TokioSpawner {

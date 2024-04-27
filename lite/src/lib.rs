@@ -49,7 +49,10 @@ pub use spawner::*;
 /// Yielder hints the runtime to execution back
 pub trait Yielder {
   /// Yields execution back to the runtime.
-  fn yield_now() -> impl Future<Output = ()>;
+  fn yield_now() -> impl Future<Output = ()> + Send;
+
+  /// Yields execution back to the runtime.
+  fn yield_now_local() -> impl Future<Output = ()>;
 }
 
 /// Runtime trait

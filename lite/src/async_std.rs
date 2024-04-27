@@ -23,6 +23,10 @@ impl Yielder for AsyncStdSpawner {
   async fn yield_now() {
     ::async_std::task::yield_now().await
   }
+
+  async fn yield_now_local() {
+    ::async_std::task::yield_now().await
+  }
 }
 
 impl AsyncSpawner for AsyncStdSpawner {

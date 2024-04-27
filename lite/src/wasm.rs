@@ -138,6 +138,10 @@ impl Yielder for WasmSpawner {
   async fn yield_now() {
     YieldNow(false).await
   }
+
+  async fn yield_now_local() {
+    YieldNow(false).await
+  }
 }
 
 /// Future for the [`yield_now`](RuntimeLite::yield_now) function.
