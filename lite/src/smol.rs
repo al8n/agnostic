@@ -32,7 +32,10 @@ impl Yielder for SmolSpawner {
 }
 
 impl AsyncSpawner for SmolSpawner {
-  type JoinHandle<F> = ::smol::Task<F> where F: Send + 'static;
+  type JoinHandle<F>
+    = ::smol::Task<F>
+  where
+    F: Send + 'static;
 
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
@@ -52,7 +55,10 @@ impl AsyncSpawner for SmolSpawner {
 }
 
 impl AsyncLocalSpawner for SmolSpawner {
-  type JoinHandle<F> = ::smol::Task<F> where F: 'static;
+  type JoinHandle<F>
+    = ::smol::Task<F>
+  where
+    F: 'static;
 
   fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
@@ -72,7 +78,8 @@ impl AsyncLocalSpawner for SmolSpawner {
 }
 
 impl AsyncBlockingSpawner for SmolSpawner {
-  type JoinHandle<R> = ::smol::Task<R>
+  type JoinHandle<R>
+    = ::smol::Task<R>
   where
     R: Send + 'static;
 
@@ -122,13 +129,25 @@ impl super::RuntimeLite for SmolRuntime {
   #[cfg(feature = "time")]
   type LocalSleep = AsyncIoSleep;
   #[cfg(feature = "time")]
-  type Delay<F> = AsyncIoDelay<F> where F: Future + Send;
+  type Delay<F>
+    = AsyncIoDelay<F>
+  where
+    F: Future + Send;
   #[cfg(feature = "time")]
-  type LocalDelay<F> = AsyncIoDelay<F> where F: Future;
+  type LocalDelay<F>
+    = AsyncIoDelay<F>
+  where
+    F: Future;
   #[cfg(feature = "time")]
-  type Timeout<F> = AsyncIoTimeout<F> where F: Future + Send;
+  type Timeout<F>
+    = AsyncIoTimeout<F>
+  where
+    F: Future + Send;
   #[cfg(feature = "time")]
-  type LocalTimeout<F> = AsyncIoTimeout<F> where F: Future;
+  type LocalTimeout<F>
+    = AsyncIoTimeout<F>
+  where
+    F: Future;
 
   fn new() -> Self {
     Self

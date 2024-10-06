@@ -1,3 +1,6 @@
+// TODO: remove this line when clippy fix the bug
+#![allow(clippy::needless_return)]
+
 #[cfg(feature = "time")]
 mod timeout;
 #[cfg(feature = "time")]
@@ -45,8 +48,10 @@ impl Yielder for TokioSpawner {
 }
 
 impl AsyncSpawner for TokioSpawner {
-  type JoinHandle<F> = tokio::task::JoinHandle<F> where
-  F: Send + 'static;
+  type JoinHandle<F>
+    = tokio::task::JoinHandle<F>
+  where
+    F: Send + 'static;
 
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
@@ -58,8 +63,10 @@ impl AsyncSpawner for TokioSpawner {
 }
 
 impl AsyncLocalSpawner for TokioSpawner {
-  type JoinHandle<F> = ::tokio::task::JoinHandle<F> where
-  F: 'static;
+  type JoinHandle<F>
+    = ::tokio::task::JoinHandle<F>
+  where
+    F: 'static;
 
   fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
@@ -73,7 +80,8 @@ impl AsyncLocalSpawner for TokioSpawner {
 impl<T> super::Detach for ::tokio::task::JoinHandle<T> {}
 
 impl AsyncBlockingSpawner for TokioSpawner {
-  type JoinHandle<R> = ::tokio::task::JoinHandle<R>
+  type JoinHandle<R>
+    = ::tokio::task::JoinHandle<R>
   where
     R: Send + 'static;
 
@@ -123,13 +131,25 @@ impl super::RuntimeLite for TokioRuntime {
   #[cfg(feature = "time")]
   type LocalSleep = TokioSleep;
   #[cfg(feature = "time")]
-  type Delay<F> = TokioDelay<F> where F: Future + Send;
+  type Delay<F>
+    = TokioDelay<F>
+  where
+    F: Future + Send;
   #[cfg(feature = "time")]
-  type LocalDelay<F> = TokioDelay<F> where F: Future;
+  type LocalDelay<F>
+    = TokioDelay<F>
+  where
+    F: Future;
   #[cfg(feature = "time")]
-  type Timeout<F> = TokioTimeout<F> where F: Future + Send;
+  type Timeout<F>
+    = TokioTimeout<F>
+  where
+    F: Future + Send;
   #[cfg(feature = "time")]
-  type LocalTimeout<F> = TokioTimeout<F> where F: Future;
+  type LocalTimeout<F>
+    = TokioTimeout<F>
+  where
+    F: Future;
 
   fn new() -> Self {
     Self

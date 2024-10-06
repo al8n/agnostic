@@ -5,8 +5,8 @@
 #![allow(clippy::needless_return)]
 #![allow(unreachable_code)]
 
-#[cfg(all(feature = "compat", not(feature = "net")))]
-compile_error!("`compat` feature is enabled, but `net` feature is disabled, `compact` feature must only be enabled with `net` feature");
+#[cfg(all(feature = "tokio-compat", not(feature = "net")))]
+compile_error!("`tokio-compat` feature is enabled, but `net` feature is disabled, `tokio-compact` feature must only be enabled with `net` feature");
 
 #[macro_use]
 mod macros;

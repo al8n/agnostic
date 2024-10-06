@@ -275,9 +275,10 @@ where
 impl AsyncAfterSpawner for TokioSpawner {
   type JoinError = JoinError;
 
-  type JoinHandle<F> = TokioAfterHandle<F>
-    where
-      F: Send + 'static;
+  type JoinHandle<F>
+    = TokioAfterHandle<F>
+  where
+    F: Send + 'static;
 
   fn spawn_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
   where
@@ -299,9 +300,10 @@ impl AsyncAfterSpawner for TokioSpawner {
 impl AsyncLocalAfterSpawner for TokioSpawner {
   type JoinError = JoinError;
 
-  type JoinHandle<F> = TokioAfterHandle<F>
-    where
-      F: 'static;
+  type JoinHandle<F>
+    = TokioAfterHandle<F>
+  where
+    F: 'static;
 
   fn spawn_local_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
   where

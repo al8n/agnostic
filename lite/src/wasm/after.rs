@@ -285,9 +285,10 @@ where
 impl AsyncAfterSpawner for WasmSpawner {
   type JoinError = JoinError;
 
-  type JoinHandle<F> = WasmAfterHandle<F>
-    where
-      F: Send + 'static;
+  type JoinHandle<F>
+    = WasmAfterHandle<F>
+  where
+    F: Send + 'static;
 
   fn spawn_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
   where
@@ -308,9 +309,10 @@ impl AsyncAfterSpawner for WasmSpawner {
 
 impl AsyncLocalAfterSpawner for WasmSpawner {
   type JoinError = JoinError;
-  type JoinHandle<F> = WasmAfterHandle<F>
-    where
-      F: 'static;
+  type JoinHandle<F>
+    = WasmAfterHandle<F>
+  where
+    F: 'static;
 
   fn spawn_local_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
   where

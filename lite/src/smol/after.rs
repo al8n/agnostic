@@ -312,9 +312,10 @@ where
 impl AsyncAfterSpawner for SmolSpawner {
   type JoinError = JoinError;
 
-  type JoinHandle<F> = SmolAfterHandle<F>
-    where
-      F: Send + 'static;
+  type JoinHandle<F>
+    = SmolAfterHandle<F>
+  where
+    F: Send + 'static;
 
   fn spawn_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
   where
@@ -335,9 +336,10 @@ impl AsyncAfterSpawner for SmolSpawner {
 
 impl AsyncLocalAfterSpawner for SmolSpawner {
   type JoinError = JoinError;
-  type JoinHandle<F> = SmolAfterHandle<F>
-    where
-      F: 'static;
+  type JoinHandle<F>
+    = SmolAfterHandle<F>
+  where
+    F: 'static;
 
   fn spawn_local_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
   where

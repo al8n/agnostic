@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.3.6"
+version = "0.3.7"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -98,7 +98,7 @@ io = ["futures-util/io"]
 # by enable this feature, TcpStream will implement
 # both futures::AsyncRead/AsyncWrite and tokio::io::AsyncRead/AsyncWrite.
 # But if you are using tokio, this feature can be ignored.
-tokio-compat = ["tokio-util/compat", "dep:tokio"]
+tokio-compat = ["tokio-util/compat", "dep:tokio", "net"]
 
 tokio = [
   "dep:tokio",
@@ -141,7 +141,7 @@ hickory-resolver = { version = "0.24", default-features = false, optional = true
 [dependencies]
 agnostic-lite = { workspace = true, features = ["time"] }
 async-trait = "0.1"
-futures-util = "0.3"
+futures-util.workspace = true
 
 tokio = { version = "1", default-features = false, optional = true }
 tokio-stream = { version = "0.1", default-features = false, optional = true, features = [

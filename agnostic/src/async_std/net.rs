@@ -7,8 +7,6 @@ use std::{
 
 use ::async_std::net::{TcpListener, TcpStream, UdpSocket};
 use futures_util::FutureExt;
-#[cfg(feature = "compat")]
-use tokio_util::compat::FuturesAsyncWriteCompatExt;
 
 use crate::net::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs};
 

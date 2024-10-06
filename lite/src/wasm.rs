@@ -74,7 +74,10 @@ impl<F> WasmJoinHandle<F> {
 pub struct WasmSpawner;
 
 impl AsyncSpawner for WasmSpawner {
-  type JoinHandle<F> = WasmJoinHandle<F> where F: Send + 'static;
+  type JoinHandle<F>
+    = WasmJoinHandle<F>
+  where
+    F: Send + 'static;
 
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
@@ -86,7 +89,10 @@ impl AsyncSpawner for WasmSpawner {
 }
 
 impl AsyncLocalSpawner for WasmSpawner {
-  type JoinHandle<F> = WasmJoinHandle<F> where F: 'static;
+  type JoinHandle<F>
+    = WasmJoinHandle<F>
+  where
+    F: 'static;
 
   fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
@@ -121,7 +127,8 @@ impl AsyncLocalSpawner for WasmSpawner {
 }
 
 impl AsyncBlockingSpawner for WasmSpawner {
-  type JoinHandle<R> = std::thread::JoinHandle<R>
+  type JoinHandle<R>
+    = std::thread::JoinHandle<R>
   where
     R: Send + 'static;
 
@@ -192,13 +199,25 @@ impl super::RuntimeLite for WasmRuntime {
   #[cfg(feature = "time")]
   type LocalSleep = WasmSleep;
   #[cfg(feature = "time")]
-  type Delay<F> = WasmDelay<F> where F: Future + Send;
+  type Delay<F>
+    = WasmDelay<F>
+  where
+    F: Future + Send;
   #[cfg(feature = "time")]
-  type LocalDelay<F> = WasmDelay<F> where F: Future;
+  type LocalDelay<F>
+    = WasmDelay<F>
+  where
+    F: Future;
   #[cfg(feature = "time")]
-  type Timeout<F> = WasmTimeout<F> where F: Future + Send;
+  type Timeout<F>
+    = WasmTimeout<F>
+  where
+    F: Future + Send;
   #[cfg(feature = "time")]
-  type LocalTimeout<F> = WasmTimeout<F> where F: Future;
+  type LocalTimeout<F>
+    = WasmTimeout<F>
+  where
+    F: Future;
 
   fn new() -> Self {
     Self

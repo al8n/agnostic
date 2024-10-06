@@ -30,7 +30,10 @@ impl Yielder for AsyncStdSpawner {
 }
 
 impl AsyncSpawner for AsyncStdSpawner {
-  type JoinHandle<F> = ::async_std::task::JoinHandle<F> where F: Send + 'static;
+  type JoinHandle<F>
+    = ::async_std::task::JoinHandle<F>
+  where
+    F: Send + 'static;
 
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
@@ -42,7 +45,10 @@ impl AsyncSpawner for AsyncStdSpawner {
 }
 
 impl AsyncLocalSpawner for AsyncStdSpawner {
-  type JoinHandle<F> = ::async_std::task::JoinHandle<F> where F: 'static;
+  type JoinHandle<F>
+    = ::async_std::task::JoinHandle<F>
+  where
+    F: 'static;
 
   fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
@@ -54,7 +60,8 @@ impl AsyncLocalSpawner for AsyncStdSpawner {
 }
 
 impl AsyncBlockingSpawner for AsyncStdSpawner {
-  type JoinHandle<R> = ::async_std::task::JoinHandle<R>
+  type JoinHandle<R>
+    = ::async_std::task::JoinHandle<R>
   where
     R: Send + 'static;
 
@@ -96,13 +103,25 @@ impl super::RuntimeLite for AsyncStdRuntime {
   #[cfg(feature = "time")]
   type LocalSleep = AsyncIoSleep;
   #[cfg(feature = "time")]
-  type Delay<F> = AsyncIoDelay<F> where F: Future + Send;
+  type Delay<F>
+    = AsyncIoDelay<F>
+  where
+    F: Future + Send;
   #[cfg(feature = "time")]
-  type LocalDelay<F> = AsyncIoDelay<F> where F: Future;
+  type LocalDelay<F>
+    = AsyncIoDelay<F>
+  where
+    F: Future;
   #[cfg(feature = "time")]
-  type Timeout<F> = AsyncIoTimeout<F> where F: Future + Send;
+  type Timeout<F>
+    = AsyncIoTimeout<F>
+  where
+    F: Future + Send;
   #[cfg(feature = "time")]
-  type LocalTimeout<F> = AsyncIoTimeout<F> where F: Future;
+  type LocalTimeout<F>
+    = AsyncIoTimeout<F>
+  where
+    F: Future;
 
   fn new() -> Self {
     Self

@@ -64,7 +64,7 @@ jobs:
       run: cargo hack clippy --each-feature
       if: matrix.os != 'windows-latest'
     - name: Apply clippy lints (windows)
-      run: cargo hack clippy --each-feature --exclude-features dns-over-openssl,dnssec-openssl
+      run: cargo hack clippy --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
       if: matrix.os == 'windows-latest'
 
   build:
@@ -90,7 +90,10 @@ jobs:
       run: cargo install cargo-hack
     - name: Build (unix)
       run: cargo hack build --each-feature
-
+      if: matrix.os != 'windows-latest'
+    - name: Build (windows)
+      run: cargo hack clippy --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
+      if: matrix.os == 'windows-latest'
 
   coverage:
     name: coverage
@@ -126,7 +129,8 @@ jobs:
           command: tarpaulin
           args: --all-features --run-types tests --workspace --out xml
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3.1.1
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
+          slug: ${{ github.repository }}

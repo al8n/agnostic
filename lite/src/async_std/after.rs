@@ -283,9 +283,10 @@ where
 impl AsyncAfterSpawner for AsyncStdSpawner {
   type JoinError = Infallible;
 
-  type JoinHandle<F> = AsyncStdAfterHandle<F>
-    where
-      F: Send + 'static;
+  type JoinHandle<F>
+    = AsyncStdAfterHandle<F>
+  where
+    F: Send + 'static;
 
   fn spawn_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
   where
@@ -306,9 +307,10 @@ impl AsyncAfterSpawner for AsyncStdSpawner {
 
 impl AsyncLocalAfterSpawner for AsyncStdSpawner {
   type JoinError = Infallible;
-  type JoinHandle<F> = AsyncStdAfterHandle<F>
-    where
-      F: 'static;
+  type JoinHandle<F>
+    = AsyncStdAfterHandle<F>
+  where
+    F: 'static;
 
   fn spawn_local_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
   where
