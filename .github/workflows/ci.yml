@@ -38,7 +38,7 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install Rust
       # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
       run: rustup update --no-self-update && rustup default nightly && rustup component add rustfmt
@@ -56,10 +56,10 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install Rust
       # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-      run: rustup update --no-self-update && rustup default nightly && rustup component add clippy
+      run: rustup update stable --no-self-update && rustup default stable
     - name: Install cargo-hack
       run: cargo install cargo-hack
     - name: Apply clippy lints (unix)
@@ -79,7 +79,7 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install Rust
       run: rustup update --no-self-update && rustup default nightly
     - name: Install OpenSSL (Windows)
@@ -105,7 +105,7 @@ jobs:
       - clippy
       - build
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
