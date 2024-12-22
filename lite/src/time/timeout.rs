@@ -49,7 +49,7 @@ impl core::fmt::Display for Elapsed {
   }
 }
 
-impl std::error::Error for Elapsed {}
+impl core::error::Error for Elapsed {}
 
 impl From<Elapsed> for std::io::Error {
   fn from(_: Elapsed) -> Self {

@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.3.7"
+version = "0.3.8"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -77,8 +77,6 @@ dnssec-ring = [
 dnssec = ["dns", "hickory-proto/dnssec", "hickory-resolver/dnssec"]
 
 quinn = [
-  "quinn/native-certs",
-  "quinn/tls-rustls",
   "quinn/log",
   "quinn-udp",
   "net",
@@ -119,7 +117,7 @@ async-std = [
   "async-io",
   "pin-project-lite",
 ]
-smol = ["dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
+smol = ["dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io", "quinn?/runtime-smol"]
 
 tracing = ["dep:tracing"]
 
@@ -163,10 +161,10 @@ async-channel = { version = "2", optional = true }
 
 hickory-proto = { version = "0.24", default-features = false, optional = true }
 resolv-conf = { version = "0.7", default-features = false, optional = true }
-thiserror = { version = "1", optional = true }
+thiserror = { version = "2", optional = true }
 
-quinn = { version = "0.10", optional = true, default-features = false }
-quinn-udp = { version = "0.4", optional = true, default-features = false }
+quinn = { version = "0.11", optional = true, default-features = false }
+quinn-udp = { version = "0.5", optional = true, default-features = false }
 
 tracing = { version = "0.1", optional = true }
 

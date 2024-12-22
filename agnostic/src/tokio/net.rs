@@ -57,7 +57,7 @@ mod quinn_ {
     fn wrap_udp_socket(
       &self,
       t: std::net::UdpSocket,
-    ) -> std::io::Result<Box<dyn quinn::AsyncUdpSocket>> {
+    ) -> std::io::Result<std::sync::Arc<dyn quinn::AsyncUdpSocket>> {
       self.0.wrap_udp_socket(t)
     }
   }

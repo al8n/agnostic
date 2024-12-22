@@ -20,6 +20,8 @@ on:
       - 'LICENSE-*'
       - '**.md'
       - '**.txt'
+  workflow_dispatch:
+  schedule: [cron: "40 1 * * *"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -36,7 +38,7 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install Rust
       # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
       run: rustup update --no-self-update && rustup default nightly && rustup component add rustfmt
@@ -54,10 +56,10 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install Rust
       # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-      run: rustup update --no-self-update && rustup default nightly && rustup component add clippy
+      run: rustup update stable --no-self-update && rustup default stable
     - name: Install cargo-hack
       run: cargo install cargo-hack
     - name: Apply clippy lints (unix)
@@ -77,22 +79,23 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install Rust
-      run: rustup update --no-self-update && rustup default nightly
+      # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+      run: rustup update stable --no-self-update && rustup default stable
+    - name: Install cargo-hack
+      run: cargo install cargo-hack
     - name: Install OpenSSL (Windows)
       if: matrix.os == 'windows-latest'
       shell: powershell
       run: |
         echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
         vcpkg install openssl:x64-windows-static-md
-    - name: Install cargo-hack
-      run: cargo install cargo-hack
     - name: Build (unix)
       run: cargo hack build --each-feature
       if: matrix.os != 'windows-latest'
     - name: Build (windows)
-      run: cargo hack clippy --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
+      run: cargo hack build --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
       if: matrix.os == 'windows-latest'
 
   coverage:
@@ -103,7 +106,7 @@ jobs:
       - clippy
       - build
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
@@ -129,7 +132,7 @@ jobs:
           command: tarpaulin
           args: --all-features --run-types tests --workspace --out xml
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true

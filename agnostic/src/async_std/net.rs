@@ -60,7 +60,7 @@ mod quinn_ {
     fn wrap_udp_socket(
       &self,
       t: std::net::UdpSocket,
-    ) -> std::io::Result<Box<dyn quinn::AsyncUdpSocket>> {
+    ) -> std::io::Result<std::sync::Arc<dyn quinn::AsyncUdpSocket>> {
       self.0.wrap_udp_socket(t)
     }
   }
@@ -225,7 +225,7 @@ impl core::fmt::Display for ReuniteError {
   }
 }
 
-impl std::error::Error for ReuniteError {}
+impl core::error::Error for ReuniteError {}
 
 /// The owned read half of a [`TcpStream`](crate::net::TcpStream) for the [`async-std`](::async_std) runtime
 #[derive(Debug)]
