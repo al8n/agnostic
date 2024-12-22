@@ -47,7 +47,7 @@ Builtin supports runtimes:
 
 ```toml
 [dependencies]
-agnostic-lite = "0.2"
+agnostic-lite = "0.3"
 ```
 
 #### License
