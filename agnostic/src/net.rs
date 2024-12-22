@@ -73,9 +73,6 @@ pub trait TcpListener: Unpin + Send + Sync + 'static {
   ///
   /// This can be useful, for example, when binding to port 0 to figure out which port was actually bound.
   fn local_addr(&self) -> io::Result<SocketAddr>;
-
-  /// Shutdown the tcp listener.
-  fn shutdown(&self) -> impl Future<Output = io::Result<()>> + Send;
 }
 
 #[doc(hidden)]
@@ -324,9 +321,6 @@ pub trait UdpSocket: Unpin + Send + Sync + 'static {
 
   /// Returns the local address of the UDP socket.
   fn local_addr(&self) -> io::Result<SocketAddr>;
-
-  /// Shutdown the socket.
-  fn shutdown(&self) -> impl Future<Output = io::Result<()>> + Send;
 }
 
 /// An abstraction layer for the async runtime's network.
@@ -343,36 +337,6 @@ pub trait Net {
   #[cfg(feature = "quinn")]
   #[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
   type Quinn: quinn::Runtime + Default;
-}
-
-#[cfg(all(
-  unix,
-  feature = "net",
-  any(feature = "tokio", feature = "smol", feature = "async-std")
-))]
-#[inline]
-pub(crate) fn shutdown(fd: std::os::fd::RawFd) -> io::Result<()> {
-  use socket2::Socket;
-  use std::os::fd::FromRawFd;
-
-  // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
-  let socket = unsafe { Socket::from_raw_fd(fd) };
-  socket.shutdown(std::net::Shutdown::Both)
-}
-
-#[cfg(all(
-  windows,
-  feature = "net",
-  any(feature = "tokio", feature = "smol", feature = "async-std")
-))]
-#[inline]
-pub(crate) fn shutdown(fd: std::os::windows::io::RawSocket) -> io::Result<()> {
-  use socket2::Socket;
-  use std::os::windows::io::FromRawSocket;
-
-  // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
-  let socket = unsafe { Socket::from_raw_socket(fd) };
-  socket.shutdown(std::net::Shutdown::Both)
 }
 
 #[cfg(all(

@@ -36,7 +36,7 @@ If you want a light weight crate, see `agnostic-lite`.
 
 ```toml
 [dependencies]
-agnostic = "0.3"
+agnostic = "0.4"
 ```
 
 #### License

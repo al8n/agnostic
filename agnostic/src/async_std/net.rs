@@ -107,25 +107,6 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
       .map(|(stream, addr)| (AsyncStdTcpStream { stream }, addr))
   }
 
-  async fn shutdown(&self) -> io::Result<()> {
-    #[cfg(unix)]
-    {
-      use std::os::fd::AsRawFd;
-      crate::net::shutdown(self.ln.as_raw_fd())
-    }
-
-    #[cfg(windows)]
-    {
-      use std::os::windows::io::AsRawSocket;
-      crate::net::shutdown(self.ln.as_raw_socket())
-    }
-
-    #[cfg(not(any(unix, windows)))]
-    {
-      panic!("unsupported platform");
-    }
-  }
-
   fn local_addr(&self) -> io::Result<SocketAddr> {
     self.ln.local_addr()
   }
@@ -529,25 +510,6 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
         io::ErrorKind::InvalidInput,
         "invalid socket address",
       ));
-    }
-  }
-
-  async fn shutdown(&self) -> io::Result<()> {
-    #[cfg(unix)]
-    {
-      use std::os::fd::AsRawFd;
-      crate::net::shutdown(self.socket.as_raw_fd())
-    }
-
-    #[cfg(windows)]
-    {
-      use std::os::windows::io::AsRawSocket;
-      crate::net::shutdown(self.socket.as_raw_socket())
-    }
-
-    #[cfg(not(any(unix, windows)))]
-    {
-      panic!("unsupported platform");
     }
   }
 
