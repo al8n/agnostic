@@ -13,7 +13,40 @@ use crate::net::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketA
 use super::SmolRuntime;
 
 #[cfg(feature = "quinn")]
-pub use super::quinn_::SmolRuntime as SmolQuinnRuntime;
+pub use quinn_::SmolQuinnRuntime;
+
+#[cfg(feature = "quinn")]
+mod quinn_ {
+  use quinn::{Runtime, SmolRuntime};
+
+  /// A Quinn runtime for tokio
+  #[derive(Debug)]
+  #[repr(transparent)]
+  pub struct SmolQuinnRuntime(SmolRuntime);
+
+  impl Default for SmolQuinnRuntime {
+    fn default() -> Self {
+      Self(SmolRuntime)
+    }
+  }
+
+  impl Runtime for SmolQuinnRuntime {
+    fn new_timer(&self, i: std::time::Instant) -> std::pin::Pin<Box<dyn quinn::AsyncTimer>> {
+      self.0.new_timer(i)
+    }
+
+    fn spawn(&self, future: std::pin::Pin<Box<dyn core::future::Future<Output = ()> + Send>>) {
+      self.0.spawn(future)
+    }
+
+    fn wrap_udp_socket(
+      &self,
+      t: std::net::UdpSocket,
+    ) -> std::io::Result<std::sync::Arc<dyn quinn::AsyncUdpSocket>> {
+      self.0.wrap_udp_socket(t)
+    }
+  }
+}
 
 /// The [`Net`] implementation for [`smol`](::smol) runtime
 #[derive(Debug, Default, Clone, Copy)]
@@ -189,7 +222,7 @@ impl core::fmt::Display for ReuniteError {
   }
 }
 
-impl std::error::Error for ReuniteError {}
+impl core::error::Error for ReuniteError {}
 
 /// The [`TcpStreamOwnedReadHalf`](crate::net::TcpStreamOwnedReadHalf) implementation for [`smol`](::smol) runtime
 #[derive(Debug)]

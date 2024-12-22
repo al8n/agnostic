@@ -18,7 +18,7 @@ impl core::fmt::Display for Aborted {
   }
 }
 
-impl std::error::Error for Aborted {}
+impl core::error::Error for Aborted {}
 
 fn _assert1(_: Box<dyn AsyncLocalDelay<impl Future>>) {}
 fn _assert2(_: Box<dyn AsyncDelay<impl Future>>) {}

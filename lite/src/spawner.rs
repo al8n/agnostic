@@ -119,7 +119,7 @@ impl core::fmt::Display for Canceled {
     feature = "wasm"
   )
 ))]
-impl std::error::Error for Canceled {}
+impl core::error::Error for Canceled {}
 
 /// Error of [`AfterHandle`]'s output
 #[cfg(feature = "time")]
@@ -143,7 +143,7 @@ impl<E: core::fmt::Display> core::fmt::Display for AfterHandleError<E> {
 }
 
 #[cfg(feature = "time")]
-impl<E: core::fmt::Debug + core::fmt::Display> std::error::Error for AfterHandleError<E> {}
+impl<E: core::error::Error> core::error::Error for AfterHandleError<E> {}
 
 #[cfg(all(
   feature = "time",

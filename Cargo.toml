@@ -19,8 +19,8 @@ keywords = ["async", "runtime", "agnostic", "trait"]
 [workspace.dependencies]
 async-io = "2"
 
-futures-util = { version = "^0.3.31", default-features = false }
-futures-channel = "^0.3.31"
+futures-util = { version = "0.3", default-features = false }
+futures-channel = "0.3"
 pin-project-lite = "0.2"
 agnostic-lite = { path = "./lite", version = "0.3" }
 

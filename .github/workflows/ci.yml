@@ -20,6 +20,8 @@ on:
       - 'LICENSE-*'
       - '**.md'
       - '**.txt'
+  workflow_dispatch:
+  schedule: [cron: "40 1 * * *"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -129,7 +131,7 @@ jobs:
           command: tarpaulin
           args: --all-features --run-types tests --workspace --out xml
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true

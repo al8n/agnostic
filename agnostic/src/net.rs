@@ -169,7 +169,7 @@ pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
   /// The owned write half of the stream.
   type OwnedWriteHalf: TcpStreamOwnedWriteHalf;
   /// Error indicating that two halves were not from the same socket, and thus could not be reunited.
-  type ReuniteError: std::error::Error + Unpin + Send + Sync + 'static;
+  type ReuniteError: core::error::Error + Unpin + Send + Sync + 'static;
 
   /// Connects to the specified address.
   fn connect<A: ToSocketAddrs<Self::Runtime>>(
