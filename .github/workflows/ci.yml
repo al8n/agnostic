@@ -81,20 +81,21 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install Rust
-      run: rustup update --no-self-update && rustup default nightly
+      # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+      run: rustup update stable --no-self-update && rustup default stable
+    - name: Install cargo-hack
+      run: cargo install cargo-hack
     - name: Install OpenSSL (Windows)
       if: matrix.os == 'windows-latest'
       shell: powershell
       run: |
         echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
         vcpkg install openssl:x64-windows-static-md
-    - name: Install cargo-hack
-      run: cargo install cargo-hack
     - name: Build (unix)
       run: cargo hack build --each-feature
       if: matrix.os != 'windows-latest'
     - name: Build (windows)
-      run: cargo hack clippy --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
+      run: cargo hack build --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
       if: matrix.os == 'windows-latest'
 
   coverage:
