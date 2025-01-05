@@ -1,7 +1,10 @@
-use core::{error::Error, future::Future, net::IpAddr, str::FromStr};
+use core::{
+  convert::Infallible, error::Error, future::Future, marker::PhantomData, net::IpAddr, str::FromStr,
+};
 
 use std::{borrow::Cow, net::ToSocketAddrs, vec::Vec};
 
+use agnostic::Runtime;
 use hickory_proto::{
   error::ProtoError,
   rr::{
@@ -10,9 +13,6 @@ use hickory_proto::{
   },
 };
 use smallvec_wrapper::{OneOrMore, TinyVec};
-
-#[cfg(test)]
-mod tests;
 
 const DEFAULT_TTL: u32 = 120;
 
@@ -161,10 +161,46 @@ impl<'a> Question<'a> {
 
 /// The interface used to integrate with the server and
 /// to serve records dynamically
-pub trait Zone {
+pub trait Zone: Send + Sync + 'static {
+  /// The runtime type
+  type Runtime: Runtime;
+
+  /// The error type of the zone
+  type Error: core::error::Error + Send + Sync + 'static;
+
   /// Returns DNS records in response to a DNS question.
-  fn records(&self, q: Question<'_>) -> impl Future<Output = OneOrMore<Record>> + Send;
+  fn records(
+    &self,
+    name: &Name,
+    rt: RecordType,
+  ) -> impl Future<Output = Result<OneOrMore<Record>, Self::Error>> + Send;
 }
+
+macro_rules! auto_impl {
+  ($($name:ty),+$(,)?) => {
+    $(
+      impl<Z: Zone> Zone for $name {
+        type Runtime = Z::Runtime;
+        type Error = Z::Error;
+      
+        async fn records(
+          &self,
+          name: &Name,
+          rt: RecordType,
+        ) -> Result<OneOrMore<Record>, Self::Error> {
+          Z::records(self, name, rt).await
+        }
+      }
+    )*
+  };
+}
+
+auto_impl!(
+  std::sync::Arc<Z>,
+  triomphe::Arc<Z>,
+  std::boxed::Box<Z>,
+);
+
 
 /// A builder for creating a new [`Service`].
 pub struct ServiceBuilder {
@@ -325,7 +361,10 @@ impl ServiceBuilder {
   // check to ensure that the instance name does not conflict with other instance
   // names, and, if required, select a new name.  There may also be conflicting
   // hostName A/AAAA records.
-  pub fn finalize(self) -> Result<Service, ServiceError> {
+  pub async fn finalize<R>(self) -> Result<Service<R>, ServiceError>
+  where
+    R: Runtime,
+  {
     let domain = match self.domain {
       Some(domain) if !domain.is_fqdn() => return Err(ServiceError::NotFQDN(domain)),
       Some(domain) => domain,
@@ -352,6 +391,7 @@ impl ServiceBuilder {
             hostname: hostname.clone(),
             error: e.into(),
           })?;
+
       tmp_hostname
         .to_utf8()
         .to_socket_addrs()
@@ -398,12 +438,13 @@ impl ServiceBuilder {
       ttl: self.ttl,
       srv_priority: self.srv_priority,
       srv_weight: self.srv_weight,
+      _r: PhantomData,
     })
   }
 }
 
 /// Export a named service by implementing a [`Zone`].
-pub struct Service {
+pub struct Service<R> {
   /// Instance name (e.g. "hostService name")
   instance: Name,
   /// Service name (e.g. "_http._tcp.")
@@ -427,24 +468,31 @@ pub struct Service {
   ttl: u32,
   srv_priority: u16,
   srv_weight: u16,
+  _r: PhantomData<R>,
 }
 
-impl Zone for Service {
-  async fn records(&self, q: Question<'_>) -> OneOrMore<Record> {
-    let qn = &q.name;
-    match () {
-      () if self.enum_addr.eq(qn) => self.service_enum(q),
-      () if self.service_addr.eq(qn) => self.service_records(q),
-      () if self.instance_addr.eq(qn) => self.instance_records(q),
-      () if self.hostname.eq(qn) && matches!(q.qtype, RecordType::A | RecordType::AAAA) => {
-        self.instance_records(q)
+impl<R> Zone for Service<R>
+where
+  R: Runtime,
+{
+  type Runtime = R;
+  type Error = Infallible;
+
+  async fn records(&self, name: &Name, rt: RecordType) -> Result<OneOrMore<Record>, Infallible> {
+    let qn = name;
+    Ok(match () {
+      () if self.enum_addr.eq(qn) => self.service_enum(name, rt),
+      () if self.service_addr.eq(qn) => self.service_records(name, rt),
+      () if self.instance_addr.eq(qn) => self.instance_records(name, rt),
+      () if self.hostname.eq(qn) && matches!(rt, RecordType::A | RecordType::AAAA) => {
+        self.instance_records(name, rt)
       }
       _ => OneOrMore::new(),
-    }
+    })
   }
 }
 
-impl Service {
+impl<R> Service<R> {
   /// Returns the instance of the service.
   #[inline]
   pub const fn instance(&self) -> &Name {
@@ -487,10 +535,10 @@ impl Service {
     &self.txt
   }
 
-  fn service_enum(&self, q: Question<'_>) -> OneOrMore<Record> {
-    match q.qtype {
+  fn service_enum(&self, name: &Name, rt: RecordType) -> OneOrMore<Record> {
+    match rt {
       RecordType::ANY | RecordType::PTR => OneOrMore::from_buf([Record::from_rdata(
-        q.name.into_owned(),
+        name.clone(),
         self.ttl,
         RData::PTR(PTR(self.service_addr.clone())),
       )]),
@@ -498,12 +546,12 @@ impl Service {
     }
   }
 
-  fn service_records(&self, q: Question<'_>) -> OneOrMore<Record> {
-    match q.qtype {
+  fn service_records(&self, name: &Name, rt: RecordType) -> OneOrMore<Record> {
+    match rt {
       RecordType::ANY | RecordType::PTR => {
         // Build a PTR response for the service
         let rr = Record::from_rdata(
-          q.name.into_owned(),
+          name.clone(),
           self.ttl,
           RData::PTR(PTR(self.instance_addr.clone())),
         );
@@ -511,32 +559,28 @@ impl Service {
         let mut recs = OneOrMore::from_buf([rr]);
 
         // Get the instance records
-        recs.extend(self.instance_records(Question::any_borrowed(&self.instance_addr)));
+        recs.extend(self.instance_records(&self.instance_addr, RecordType::ANY));
         recs
       }
       _ => OneOrMore::new(),
     }
   }
 
-  fn instance_records(&self, q: Question<'_>) -> OneOrMore<Record> {
-    match q.qtype {
+  fn instance_records(&self, name: &Name, rt: RecordType) -> OneOrMore<Record> {
+    match rt {
       RecordType::ANY => {
         // Get the SRV, which includes A and AAAA
-        let mut recs = self.instance_records(Question::srv_borrowed(&self.instance_addr));
+        let mut recs = self.instance_records(&self.instance_addr, RecordType::SRV);
 
         // Add the TXT record
-        recs.extend(self.instance_records(Question::txt_borrowed(&self.instance_addr)));
+        recs.extend(self.instance_records(&self.instance_addr, RecordType::TXT));
         recs
       }
       RecordType::A => self
         .ips
         .iter()
         .filter_map(|ip| match ip {
-          IpAddr::V4(ip) => Some(Record::from_rdata(
-            q.name.as_ref().clone(),
-            self.ttl,
-            RData::A(A(*ip)),
-          )),
+          IpAddr::V4(ip) => Some(Record::from_rdata(name.clone(), self.ttl, RData::A(A(*ip)))),
           _ => None,
         })
         .collect(),
@@ -545,7 +589,7 @@ impl Service {
         .iter()
         .filter_map(|ip| match ip {
           IpAddr::V6(ip) => Some(Record::from_rdata(
-            q.name.as_ref().clone(),
+            name.clone(),
             self.ttl,
             RData::AAAA(AAAA(*ip)),
           )),
@@ -555,7 +599,7 @@ impl Service {
       RecordType::SRV => {
         // Create the SRV Record
         let rr = Record::from_rdata(
-          q.name.into_owned(),
+          name.clone(),
           self.ttl,
           RData::SRV(SRV::new(
             self.srv_priority,
@@ -568,16 +612,16 @@ impl Service {
         let mut recs = OneOrMore::from_buf([rr]);
 
         // Add the A record
-        recs.extend(self.instance_records(Question::ipv4_borrowed(&self.instance_addr)));
+        recs.extend(self.instance_records(&self.instance_addr, RecordType::A));
 
         // Add the AAAA record
-        recs.extend(self.instance_records(Question::ipv6_borrowed(&self.instance_addr)));
+        recs.extend(self.instance_records(&self.instance_addr, RecordType::AAAA));
         recs
       }
       RecordType::TXT => {
         // Build a TXT response for the instance
         let rr = Record::from_rdata(
-          q.name.into_owned(),
+          name.clone(),
           self.ttl,
           RData::TXT(TXT::new(self.txt.clone())),
         );

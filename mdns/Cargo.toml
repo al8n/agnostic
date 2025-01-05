@@ -14,18 +14,30 @@ alloc = []
 std = ["smol_str/default", "thiserror/default", "smallvec-wrapper/default"]
 
 [target.'cfg(not(any(target_family = "wasm", windows)))'.dependencies]
-rustix = { version = "0.38", features = ["system"] }
+rustix = { version = "0.38", features = ["system", "net"] }
 
 [target.'cfg(windows)'.dependencies]
 hostname = "0.4"
 
 [dependencies]
-agnostic = { path = "../agnostic", version = "0.4", features = ["dns"] }
-smol_str = { version = "0.3", default-features = false }
-smallvec-wrapper = { version = "0.2", default-features = false }
+agnostic = { path = "../agnostic", version = "0.4", features = ["dns", "net"] }
+atomic_refcell = "0.1"
+async-channel = "2"
+either = "1"
+futures-util = "0.3"
+smol_str = "0.3"
+smallvec-wrapper = "0.2"
+triomphe = "0.1"
 thiserror = { version = "2", default-features = false }
 hickory-proto = { version = "0.24", features = ["mdns"] }
 
+tracing = "0.1"
+
+libc = "0.2"
 
 [dev-dependencies]
+paste = "1"
+agnostic = { path = "../agnostic", version = "0.4", features = ["dns", "net", "tokio", "async-std", "smol"] }
 tokio = { version = "1", features = ["full"] }
+smol = "2"
+async-std = "1"

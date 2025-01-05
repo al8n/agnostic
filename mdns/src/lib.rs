@@ -1,17 +1,26 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::str::FromStr;
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+extern crate alloc as std;
+
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(test)]
+mod tests;
+
+use core::{net::{Ipv4Addr, Ipv6Addr}, str::FromStr};
 
 pub use hickory_proto::{
   error::ProtoError,
   rr::{Name, RecordType},
 };
 
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-extern crate alloc as std;
-
-#[cfg(feature = "std")]
-extern crate std;
+const IPV4_MDNS: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 251);
+const IPV6_MDNS: Ipv6Addr = Ipv6Addr::new(0xff02, 0, 0, 0, 0, 0, 0, 0xfb);
+const MDNS_PORT: u16 = 5353;
+// See RFC 6762, https://datatracker.ietf.org/doc/rfc6762/
+const MAX_PAYLOAD_SIZE: usize = 9000;
 
 pub mod client;
 pub mod server;
