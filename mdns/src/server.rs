@@ -1,4 +1,4 @@
-use core::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use core::net::{Ipv4Addr, SocketAddr};
 use std::io;
 
 use agnostic::{
@@ -17,19 +17,26 @@ use hickory_proto::{
 use smallvec_wrapper::OneOrMore;
 use triomphe::Arc;
 
-use super::{Service, Zone, IPV4_MDNS, IPV6_MDNS, MDNS_PORT, MAX_PAYLOAD_SIZE};
-
+use super::{
+  utils::{multicast_udp4_socket, multicast_udp6_socket},
+  Service, Zone, IPV4_MDNS, IPV6_MDNS, MAX_PAYLOAD_SIZE, MDNS_PORT,
+};
 
 const FORCE_UNICAST_RESPONSES: bool = false;
 
-
-
 /// The options for [`Server`].
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ServerOptions {
-  v4_iface: Option<Ipv4Addr>,
-  v6_iface: Option<u32>,
+  ipv4_interface: Ipv4Addr,
+  ipv6_interface: u32,
   log_empty_responses: bool,
+}
+
+impl Default for ServerOptions {
+  #[inline]
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl ServerOptions {
@@ -37,45 +44,41 @@ impl ServerOptions {
   #[inline]
   pub const fn new() -> Self {
     Self {
-      v4_iface: None,
-      v6_iface: None,
+      ipv4_interface: Ipv4Addr::UNSPECIFIED,
+      ipv6_interface: 0,
       log_empty_responses: false,
     }
   }
 
   /// Returns the Ipv4 interface to bind the multicast listener to.
   #[inline]
-  pub const fn v4_iface(&self) -> Option<Ipv4Addr> {
-    self.v4_iface
+  pub const fn ipv4_interface(&self) -> &Ipv4Addr {
+    &self.ipv4_interface
   }
 
   /// Sets the IPv4 interface to bind the multicast listener to.
-  /// 
-  /// `None` means the server will not listen on IPv4.
   #[inline]
-  pub fn with_v4_iface(mut self, iface: Option<Ipv4Addr>) -> Self {
-    self.v4_iface = iface;
+  pub fn with_ipv4_interface(mut self, iface: Ipv4Addr) -> Self {
+    self.ipv4_interface = iface;
     self
   }
 
   /// Returns the Ipv6 interface to bind the multicast listener to.
   #[inline]
-  pub const fn v6_iface(&self) -> Option<u32> {
-    self.v6_iface
+  pub const fn ipv6_interface(&self) -> u32 {
+    self.ipv6_interface
   }
 
   /// Sets the IPv6 interface to bind the multicast listener to.
-  /// 
-  /// `None` means the server will not listen on IPv6.
   #[inline]
-  pub fn with_v6_iface(mut self, index: Option<u32>) -> Self {
-    self.v6_iface = index;
+  pub fn with_ipv6_interface(mut self, index: u32) -> Self {
+    self.ipv6_interface = index;
     self
   }
 
   /// Sets whether the server should print an informative message
   /// when there is an mDNS query for which the server has no response.
-  /// 
+  ///
   /// Default is `false`.
   #[inline]
   pub fn with_log_empty_responses(mut self, log_empty_responses: bool) -> Self {
@@ -83,7 +86,6 @@ impl ServerOptions {
     self
   }
 }
-
 
 /// The builder for [`Server`].
 pub struct Server<R: Runtime, Z: Zone = Service<R>> {
@@ -93,32 +95,73 @@ pub struct Server<R: Runtime, Z: Zone = Service<R>> {
   shutdown_tx: Sender<()>,
 }
 
+impl<R, Z> Drop for Server<R, Z>
+where
+  R: Runtime,
+  Z: Zone,
+{
+  fn drop(&mut self) {
+    self.shutdown_tx.close();
+  }
+}
+
 impl<R: Runtime, Z: Zone> Server<R, Z> {
   /// Creates a new mDNS server.
   pub async fn new(zone: Z, opts: ServerOptions) -> io::Result<Self> {
     let (shutdown_tx, shutdown_rx) = async_channel::bounded(1);
 
-    if opts.v4_iface.is_none() && opts.v6_iface.is_none() {
-      return Err(io::Error::new(
-        io::ErrorKind::InvalidInput,
-        "no interface specified",
-      ));
-    }
-
     let zone = Arc::new(zone);
     let handles = FuturesUnordered::new();
-    if let Some(v4) = opts.v4_iface {
-      let conn = <<R::Net as Net>::UdpSocket as UdpSocket>::bind((Ipv4Addr::UNSPECIFIED, MDNS_PORT)).await?;
-      conn.join_multicast_v4(IPV4_MDNS, v4)?;
-      let processor = Processor::<R, Z>::new(conn, zone.clone(), opts.log_empty_responses, shutdown_rx.clone());
-      handles.push(R::Spawner::spawn(processor.process()));
-    }
 
-    if let Some(v6) = opts.v6_iface {
-      let conn = <<R::Net as Net>::UdpSocket as UdpSocket>::bind((Ipv6Addr::UNSPECIFIED, MDNS_PORT)).await?;
-      conn.join_multicast_v6(&IPV6_MDNS, v6)?;
-      let processor = Processor::<R, Z>::new(conn, zone.clone(), opts.log_empty_responses, shutdown_rx.clone());
-      handles.push(R::Spawner::spawn(processor.process()));
+    let v4 = match multicast_udp4_socket::<R>(MDNS_PORT) {
+      Ok(conn) => {
+        conn.join_multicast_v4(IPV4_MDNS, opts.ipv4_interface)?;
+        Some(Processor::<R, Z>::new(
+          conn,
+          zone.clone(),
+          opts.log_empty_responses,
+          shutdown_rx.clone(),
+        ))
+      }
+      Err(e) => {
+        tracing::error!(err=%e, "mdns: failed to bind to IPv4");
+        None
+      }
+    };
+
+    let v6 = match multicast_udp6_socket::<R>(MDNS_PORT) {
+      Ok(conn) => {
+        conn.join_multicast_v6(&IPV6_MDNS, opts.ipv6_interface)?;
+        Some(Processor::<R, Z>::new(
+          conn,
+          zone.clone(),
+          opts.log_empty_responses,
+          shutdown_rx.clone(),
+        ))
+      }
+      Err(e) => {
+        tracing::error!(err=%e, "mdns: failed to bind to IPv6");
+        None
+      }
+    };
+
+    match (v4, v6) {
+      (Some(v4), Some(v6)) => {
+        handles.push(R::Spawner::spawn(v4.process()));
+        handles.push(R::Spawner::spawn(v6.process()));
+      }
+      (Some(v4), None) => {
+        handles.push(R::Spawner::spawn(v4.process()));
+      }
+      (None, Some(v6)) => {
+        handles.push(R::Spawner::spawn(v6.process()));
+      }
+      (None, None) => {
+        return Err(io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "no multicast listeners could be started",
+        ));
+      }
     }
 
     Ok(Self {
@@ -153,7 +196,12 @@ struct Processor<R: Runtime, Z: Zone> {
 }
 
 impl<R: Runtime, Z: Zone> Processor<R, Z> {
-  fn new(conn: <R::Net as Net>::UdpSocket, zone: Arc<Z>, log_empty_responses: bool, shutdown_rx: Receiver<()>) -> Self {
+  fn new(
+    conn: <R::Net as Net>::UdpSocket,
+    zone: Arc<Z>,
+    log_empty_responses: bool,
+    shutdown_rx: Receiver<()>,
+  ) -> Self {
     Self {
       conn,
       zone,

@@ -378,6 +378,15 @@ pub struct TokioUdpSocket {
   socket: UdpSocket,
 }
 
+impl TryFrom<std::net::UdpSocket> for TokioUdpSocket {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(socket: std::net::UdpSocket) -> Result<Self, Self::Error> {
+    UdpSocket::from_std(socket).map(|socket| Self { socket })
+  }
+}
+
 impl crate::net::UdpSocket for TokioUdpSocket {
   type Runtime = TokioRuntime;
 
@@ -461,18 +470,11 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   //  self.socket.peek_from(buf).await
   // }
 
-  async fn peek_from(
-    &self,
-    buf: &mut [u8],
-  ) -> io::Result<(usize, SocketAddr)> {
+  async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
     self.socket.peek_from(buf).await
   }
 
-  fn join_multicast_v4(
-    &self,
-    multiaddr: Ipv4Addr,
-    interface: Ipv4Addr,
-  ) -> io::Result<()> {
+  fn join_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
     self.socket.join_multicast_v4(multiaddr, interface)
   }
 
@@ -480,11 +482,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     self.socket.join_multicast_v6(multiaddr, interface)
   }
 
-  fn leave_multicast_v4(
-    &self,
-    multiaddr: Ipv4Addr,
-    interface: Ipv4Addr,
-  ) -> io::Result<()> {
+  fn leave_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
     self.socket.leave_multicast_v4(multiaddr, interface)
   }
 

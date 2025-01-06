@@ -182,7 +182,7 @@ macro_rules! auto_impl {
       impl<Z: Zone> Zone for $name {
         type Runtime = Z::Runtime;
         type Error = Z::Error;
-      
+
         async fn records(
           &self,
           name: &Name,
@@ -195,12 +195,7 @@ macro_rules! auto_impl {
   };
 }
 
-auto_impl!(
-  std::sync::Arc<Z>,
-  triomphe::Arc<Z>,
-  std::boxed::Box<Z>,
-);
-
+auto_impl!(std::sync::Arc<Z>, triomphe::Arc<Z>, std::boxed::Box<Z>,);
 
 /// A builder for creating a new [`Service`].
 pub struct ServiceBuilder {

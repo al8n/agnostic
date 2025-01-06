@@ -441,6 +441,17 @@ pub struct AsyncStdUdpSocket {
   socket: UdpSocket,
 }
 
+impl TryFrom<std::net::UdpSocket> for AsyncStdUdpSocket {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(socket: std::net::UdpSocket) -> Result<Self, Self::Error> {
+    Ok(Self {
+      socket: UdpSocket::from(socket),
+    })
+  }
+}
+
 impl crate::net::UdpSocket for AsyncStdUdpSocket {
   type Runtime = AsyncStdRuntime;
 
@@ -513,10 +524,7 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
     }
   }
 
-  async fn peek_from(
-    &self,
-    buf: &mut [u8],
-  ) -> io::Result<(usize, SocketAddr)> {
+  async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
     self.socket.peek_from(buf).await
   }
 

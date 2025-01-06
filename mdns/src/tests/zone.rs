@@ -1,24 +1,32 @@
 use core::net::{Ipv4Addr, Ipv6Addr};
 
-use hickory_proto::rr::{rdata::{A, AAAA}, RData, Record, RecordType};
+use hickory_proto::rr::{
+  rdata::{A, AAAA},
+  RData, Record, RecordType,
+};
 use smallvec_wrapper::OneOrMore;
 
 use crate::{tests::make_service, Zone};
 
 use super::*;
 
-
 async fn bad_addr<R: Runtime>() {
   let s = make_service::<R>().await;
 
-  let recs = s.records(&Name::from_str("randome").unwrap(), RecordType::ANY).await.unwrap();
+  let recs = s
+    .records(&Name::from_str("randome").unwrap(), RecordType::ANY)
+    .await
+    .unwrap();
   assert!(recs.is_empty(), "bad: {recs:?}");
 }
 
 async fn service_addr<R: Runtime>() {
   let s = make_service::<R>().await;
 
-  let recs = s.records(&"_http._tcp.local.".parse().unwrap(), RecordType::ANY).await.unwrap();
+  let recs = s
+    .records(&"_http._tcp.local.".parse().unwrap(), RecordType::ANY)
+    .await
+    .unwrap();
   assert_eq!(recs.len(), 5, "bad: {recs:?}");
 
   let ptr = recs[0].data().cloned().unwrap().into_ptr().unwrap();
@@ -36,7 +44,13 @@ async fn service_addr<R: Runtime>() {
 async fn instance_addr_any<R: Runtime>() {
   let s = make_service::<R>().await;
 
-  let recs = s.records(&"hostname._http._tcp.local.".parse().unwrap(), RecordType::ANY).await.unwrap();
+  let recs = s
+    .records(
+      &"hostname._http._tcp.local.".parse().unwrap(),
+      RecordType::ANY,
+    )
+    .await
+    .unwrap();
   assert_eq!(recs.len(), 4, "bad: {recs:?}");
 
   recs[0].data().cloned().unwrap().into_srv().expect("SRV");
@@ -48,11 +62,16 @@ async fn instance_addr_any<R: Runtime>() {
   recs[3].data().cloned().unwrap().into_txt().expect("TXT");
 }
 
-
 async fn instance_addr_srv<R: Runtime>() {
   let s = make_service::<R>().await;
 
-  let recs = s.records(&"hostname._http._tcp.local.".parse().unwrap(), RecordType::SRV).await.unwrap();
+  let recs = s
+    .records(
+      &"hostname._http._tcp.local.".parse().unwrap(),
+      RecordType::SRV,
+    )
+    .await
+    .unwrap();
   assert_eq!(recs.len(), 3, "bad: {recs:?}");
 
   let srv = recs[0].data().cloned().unwrap().into_srv().expect("SRV");
@@ -64,11 +83,16 @@ async fn instance_addr_srv<R: Runtime>() {
   assert_eq!(srv.port(), s.port());
 }
 
-
 async fn instance_addr_a<R: Runtime>() {
   let s = make_service::<R>().await;
 
-  let recs = s.records(&"hostname._http._tcp.local.".parse().unwrap(), RecordType::A).await.unwrap();
+  let recs = s
+    .records(
+      &"hostname._http._tcp.local.".parse().unwrap(),
+      RecordType::A,
+    )
+    .await
+    .unwrap();
   assert_eq!(recs.len(), 1, "bad: {recs:?}");
 
   let a = recs[0].data().cloned().unwrap().into_a().expect("A");
@@ -76,11 +100,16 @@ async fn instance_addr_a<R: Runtime>() {
   assert_eq!(a.0, "192.168.0.42".parse::<Ipv4Addr>().unwrap());
 }
 
-
 async fn instance_addr_aaaa<R: Runtime>() {
   let s = make_service::<R>().await;
 
-  let recs = s.records(&"hostname._http._tcp.local.".parse().unwrap(), RecordType::AAAA).await.unwrap();
+  let recs = s
+    .records(
+      &"hostname._http._tcp.local.".parse().unwrap(),
+      RecordType::AAAA,
+    )
+    .await
+    .unwrap();
   assert_eq!(recs.len(), 1, "bad: {recs:?}");
 
   let aaaa = recs[0].data().cloned().unwrap().into_aaaa().expect("AAAA");
@@ -93,11 +122,16 @@ async fn instance_addr_aaaa<R: Runtime>() {
   );
 }
 
-
 async fn instance_addr_txt<R: Runtime>() {
   let s = make_service::<R>().await;
 
-  let recs = s.records(&"hostname._http._tcp.local.".parse().unwrap(), RecordType::TXT).await.unwrap();
+  let recs = s
+    .records(
+      &"hostname._http._tcp.local.".parse().unwrap(),
+      RecordType::TXT,
+    )
+    .await
+    .unwrap();
   assert_eq!(recs.len(), 1, "bad: {recs:?}");
 
   let txt = recs[0].data().cloned().unwrap().into_txt().expect("TXT");
@@ -139,7 +173,13 @@ async fn hostname_query<R: Runtime>() {
 async fn service_enum_ptr<R: Runtime>() {
   let s = make_service::<R>().await;
 
-  let recs = s.records(&"_services._dns-sd._udp.local.".parse().unwrap(), RecordType::PTR).await.unwrap();
+  let recs = s
+    .records(
+      &"_services._dns-sd._udp.local.".parse().unwrap(),
+      RecordType::PTR,
+    )
+    .await
+    .unwrap();
   assert_eq!(recs.len(), 1, "bad: {recs:?}");
 
   let ptr = recs[0].data().cloned().unwrap().into_ptr().unwrap();

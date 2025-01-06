@@ -20,27 +20,24 @@ macro_rules! test_suites {
   }
 }
 
-mod zone;
 mod server;
+mod zone;
 
 pub(crate) async fn make_service<R: Runtime>() -> Service<R> {
   make_service_with_service_name::<R>("_http._tcp").await
 }
 
 pub(crate) async fn make_service_with_service_name<R: Runtime>(name: &str) -> Service<R> {
-  ServiceBuilder::new(
-    Name::from_str("hostname").unwrap(),
-    name.parse().unwrap(),
-  )
-  .with_domain("local.".parse().unwrap())
-  .with_hostname("testhost.".parse().unwrap())
-  .with_port(80)
-  .with_ip("192.168.0.42".parse().unwrap())
-  .with_ip("2620:0:1000:1900:b0c2:d0b2:c411:18bc".parse().unwrap())
-  .with_txt_record("Local web server".into())
-  .finalize::<R>()
-  .await
-  .unwrap()
+  ServiceBuilder::new(Name::from_str("hostname").unwrap(), name.parse().unwrap())
+    .with_domain("local.".parse().unwrap())
+    .with_hostname("testhost.".parse().unwrap())
+    .with_port(80)
+    .with_ip("192.168.0.42".parse().unwrap())
+    .with_ip("2620:0:1000:1900:b0c2:d0b2:c411:18bc".parse().unwrap())
+    .with_txt_record("Local web server".into())
+    .finalize::<R>()
+    .await
+    .unwrap()
 }
 
 fn tokio_run<F>(f: F)

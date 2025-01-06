@@ -440,6 +440,15 @@ pub struct SmolUdpSocket {
   socket: UdpSocket,
 }
 
+impl TryFrom<std::net::UdpSocket> for SmolUdpSocket {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(socket: std::net::UdpSocket) -> Result<Self, Self::Error> {
+    UdpSocket::try_from(socket).map(|socket| Self { socket })
+  }
+}
+
 impl crate::net::UdpSocket for SmolUdpSocket {
   type Runtime = SmolRuntime;
 
@@ -516,18 +525,11 @@ impl crate::net::UdpSocket for SmolUdpSocket {
   //   self.socket.peek(buf).await
   // }
 
-  async fn peek_from(
-    &self,
-    buf: &mut [u8],
-  ) -> io::Result<(usize, SocketAddr)> {
+  async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
     self.socket.peek_from(buf).await
   }
 
-  fn join_multicast_v4(
-    &self,
-    multiaddr: Ipv4Addr,
-    interface: Ipv4Addr,
-  ) -> io::Result<()> {
+  fn join_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
     self.socket.join_multicast_v4(multiaddr, interface)
   }
 
@@ -535,11 +537,7 @@ impl crate::net::UdpSocket for SmolUdpSocket {
     self.socket.join_multicast_v6(multiaddr, interface)
   }
 
-  fn leave_multicast_v4(
-    &self,
-    multiaddr: Ipv4Addr,
-    interface: Ipv4Addr,
-  ) -> io::Result<()> {
+  fn leave_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
     self.socket.leave_multicast_v4(multiaddr, interface)
   }
 

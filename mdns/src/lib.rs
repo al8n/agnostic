@@ -9,7 +9,10 @@ extern crate std;
 #[cfg(test)]
 mod tests;
 
-use core::{net::{Ipv4Addr, Ipv6Addr}, str::FromStr};
+use core::{
+  net::{Ipv4Addr, Ipv6Addr},
+  str::FromStr,
+};
 
 pub use hickory_proto::{
   error::ProtoError,
@@ -27,6 +30,8 @@ pub mod server;
 
 mod zone;
 pub use zone::*;
+
+mod utils;
 
 /// Returns the hostname of the current machine.
 ///

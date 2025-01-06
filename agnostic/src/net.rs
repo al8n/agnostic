@@ -209,7 +209,9 @@ pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
 }
 
 /// The abstraction of a UDP socket.
-pub trait UdpSocket: Unpin + Send + Sync + 'static {
+pub trait UdpSocket:
+  TryFrom<std::net::UdpSocket, Error = io::Error> + Unpin + Send + Sync + 'static
+{
   /// The async runtime.
   type Runtime: Runtime;
 
