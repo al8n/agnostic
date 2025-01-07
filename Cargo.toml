@@ -4,8 +4,8 @@ members = [
   "lite",
   "smol",
   "async-std",
-  "wasm"
-, "mdns"]
+  "wasm",
+]
 resolver = "2"
 
 [workspace.package]
@@ -23,7 +23,6 @@ futures-util = { version = "0.3", default-features = false }
 futures-channel = "0.3"
 pin-project-lite = "0.2"
 agnostic-lite = { path = "./lite", version = "0.3" }
-agnostic-mdns = { path = "./mdns", version = "0.1" }
 
 # runtimes
 smol = { package = "feature-extension-for-smol", version = "^0.2.1", path = "smol", default-features = false }
