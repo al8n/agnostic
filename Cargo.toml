@@ -4,7 +4,7 @@ members = [
   "lite",
   "smol",
   "async-std",
-  "wasm"
+  "wasm",
 ]
 resolver = "2"
 

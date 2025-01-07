@@ -1,6 +1,6 @@
 use std::{
   io,
-  net::SocketAddr,
+  net::{Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr},
   pin::Pin,
   task::{Context, Poll},
 };
@@ -17,6 +17,8 @@ pub use quinn_::SmolQuinnRuntime;
 
 #[cfg(feature = "quinn")]
 mod quinn_ {
+  use std::net::UdpSocket;
+
   use quinn::{Runtime, SmolRuntime};
 
   /// A Quinn runtime for tokio
@@ -41,7 +43,7 @@ mod quinn_ {
 
     fn wrap_udp_socket(
       &self,
-      t: std::net::UdpSocket,
+      t: UdpSocket,
     ) -> std::io::Result<std::sync::Arc<dyn quinn::AsyncUdpSocket>> {
       self.0.wrap_udp_socket(t)
     }
@@ -68,6 +70,15 @@ impl Net for SmolNet {
 #[repr(transparent)]
 pub struct SmolTcpListener {
   ln: TcpListener,
+}
+
+impl TryFrom<std::net::TcpListener> for SmolTcpListener {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(ln: std::net::TcpListener) -> Result<Self, Self::Error> {
+    TcpListener::try_from(ln).map(|ln| Self { ln })
+  }
 }
 
 impl crate::net::TcpListener for SmolTcpListener {
@@ -114,6 +125,15 @@ impl crate::net::TcpListener for SmolTcpListener {
 #[repr(transparent)]
 pub struct SmolTcpStream {
   stream: TcpStream,
+}
+
+impl TryFrom<std::net::TcpStream> for SmolTcpStream {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(stream: std::net::TcpStream) -> Result<Self, Self::Error> {
+    TcpStream::try_from(stream).map(|stream| Self { stream })
+  }
 }
 
 impl futures_util::AsyncRead for SmolTcpStream {
@@ -223,7 +243,7 @@ pub struct SmolTcpStreamOwnedWriteHalf {
 impl Drop for SmolTcpStreamOwnedWriteHalf {
   fn drop(&mut self) {
     if self.shutdown_on_drop {
-      let _ = self.stream.shutdown(std::net::Shutdown::Write);
+      let _ = self.stream.shutdown(Shutdown::Write);
     }
   }
 }
@@ -411,7 +431,7 @@ impl crate::net::TcpStream for SmolTcpStream {
     }
   }
 
-  fn shutdown(&self, how: std::net::Shutdown) -> io::Result<()> {
+  fn shutdown(&self, how: Shutdown) -> io::Result<()> {
     #[cfg(unix)]
     {
       use std::os::fd::{AsRawFd, FromRawFd};
@@ -436,6 +456,15 @@ impl crate::net::TcpStream for SmolTcpStream {
 #[repr(transparent)]
 pub struct SmolUdpSocket {
   socket: UdpSocket,
+}
+
+impl TryFrom<std::net::UdpSocket> for SmolUdpSocket {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(socket: std::net::UdpSocket) -> Result<Self, Self::Error> {
+    UdpSocket::try_from(socket).map(|socket| Self { socket })
+  }
 }
 
 impl crate::net::UdpSocket for SmolUdpSocket {
@@ -508,6 +537,54 @@ impl crate::net::UdpSocket for SmolUdpSocket {
         "invalid socket address",
       ));
     }
+  }
+
+  // async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
+  //   self.socket.peek(buf).await
+  // }
+
+  async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+    self.socket.peek_from(buf).await
+  }
+
+  fn join_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
+    self.socket.join_multicast_v4(multiaddr, interface)
+  }
+
+  fn join_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()> {
+    self.socket.join_multicast_v6(multiaddr, interface)
+  }
+
+  fn leave_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
+    self.socket.leave_multicast_v4(multiaddr, interface)
+  }
+
+  fn leave_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()> {
+    self.socket.leave_multicast_v6(multiaddr, interface)
+  }
+
+  fn multicast_loop_v4(&self) -> io::Result<bool> {
+    self.socket.multicast_loop_v4()
+  }
+
+  fn set_multicast_loop_v4(&self, on: bool) -> io::Result<()> {
+    self.socket.set_multicast_loop_v4(on)
+  }
+
+  fn multicast_ttl_v4(&self) -> io::Result<u32> {
+    self.socket.multicast_ttl_v4()
+  }
+
+  fn set_multicast_ttl_v4(&self, ttl: u32) -> io::Result<()> {
+    self.socket.set_multicast_ttl_v4(ttl)
+  }
+
+  fn multicast_loop_v6(&self) -> io::Result<bool> {
+    self.socket.multicast_loop_v6()
+  }
+
+  fn set_multicast_loop_v6(&self, on: bool) -> io::Result<()> {
+    self.socket.set_multicast_loop_v6(on)
   }
 
   fn set_ttl(&self, ttl: u32) -> io::Result<()> {

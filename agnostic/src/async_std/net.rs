@@ -73,6 +73,17 @@ pub struct AsyncStdTcpListener {
   ln: TcpListener,
 }
 
+impl TryFrom<std::net::TcpListener> for AsyncStdTcpListener {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(ln: std::net::TcpListener) -> Result<Self, Self::Error> {
+    Ok(Self {
+      ln: TcpListener::from(ln),
+    })
+  }
+}
+
 impl crate::net::TcpListener for AsyncStdTcpListener {
   type Stream = AsyncStdTcpStream;
   type Runtime = AsyncStdRuntime;
@@ -117,6 +128,17 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
 #[repr(transparent)]
 pub struct AsyncStdTcpStream {
   stream: TcpStream,
+}
+
+impl TryFrom<std::net::TcpStream> for AsyncStdTcpStream {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(stream: std::net::TcpStream) -> Result<Self, Self::Error> {
+    Ok(Self {
+      stream: TcpStream::from(stream),
+    })
+  }
 }
 
 impl futures_util::AsyncRead for AsyncStdTcpStream {
@@ -441,6 +463,17 @@ pub struct AsyncStdUdpSocket {
   socket: UdpSocket,
 }
 
+impl TryFrom<std::net::UdpSocket> for AsyncStdUdpSocket {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(socket: std::net::UdpSocket) -> Result<Self, Self::Error> {
+    Ok(Self {
+      socket: UdpSocket::from(socket),
+    })
+  }
+}
+
 impl crate::net::UdpSocket for AsyncStdUdpSocket {
   type Runtime = AsyncStdRuntime;
 
@@ -511,6 +544,58 @@ impl crate::net::UdpSocket for AsyncStdUdpSocket {
         "invalid socket address",
       ));
     }
+  }
+
+  async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+    self.socket.peek_from(buf).await
+  }
+
+  fn join_multicast_v4(
+    &self,
+    multiaddr: std::net::Ipv4Addr,
+    interface: std::net::Ipv4Addr,
+  ) -> io::Result<()> {
+    self.socket.join_multicast_v4(multiaddr, interface)
+  }
+
+  fn join_multicast_v6(&self, multiaddr: &std::net::Ipv6Addr, interface: u32) -> io::Result<()> {
+    self.socket.join_multicast_v6(multiaddr, interface)
+  }
+
+  fn leave_multicast_v4(
+    &self,
+    multiaddr: std::net::Ipv4Addr,
+    interface: std::net::Ipv4Addr,
+  ) -> io::Result<()> {
+    self.socket.leave_multicast_v4(multiaddr, interface)
+  }
+
+  fn leave_multicast_v6(&self, multiaddr: &std::net::Ipv6Addr, interface: u32) -> io::Result<()> {
+    self.socket.leave_multicast_v6(multiaddr, interface)
+  }
+
+  fn multicast_loop_v4(&self) -> io::Result<bool> {
+    self.socket.multicast_loop_v4()
+  }
+
+  fn set_multicast_loop_v4(&self, on: bool) -> io::Result<()> {
+    self.socket.set_multicast_loop_v4(on)
+  }
+
+  fn multicast_ttl_v4(&self) -> io::Result<u32> {
+    self.socket.multicast_ttl_v4()
+  }
+
+  fn set_multicast_ttl_v4(&self, ttl: u32) -> io::Result<()> {
+    self.socket.set_multicast_ttl_v4(ttl)
+  }
+
+  fn multicast_loop_v6(&self) -> io::Result<bool> {
+    self.socket.multicast_loop_v6()
+  }
+
+  fn set_multicast_loop_v6(&self, on: bool) -> io::Result<()> {
+    self.socket.set_multicast_loop_v6(on)
   }
 
   fn set_ttl(&self, ttl: u32) -> io::Result<()> {

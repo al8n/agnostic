@@ -1,6 +1,6 @@
 use std::{
   io,
-  net::SocketAddr,
+  net::{Ipv4Addr, Ipv6Addr, SocketAddr},
   task::{Context, Poll},
 };
 
@@ -36,7 +36,9 @@ pub trait ToSocketAddrs<R: Runtime>: Send + Sync {
 }
 
 /// An abstraction layer for TCP listener.
-pub trait TcpListener: Unpin + Send + Sync + 'static {
+pub trait TcpListener:
+  TryFrom<std::net::TcpListener, Error = io::Error> + Unpin + Send + Sync + 'static
+{
   /// The async runtime.
   type Runtime: Runtime;
   /// Stream of incoming connections.
@@ -158,7 +160,9 @@ pub trait TcpStreamOwnedWriteHalf: IOWrite + Unpin + Send + Sync + 'static {
 }
 
 /// The abstraction of a TCP stream.
-pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
+pub trait TcpStream:
+  TryFrom<std::net::TcpStream, Error = io::Error> + IO + Unpin + Send + Sync + 'static
+{
   /// The async runtime.
   type Runtime: Runtime;
   /// The owned read half of the stream.
@@ -209,7 +213,9 @@ pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
 }
 
 /// The abstraction of a UDP socket.
-pub trait UdpSocket: Unpin + Send + Sync + 'static {
+pub trait UdpSocket:
+  TryFrom<std::net::UdpSocket, Error = io::Error> + Unpin + Send + Sync + 'static
+{
   /// The async runtime.
   type Runtime: Runtime;
 
@@ -244,6 +250,99 @@ pub trait UdpSocket: Unpin + Send + Sync + 'static {
     buf: &[u8],
     target: A,
   ) -> impl Future<Output = io::Result<usize>> + Send;
+
+  // /// Receives data from the socket without removing it from the queue.
+  // ///
+  // /// On success, returns the number of bytes peeked.
+  // fn peek(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
+
+  /// Receives data from socket without removing it from the queue.
+  ///
+  /// On success, returns the number of bytes peeked and the origin.
+  fn peek_from(
+    &self,
+    buf: &mut [u8],
+  ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send;
+
+  /// Executes an operation of the `IP_ADD_MEMBERSHIP` type.
+  ///
+  /// This function specifies a new multicast group for this socket to join.
+  /// The address must be a valid multicast address, and `interface` is the
+  /// address of the local interface with which the system should join the
+  /// multicast group. If it's equal to `INADDR_ANY` then an appropriate
+  /// interface is chosen by the system.
+  fn join_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()>;
+
+  /// Executes an operation of the `IPV6_ADD_MEMBERSHIP` type.
+  ///
+  /// This function specifies a new multicast group for this socket to join.
+  /// The address must be a valid multicast address, and `interface` is the
+  /// index of the interface to join/leave (or 0 to indicate any interface).
+  fn join_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()>;
+
+  /// Executes an operation of the `IP_DROP_MEMBERSHIP` type.
+  ///
+  /// For more information about this option, see [`join_multicast_v4`].
+  ///
+  /// [`join_multicast_v4`]: method@UdpSocket::join_multicast_v4
+  fn leave_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()>;
+
+  /// Executes an operation of the `IPV6_DROP_MEMBERSHIP` type.
+  ///
+  /// For more information about this option, see [`join_multicast_v6`].
+  ///
+  /// [`join_multicast_v6`]: method@UdpSocket::join_multicast_v6
+  fn leave_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()>;
+
+  /// Gets the value of the `IP_MULTICAST_LOOP` option for this socket.
+  ///
+  /// For more information about this option, see [`set_multicast_loop_v4`].
+  ///
+  /// [`set_multicast_loop_v4`]: #method.set_multicast_loop_v4
+  fn multicast_loop_v4(&self) -> io::Result<bool>;
+
+  /// Sets the value of the `IP_MULTICAST_LOOP` option for this socket.
+  ///
+  /// If enabled, multicast packets will be looped back to the local socket.
+  ///
+  /// # Note
+  ///
+  /// This may not have any affect on IPv6 sockets.
+  fn set_multicast_loop_v4(&self, on: bool) -> io::Result<()>;
+
+  /// Gets the value of the `IP_MULTICAST_TTL` option for this socket.
+  ///
+  /// For more information about this option, see [`set_multicast_ttl_v4`].
+  ///
+  /// [`set_multicast_ttl_v4`]: #method.set_multicast_ttl_v4
+  fn multicast_ttl_v4(&self) -> io::Result<u32>;
+
+  /// Sets the value of the `IP_MULTICAST_TTL` option for this socket.
+  ///
+  /// Indicates the time-to-live value of outgoing multicast packets for this socket. The default
+  /// value is 1 which means that multicast packets don't leave the local network unless
+  /// explicitly requested.
+  ///
+  /// # Note
+  ///
+  /// This may not have any affect on IPv6 sockets.
+  fn set_multicast_ttl_v4(&self, ttl: u32) -> io::Result<()>;
+
+  /// Gets the value of the `IPV6_MULTICAST_LOOP` option for this socket.
+  ///
+  /// For more information about this option, see [`set_multicast_loop_v6`].
+  ///
+  /// [`set_multicast_loop_v6`]: #method.set_multicast_loop_v6
+  fn multicast_loop_v6(&self) -> io::Result<bool>;
+
+  /// Sets the value of the `IPV6_MULTICAST_LOOP` option for this socket.
+  ///
+  /// Controls whether this socket sees the multicast packets it sends itself.
+  ///
+  /// # Note
+  ///
+  /// This may not have any affect on IPv4 sockets.
+  fn set_multicast_loop_v6(&self, on: bool) -> io::Result<()>;
 
   /// Sets the ttl of this UDP socket.
   fn set_ttl(&self, ttl: u32) -> io::Result<()>;
