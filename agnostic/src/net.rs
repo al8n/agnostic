@@ -36,7 +36,9 @@ pub trait ToSocketAddrs<R: Runtime>: Send + Sync {
 }
 
 /// An abstraction layer for TCP listener.
-pub trait TcpListener: Unpin + Send + Sync + 'static {
+pub trait TcpListener:
+  TryFrom<std::net::TcpListener, Error = io::Error> + Unpin + Send + Sync + 'static
+{
   /// The async runtime.
   type Runtime: Runtime;
   /// Stream of incoming connections.
@@ -158,7 +160,9 @@ pub trait TcpStreamOwnedWriteHalf: IOWrite + Unpin + Send + Sync + 'static {
 }
 
 /// The abstraction of a TCP stream.
-pub trait TcpStream: IO + Unpin + Send + Sync + 'static {
+pub trait TcpStream:
+  TryFrom<std::net::TcpStream, Error = io::Error> + IO + Unpin + Send + Sync + 'static
+{
   /// The async runtime.
   type Runtime: Runtime;
   /// The owned read half of the stream.

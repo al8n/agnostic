@@ -73,6 +73,17 @@ pub struct AsyncStdTcpListener {
   ln: TcpListener,
 }
 
+impl TryFrom<std::net::TcpListener> for AsyncStdTcpListener {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(ln: std::net::TcpListener) -> Result<Self, Self::Error> {
+    Ok(Self {
+      ln: TcpListener::from(ln),
+    })
+  }
+}
+
 impl crate::net::TcpListener for AsyncStdTcpListener {
   type Stream = AsyncStdTcpStream;
   type Runtime = AsyncStdRuntime;
@@ -117,6 +128,17 @@ impl crate::net::TcpListener for AsyncStdTcpListener {
 #[repr(transparent)]
 pub struct AsyncStdTcpStream {
   stream: TcpStream,
+}
+
+impl TryFrom<std::net::TcpStream> for AsyncStdTcpStream {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(stream: std::net::TcpStream) -> Result<Self, Self::Error> {
+    Ok(Self {
+      stream: TcpStream::from(stream),
+    })
+  }
 }
 
 impl futures_util::AsyncRead for AsyncStdTcpStream {

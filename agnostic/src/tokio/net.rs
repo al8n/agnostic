@@ -70,6 +70,15 @@ pub struct TokioTcpListener {
   ln: TcpListener,
 }
 
+impl TryFrom<std::net::TcpListener> for TokioTcpListener {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(ln: std::net::TcpListener) -> Result<Self, Self::Error> {
+    TcpListener::from_std(ln).map(|ln| Self { ln })
+  }
+}
+
 impl crate::net::TcpListener for TokioTcpListener {
   type Stream = TokioTcpStream;
   type Runtime = TokioRuntime;
@@ -112,6 +121,15 @@ impl crate::net::TcpListener for TokioTcpListener {
 /// A [`TcpStream`](crate::net::TcpStream) implementation for [`tokio`] runtime.
 pub struct TokioTcpStream {
   stream: TcpStream,
+}
+
+impl TryFrom<std::net::TcpStream> for TokioTcpStream {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(stream: std::net::TcpStream) -> Result<Self, Self::Error> {
+    TcpStream::from_std(stream).map(|stream| Self { stream })
+  }
 }
 
 impl futures_util::AsyncRead for TokioTcpStream {

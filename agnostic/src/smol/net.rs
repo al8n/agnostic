@@ -72,6 +72,15 @@ pub struct SmolTcpListener {
   ln: TcpListener,
 }
 
+impl TryFrom<std::net::TcpListener> for SmolTcpListener {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(ln: std::net::TcpListener) -> Result<Self, Self::Error> {
+    TcpListener::try_from(ln).map(|ln| Self { ln })
+  }
+}
+
 impl crate::net::TcpListener for SmolTcpListener {
   type Stream = SmolTcpStream;
   type Runtime = SmolRuntime;
@@ -116,6 +125,15 @@ impl crate::net::TcpListener for SmolTcpListener {
 #[repr(transparent)]
 pub struct SmolTcpStream {
   stream: TcpStream,
+}
+
+impl TryFrom<std::net::TcpStream> for SmolTcpStream {
+  type Error = io::Error;
+
+  #[inline]
+  fn try_from(stream: std::net::TcpStream) -> Result<Self, Self::Error> {
+    TcpStream::try_from(stream).map(|stream| Self { stream })
+  }
 }
 
 impl futures_util::AsyncRead for SmolTcpStream {
