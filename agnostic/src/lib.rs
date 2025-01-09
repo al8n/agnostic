@@ -15,7 +15,7 @@ mod macros;
 #[cfg_attr(docsrs, doc(cfg(feature = "async-io")))]
 pub use agnostic_lite::async_io::*;
 
-pub use agnostic_lite::{time, AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, RuntimeLite};
+pub use agnostic_lite::{time, AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, RuntimeLite, Yielder};
 
 /// [`tokio`] runtime adapter
 ///
