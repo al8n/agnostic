@@ -450,7 +450,6 @@ pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Re
 
   // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
   let socket = unsafe { Socket::from_raw_fd(fd) };
-  socket.set_nonblocking(true)?;
   let mut err = None;
 
   while size > 0 {
@@ -483,7 +482,6 @@ pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::R
   // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
   let socket = unsafe { Socket::from_raw_fd(fd) };
   let mut err = None;
-  socket.set_nonblocking(true)?;
   while size > 0 {
     match socket.set_send_buffer_size(size) {
       Ok(()) => return Ok(()),
@@ -517,7 +515,6 @@ pub(crate) fn set_read_buffer(
 
   // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
   let socket = unsafe { Socket::from_raw_socket(fd) };
-  socket.set_nonblocking(true)?;
   let mut err = None;
 
   while size > 0 {
@@ -553,7 +550,6 @@ pub(crate) fn set_write_buffer(
 
   // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
   let socket = unsafe { Socket::from_raw_socket(fd) };
-  socket.set_nonblocking(true)?;
   let mut err = None;
 
   while size > 0 {

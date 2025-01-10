@@ -87,22 +87,23 @@ impl crate::net::TcpListener for TokioTcpListener {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs().await?;
+    let addrs = addr.to_socket_addrs().await?;
 
-    let res = if addrs.size_hint().0 <= 1 {
-      if let Some(addr) = addrs.next() {
-        TcpListener::bind(addr).await
-      } else {
-        return Err(io::Error::new(
-          io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ));
+    let mut last_err = None;
+
+    for addr in addrs {
+      match TcpListener::bind(addr).await {
+        Ok(ln) => return Ok(Self { ln }),
+        Err(e) => last_err = Some(e),
       }
-    } else {
-      TcpListener::bind(addrs.collect::<Vec<_>>().as_slice()).await
-    };
+    }
 
-    res.map(|ln| Self { ln })
+    Err(last_err.unwrap_or_else(|| {
+      io::Error::new(
+        io::ErrorKind::InvalidInput,
+        "could not resolve to any address",
+      )
+    }))
   }
 
   async fn accept(&self) -> io::Result<(Self::Stream, SocketAddr)> {
@@ -304,29 +305,23 @@ impl crate::net::TcpStream for TokioTcpStream {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs().await?;
+    let addrs = addr.to_socket_addrs().await?;
 
-    let res = if addrs.size_hint().0 <= 1 {
-      if let Some(addr) = addrs.next() {
-        std::net::TcpStream::connect(addr)
-      } else {
-        return Err(io::Error::new(
-          io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ));
+    let mut last_err = None;
+
+    for addr in addrs {
+      match TcpStream::connect(addr).await {
+        Ok(stream) => return Ok(Self { stream }),
+        Err(e) => last_err = Some(e),
       }
-    } else {
-      std::net::TcpStream::connect(addrs.collect::<Vec<_>>().as_slice())
-    };
+    }
 
-    res.and_then(|stream| {
-      Ok(Self {
-        stream: {
-          stream.set_nonblocking(true)?;
-          TcpStream::from_std(stream)?
-        },
-      })
-    })
+    Err(last_err.unwrap_or_else(|| {
+      io::Error::new(
+        io::ErrorKind::InvalidInput,
+        "could not resolve to any address",
+      )
+    }))
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -412,48 +407,44 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   where
     Self: Sized,
   {
-    let mut addrs = addr.to_socket_addrs().await?;
+    let addrs = addr.to_socket_addrs().await?;
 
-    let res = if addrs.size_hint().0 <= 1 {
-      if let Some(addr) = addrs.next() {
-        std::net::UdpSocket::bind(addr)
-      } else {
-        return Err(io::Error::new(
-          io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ));
+    let mut last_err = None;
+    for addr in addrs {
+      match UdpSocket::bind(addr).await {
+        Ok(socket) => return Ok(Self { socket }),
+        Err(e) => {
+          last_err = Some(e);
+        }
       }
-    } else {
-      std::net::UdpSocket::bind(addrs.collect::<Vec<_>>().as_slice())
-    };
-    res.and_then(|socket| {
-      Ok(Self {
-        socket: {
-          socket.set_nonblocking(true)?;
-          UdpSocket::from_std(socket)?
-        },
-      })
-    })
+    }
+
+    Err(last_err.unwrap_or_else(|| {
+      io::Error::new(
+        io::ErrorKind::InvalidInput,
+        "could not resolve to any address",
+      )
+    }))
   }
 
   async fn connect<A: ToSocketAddrs<Self::Runtime>>(&self, addr: A) -> io::Result<()> {
-    let mut addrs = addr.to_socket_addrs().await?;
+    let addrs = addr.to_socket_addrs().await?;
 
-    if addrs.size_hint().0 <= 1 {
-      if let Some(addr) = addrs.next() {
-        self.socket.connect(addr).await
-      } else {
-        return Err(io::Error::new(
-          io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ));
+    let mut last_err = None;
+
+    for addr in addrs {
+      match self.socket.connect(addr).await {
+        Ok(()) => return Ok(()),
+        Err(e) => last_err = Some(e),
       }
-    } else {
-      self
-        .socket
-        .connect(&addrs.collect::<Vec<_>>().as_slice())
-        .await
     }
+
+    Err(last_err.unwrap_or_else(|| {
+      io::Error::new(
+        io::ErrorKind::InvalidInput,
+        "could not resolve to any address",
+      )
+    }))
   }
 
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {

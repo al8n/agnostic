@@ -304,7 +304,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   where
     F: Future + Send;
 
-  /// Like [`delay`](Runtime::delay), but does not require the `fut` to be `Send`.
+  /// Like [`delay`](RuntimeLite::delay), but does not require the `fut` to be `Send`.
   /// Create a new delay future that runs the `fut` after the given duration
   /// has elapsed. The `Future` will never be polled until the duration has
   /// elapsed.
@@ -326,7 +326,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   where
     F: Future + Send;
 
-  /// Like [`delay_at`](Runtime::delay_at), but does not require the `fut` to be `Send`.
+  /// Like [`delay_at`](RuntimeLite::delay_at), but does not require the `fut` to be `Send`.
   /// Create a new timeout future that runs the `future` after the given deadline
   /// The `Future` will never be polled until the deadline has reached.
   ///
@@ -361,7 +361,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     <Self::Timeout<F> as time::AsyncTimeout<F>>::timeout_at(deadline, future)
   }
 
-  /// Like [`timeout`](Runtime::timeout), but does not requrie the `future` to be `Send`.
+  /// Like [`timeout`](RuntimeLite::timeout), but does not requrie the `future` to be `Send`.
   /// Requires a `Future` to complete before the specified duration has elapsed.
   ///
   /// The behavior of this function may different in different runtime implementations.
@@ -374,7 +374,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     <Self::LocalTimeout<F> as time::AsyncLocalTimeout<F>>::timeout_local(duration, future)
   }
 
-  /// Like [`timeout_at`](Runtime::timeout_at), but does not requrie the `future` to be `Send`.
+  /// Like [`timeout_at`](RuntimeLite::timeout_at), but does not requrie the `future` to be `Send`.
   /// Requires a `Future` to complete before the specified duration has elapsed.
   ///
   /// The behavior of this function may different in different runtime implementations.
