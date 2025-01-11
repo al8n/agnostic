@@ -277,6 +277,10 @@ impl TcpStreamOwnedReadHalf for TokioTcpStreamOwnedReadHalf {
   fn peer_addr(&self) -> io::Result<SocketAddr> {
     self.stream.peer_addr()
   }
+
+  // async fn peek(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+  //   self.stream.peek(buf).await
+  // }
 }
 
 impl TcpStreamOwnedWriteHalf for TokioTcpStreamOwnedWriteHalf {
@@ -322,6 +326,10 @@ impl crate::net::TcpStream for TokioTcpStream {
         "could not resolve to any address",
       )
     }))
+  }
+
+  async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
+    self.stream.peek(buf).await
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -476,7 +484,7 @@ impl crate::net::UdpSocket for TokioUdpSocket {
   }
 
   async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
-   self.socket.peek(buf).await
+    self.socket.peek(buf).await
   }
 
   async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {

@@ -142,6 +142,15 @@ pub trait TcpStreamOwnedReadHalf: IORead + Unpin + Send + Sync + 'static {
 
   /// Returns the remote address that this stream is connected to.
   fn peer_addr(&self) -> io::Result<SocketAddr>;
+
+  // /// Receives data on the socket from the remote address to which it is connected, without
+  // /// removing that data from the queue.
+  // ///
+  // /// On success, returns the number of bytes peeked.
+  // ///
+  // /// Successive calls return the same data. This is accomplished by passing `MSG_PEEK` as a flag
+  // /// to the underlying `recv` system call.
+  // fn peek(&mut self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
 }
 
 /// The abstraction of a owned write half of a TcpStream.
@@ -178,6 +187,15 @@ pub trait TcpStream:
   ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
+
+  /// Receives data on the socket from the remote address to which it is connected, without
+  /// removing that data from the queue.
+  ///
+  /// On success, returns the number of bytes peeked.
+  ///
+  /// Successive calls return the same data. This is accomplished by passing `MSG_PEEK` as a flag
+  /// to the underlying `recv` system call.
+  fn peek(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
 
   /// Returns the local address that this stream is bound to.
   fn local_addr(&self) -> io::Result<SocketAddr>;

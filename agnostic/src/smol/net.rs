@@ -328,6 +328,10 @@ impl TcpStreamOwnedReadHalf for SmolTcpStreamOwnedReadHalf {
   fn peer_addr(&self) -> io::Result<SocketAddr> {
     self.stream.peer_addr()
   }
+
+  // async fn peek(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+  //   self.stream.peek(buf).await
+  // }
 }
 
 impl TcpStreamOwnedWriteHalf for SmolTcpStreamOwnedWriteHalf {
@@ -374,6 +378,10 @@ impl crate::net::TcpStream for SmolTcpStream {
         "could not resolve to any address",
       )
     }))
+  }
+
+  async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
+    self.stream.peek(buf).await
   }
 
   fn local_addr(&self) -> io::Result<SocketAddr> {
