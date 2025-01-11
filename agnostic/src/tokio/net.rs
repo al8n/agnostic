@@ -475,9 +475,9 @@ impl crate::net::UdpSocket for TokioUdpSocket {
     }
   }
 
-  // async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
-  //  self.socket.peek_from(buf).await
-  // }
+  async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
+   self.socket.peek(buf).await
+  }
 
   async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
     self.socket.peek_from(buf).await

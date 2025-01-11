@@ -251,10 +251,10 @@ pub trait UdpSocket:
     target: A,
   ) -> impl Future<Output = io::Result<usize>> + Send;
 
-  // /// Receives data from the socket without removing it from the queue.
-  // ///
-  // /// On success, returns the number of bytes peeked.
-  // fn peek(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
+  /// Receives data from the socket without removing it from the queue.
+  ///
+  /// On success, returns the number of bytes peeked.
+  fn peek(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
 
   /// Receives data from socket without removing it from the queue.
   ///
