@@ -1,0 +1,25 @@
+[package]
+name = "agnostic-process"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+
+[features]
+default = []
+
+tokio = ["dep:tokio", "agnostic-lite/tokio"]
+smol = ["dep:smol", "agnostic-lite/smol", "async-process"]
+async-std = ["dep:async-std", "agnostic-lite/async-std", "async-process"]
+
+
+[dependencies]
+agnostic-lite = { workspace = true, default-features = false }
+
+async-process = { version = "2", optional = true }
+tokio = { workspace = true, default-features = false, optional = true, features = ["process"] }
+smol = { workspace = true, default-features = false, optional = true }
+async-std = { workspace = true, default-features = false, optional = true, features = ["unstable"] }

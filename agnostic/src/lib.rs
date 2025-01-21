@@ -45,6 +45,9 @@ pub mod smol;
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
 pub mod net;
 
+/// Process related traits
+pub mod process;
+
 /// Runtime trait
 pub trait Runtime: RuntimeLite {
   /// The network abstraction for this runtime
