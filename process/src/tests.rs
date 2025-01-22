@@ -553,7 +553,7 @@ async fn child_as_raw_handle<P: Process>() {
   let std_pid = p.id();
   assert!(std_pid.unwrap() > 0);
 
-  let handle = p.raw_handle();
+  let handle = p.raw_handle().unwrap();
 
   // We verify that we have the correct handle by obtaining the PID
   // with the Windows API rather than via std:
