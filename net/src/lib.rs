@@ -14,17 +14,23 @@ mod to_socket_addrs;
 pub mod dns;
 
 cfg_tokio!(
-  /// Network abstractions for [`tokio`](::tokio) runtime
+  /// Network abstractions for [`tokio`] runtime
+  ///
+  /// [`tokio`]: https://docs.rs/tokio
   pub mod tokio;
 );
 
 cfg_smol!(
-  /// Network abstractions for [`smol`](::smol) runtime
+  /// Network abstractions for [`smol`] runtime
+  ///
+  /// [`smol`]: https://docs.rs/smol
   pub mod smol;
 );
 
 cfg_async_std!(
-  /// Network abstractions for [`async-std`](::async_std) runtime
+  /// Network abstractions for [`async-std`] runtime
+  ///
+  /// [`async-std`]: https://docs.rs/async-std
   pub mod async_std;
 );
 
@@ -65,11 +71,6 @@ pub trait Net: Unpin + Send + Sync + 'static {
   type TcpStream: TcpStream;
   /// The [`UdpSocket`] implementation
   type UdpSocket: UdpSocket;
-
-  /// The [`quinn`] runtime
-  #[cfg(feature = "quinn")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
-  type Quinn: quinn::Runtime + Default;
 }
 
 #[cfg(all(

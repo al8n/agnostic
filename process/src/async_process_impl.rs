@@ -9,7 +9,7 @@ use std::{
 
 use super::{
   ChildStderr as ChildStderrWrapper, ChildStdin as ChildStdinWrapper,
-  ChildStdout as ChildStdoutWrapper, Stderr, Stdin, Stdout,
+  ChildStdout as ChildStdoutWrapper,
 };
 pub use async_process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 use futures_util::io::{AsyncRead, AsyncWrite};
@@ -92,6 +92,20 @@ macro_rules! impl_async_read {
   };
 }
 
+macro_rules! impl_into_stdio {
+  ($($ident:ident), +$(,)?) => {
+    $(
+      impl super::IntoStdio for $ident {
+        async fn into_stdio(self) -> std::io::Result<std::process::Stdio> {
+          $ident::into_stdio(self).await
+        }
+      }
+    )*
+  };
+}
+
+impl_into_stdio!(ChildStdin, ChildStdout, ChildStderr);
+
 converter!(ChildStdinWrapper(ChildStdin));
 impl_async_write!(ChildStdinWrapper(ChildStdin, &mut ChildStdin));
 converter!(ChildStdoutWrapper(ChildStdout));
@@ -118,45 +132,27 @@ impl super::Child for Child {
 
   type Stderr = ChildStderr;
 
-  fn stdin<'a>(&'a self) -> Option<ChildStdinWrapper<&'a Self::Stdin>>
-  where
-    ChildStdinWrapper<&'a Self::Stdin>: Stdin,
-  {
+  fn stdin(&self) -> Option<ChildStdinWrapper<&Self::Stdin>> {
     self.stdin.as_ref().map(ChildStdinWrapper)
   }
 
-  fn stdout<'a>(&'a self) -> Option<ChildStdoutWrapper<&'a Self::Stdout>>
-  where
-    ChildStdoutWrapper<&'a Self::Stdout>: Stdout,
-  {
+  fn stdout(&self) -> Option<ChildStdoutWrapper<&Self::Stdout>> {
     self.stdout.as_ref().map(ChildStdoutWrapper)
   }
 
-  fn stderr<'a>(&'a self) -> Option<ChildStderrWrapper<&'a Self::Stderr>>
-  where
-    ChildStderrWrapper<&'a Self::Stderr>: Stderr,
-  {
+  fn stderr(&self) -> Option<ChildStderrWrapper<&Self::Stderr>> {
     self.stderr.as_ref().map(ChildStderrWrapper)
   }
 
-  fn stdin_mut<'a>(&'a mut self) -> Option<ChildStdinWrapper<&'a mut Self::Stdin>>
-  where
-    ChildStdinWrapper<&'a mut Self::Stdin>: AsyncWrite + Stdin,
-  {
+  fn stdin_mut(&mut self) -> Option<ChildStdinWrapper<&mut Self::Stdin>> {
     self.stdin.as_mut().map(ChildStdinWrapper)
   }
 
-  fn stdout_mut<'a>(&'a mut self) -> Option<ChildStdoutWrapper<&'a mut Self::Stdout>>
-  where
-    ChildStdoutWrapper<&'a mut Self::Stdout>: AsyncRead + Stdout,
-  {
+  fn stdout_mut(&mut self) -> Option<ChildStdoutWrapper<&mut Self::Stdout>> {
     self.stdout.as_mut().map(ChildStdoutWrapper)
   }
 
-  fn stderr_mut<'a>(&'a mut self) -> Option<ChildStderrWrapper<&'a mut Self::Stderr>>
-  where
-    ChildStderrWrapper<&'a mut Self::Stderr>: AsyncRead + Stderr,
-  {
+  fn stderr_mut(&mut self) -> Option<ChildStderrWrapper<&mut Self::Stderr>> {
     self.stderr.as_mut().map(ChildStderrWrapper)
   }
 
@@ -203,6 +199,14 @@ impl super::Child for Child {
   async fn wait_with_output(self) -> io::Result<Output> {
     Child::output(self).await
   }
+
+  cfg_windows!(
+    fn raw_handle(&self) -> Option<std::os::windows::io::RawHandle> {
+      use std::os::windows::io::AsRawHandle;
+
+      Some(self.as_raw_handle())
+    }
+  );
 }
 
 impl super::Command for Command {

@@ -47,6 +47,15 @@ use std::{
   process::{ExitStatus, Output, Stdio},
 };
 
+#[cfg(test)]
+mod tests;
+
+/// A trait for converting into a [`Stdio`].
+pub trait IntoStdio {
+  /// Convert into [`std::process::Stdio`].
+  fn into_stdio(self) -> impl Future<Output = io::Result<Stdio>> + Send;
+}
+
 macro_rules! std_trait {
   (
     $(#[$attr:meta])*
@@ -228,44 +237,30 @@ child_std!(
 
 /// An abstraction of a spawned child process.
 pub trait Child {
-  /// A handle to a child process’s standard input (stdin).
-  type Stdin;
-
-  /// A handle to a child process’s standard output (stdout).
-  type Stdout;
-
-  /// A handle to a child process’s standard error (stderr).
-  type Stderr;
+  /// The standard input (stdin) handle type.
+  type Stdin: Stdin + IntoStdio;
+  /// The standard output (stdout) handle type.
+  type Stdout: Stdout + IntoStdio;
+  /// The standard error (stderr) handle type.
+  type Stderr: Stderr + IntoStdio;
 
   /// Returns the stdin handle if it was configured.
-  fn stdin<'a>(&'a self) -> Option<ChildStdin<&'a Self::Stdin>>
-  where
-    ChildStdin<&'a Self::Stdin>: Stdin;
+  fn stdin(&self) -> Option<ChildStdin<&Self::Stdin>>;
 
   /// Returns the stdout handle if it was configured.
-  fn stdout<'a>(&'a self) -> Option<ChildStdout<&'a Self::Stdout>>
-  where
-    ChildStdout<&'a Self::Stdout>: Stdout;
+  fn stdout(&self) -> Option<ChildStdout<&Self::Stdout>>;
 
   /// Returns the stderr handle if it was configured.
-  fn stderr<'a>(&'a self) -> Option<ChildStderr<&'a Self::Stderr>>
-  where
-    ChildStderr<&'a Self::Stderr>: Stderr;
+  fn stderr(&self) -> Option<ChildStderr<&Self::Stderr>>;
 
   /// Returns a mutable reference to the stdin handle if it was configured.
-  fn stdin_mut<'a>(&'a mut self) -> Option<ChildStdin<&'a mut Self::Stdin>>
-  where
-    ChildStdin<&'a mut Self::Stdin>: io::AsyncWrite + Stdin;
+  fn stdin_mut(&mut self) -> Option<ChildStdin<&mut Self::Stdin>>;
 
   /// Returns a mutable reference to the stdout handle if it was configured.
-  fn stdout_mut<'a>(&'a mut self) -> Option<ChildStdout<&'a mut Self::Stdout>>
-  where
-    ChildStdout<&'a mut Self::Stdout>: io::AsyncRead + Stdout;
+  fn stdout_mut(&mut self) -> Option<ChildStdout<&mut Self::Stdout>>;
 
   /// Returns a mutable reference to the stderr handle if it was configured.
-  fn stderr_mut<'a>(&'a mut self) -> Option<ChildStderr<&'a mut Self::Stderr>>
-  where
-    ChildStderr<&'a mut Self::Stderr>: io::AsyncRead + Stderr;
+  fn stderr_mut(&mut self) -> Option<ChildStderr<&mut Self::Stderr>>;
 
   /// Sets the stdin handle.
   fn set_stdin(&mut self, stdin: Option<Self::Stdin>);
@@ -277,19 +272,13 @@ pub trait Child {
   fn set_stderr(&mut self, stderr: Option<Self::Stderr>);
 
   /// Takes the stdin handle.
-  fn take_stdin(&mut self) -> Option<ChildStdin<Self::Stdin>>
-  where
-    ChildStdin<Self::Stdin>: io::AsyncWrite + Stdin;
+  fn take_stdin(&mut self) -> Option<ChildStdin<Self::Stdin>>;
 
   /// Takes the stdout handle.
-  fn take_stdout(&mut self) -> Option<ChildStdout<Self::Stdout>>
-  where
-    ChildStdout<Self::Stdout>: io::AsyncRead + Stdout;
+  fn take_stdout(&mut self) -> Option<ChildStdout<Self::Stdout>>;
 
   /// Takes the stderr handle.
-  fn take_stderr(&mut self) -> Option<ChildStderr<Self::Stderr>>
-  where
-    ChildStderr<Self::Stderr>: io::AsyncRead + Stderr;
+  fn take_stderr(&mut self) -> Option<ChildStderr<Self::Stderr>>;
 
   /// Returns the OS-assigned process identifier associated with this child.
   fn id(&self) -> Option<u32>;
@@ -324,6 +313,12 @@ pub trait Child {
   /// In order to capture the output of the process, [`Command::stdout()`] and
   /// [`Command::stderr()`] must be configured with [`Stdio::piped()`].
   fn wait_with_output(self) -> impl Future<Output = io::Result<Output>> + Send;
+
+  cfg_windows!(
+    /// Extracts the raw handle of the process associated with this child while
+    /// it is still running. Returns `None` if the child has exited.
+    fn raw_handle(&self) -> Option<std::os::windows::io::RawHandle>;
+  );
 }
 
 /// An abstraction of a builder for spawning processes.
@@ -522,11 +517,11 @@ pub trait Process {
   /// The child process type.
   type Child: Child<Stdin = Self::Stdin, Stdout = Self::Stdout, Stderr = Self::Stderr>;
   /// The standard input (stdin) handle type.
-  type Stdin: Stdin;
+  type Stdin: Stdin + IntoStdio;
   /// The standard output (stdout) handle type.
-  type Stdout: Stdout;
+  type Stdout: Stdout + IntoStdio;
   /// The standard error (stderr) handle type.
-  type Stderr: Stderr;
+  type Stderr: Stderr + IntoStdio;
 }
 
 #[cfg(feature = "async-process")]

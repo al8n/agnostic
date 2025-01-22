@@ -12,10 +12,9 @@ use super::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs}
 
 use agnostic_lite::async_std::AsyncStdRuntime;
 
-#[cfg(feature = "quinn")]
-pub use quinn_::AsyncStdQuinnRuntime;
-
-/// Network abstractions for [`async-std`](::async_std) runtime
+/// Network abstractions for [`async-std`] runtime
+/// 
+/// [`async-std`]: https://docs.rs/async-std
 #[derive(Debug, Default, Clone, Copy)]
 pub struct AsyncStdNet;
 
@@ -24,50 +23,11 @@ impl Net for AsyncStdNet {
   type TcpListener = AsyncStdTcpListener;
   type TcpStream = AsyncStdTcpStream;
   type UdpSocket = AsyncStdUdpSocket;
-
-  #[cfg(feature = "quinn")]
-  type Quinn = AsyncStdQuinnRuntime;
 }
 
-#[cfg(feature = "quinn")]
-mod quinn_ {
-  use std::{future::Future, pin::Pin};
-
-  use quinn::{AsyncStdRuntime, Runtime};
-
-  /// Quinn abstractions for [`async-std`](::async_std) runtime
-  #[derive(Debug)]
-  #[repr(transparent)]
-  pub struct AsyncStdQuinnRuntime(AsyncStdRuntime);
-
-  impl Default for AsyncStdQuinnRuntime {
-    fn default() -> Self {
-      Self(AsyncStdRuntime)
-    }
-  }
-
-  impl Runtime for AsyncStdQuinnRuntime {
-    fn new_timer(&self, i: std::time::Instant) -> Pin<Box<dyn quinn::AsyncTimer>> {
-      self.0.new_timer(i)
-    }
-
-    fn spawn(
-      &self,
-      future: Pin<Box<dyn Future<Output = ()> + Send>>,
-    ) {
-      self.0.spawn(future)
-    }
-
-    fn wrap_udp_socket(
-      &self,
-      t: std::net::UdpSocket,
-    ) -> std::io::Result<std::sync::Arc<dyn quinn::AsyncUdpSocket>> {
-      self.0.wrap_udp_socket(t)
-    }
-  }
-}
-
-/// [`TcpListener`](super::TcpListener) implementation for [`async-std`](::async_std) runtime
+/// [`TcpListener`](super::TcpListener) implementation for [`async-std`] runtime
+/// 
+/// [`async-std`]: https://docs.rs/async-std
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct AsyncStdTcpListener {
@@ -124,7 +84,9 @@ impl super::TcpListener for AsyncStdTcpListener {
   }
 }
 
-/// [`TcpStream`](super::TcpStream) implementation for [`async-std`](::async_std) runtime
+/// [`TcpStream`](super::TcpStream) implementation for [`async-std`] runtime
+/// 
+/// [`async-std`]: https://docs.rs/async-std
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct AsyncStdTcpStream {
@@ -231,14 +193,18 @@ impl core::fmt::Display for ReuniteError {
 
 impl core::error::Error for ReuniteError {}
 
-/// The owned read half of a [`TcpStream`](super::TcpStream) for the [`async-std`](::async_std) runtime
+/// The owned read half of a [`TcpStream`](super::TcpStream) for the [`async-std`] runtime
+/// 
+/// [`async-std`]: https://docs.rs/async-std
 #[derive(Debug)]
 pub struct AsyncStdTcpStreamOwnedReadHalf {
   stream: TcpStream,
   id: usize,
 }
 
-/// The owned write half of a [`TcpStream`](super::TcpStream) for the [`async-std`](::async_std) runtime
+/// The owned write half of a [`TcpStream`](super::TcpStream) for the [`async-std`] runtime
+/// 
+/// [`async-std`]: https://docs.rs/async-std
 #[derive(Debug)]
 pub struct AsyncStdTcpStreamOwnedWriteHalf {
   stream: TcpStream,
@@ -466,7 +432,9 @@ impl super::TcpStream for AsyncStdTcpStream {
   }
 }
 
-/// [`UdpSocket`](super::UdpSocket) implementation for [`async-std`](::async_std) runtime
+/// [`UdpSocket`](super::UdpSocket) implementation for [`async-std`] runtime
+/// 
+/// [`async-std`]: https://docs.rs/async-std
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct AsyncStdUdpSocket {

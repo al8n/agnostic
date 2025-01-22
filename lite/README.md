@@ -26,7 +26,7 @@ English | [简体中文][zh-cn-url]
 
 ## Introduction
 
-`agnostic-lite` is WASM friendly and light version of `agnostic`, for users who want to write async runtime-agnostic crate.
+`agnostic-lite` is WASM friendly and light version of `agnostic`, for users who want to develop async runtime-agnostic crate.
 
 `agnostic-lite` splits the big `Runtime` trait in `agnostic` in multiple small traits:
 
@@ -57,7 +57,7 @@ Apache License (Version 2.0).
 
 See [LICENSE-APACHE](LICENSE-APACHE), [LICENSE-MIT](LICENSE-MIT) for details.
 
-Copyright (c) 2024 Al Liu.
+Copyright (c) 2025 Al Liu.
 
 [Github-url]: https://github.com/al8n/agnostic/
 [CI-url]: https://github.com/al8n/agnostic/actions/workflows/ci.yml

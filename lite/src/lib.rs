@@ -74,17 +74,23 @@ macro_rules! cfg_smol {
   }
 }
 
-/// Concrete runtime implementations based on [`tokio`](::tokio) runtime.
+/// Concrete runtime implementations based on [`tokio`] runtime.
+///
+/// [`tokio`]: https://docs.rs/tokio
 #[cfg(feature = "tokio")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
 pub mod tokio;
 
-/// Concrete runtime implementations based on [`async-std`](::async_std) runtime.
+/// Concrete runtime implementations based on [`async-std`] runtime.
+///
+/// [`async-std`]: https://docs.rs/async-std
 #[cfg(feature = "async-std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
 pub mod async_std;
 
-/// Concrete runtime implementations based on [`smol`](::smol) runtime.
+/// Concrete runtime implementations based on [`smol`] runtime.
+///
+/// [`smol`]: https://docs.rs/smol
 #[cfg(feature = "smol")]
 #[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
 pub mod smol;
@@ -94,7 +100,10 @@ pub mod smol;
 #[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
 pub mod wasm;
 
-/// Time related traits concrete implementations for runtime based on [`async-io`](::async_io), e.g. [`async-std`](::async_std), [`smol`](::smol).
+/// Time related traits concrete implementations for runtime based on [`async-io`](::async_io), e.g. [`async-std`], [`smol`].
+///
+/// [`smol`]: https://docs.rs/smol
+/// [`async-std`]: https://docs.rs/async-std
 #[cfg(feature = "async-io")]
 #[cfg_attr(docsrs, doc(cfg(feature = "async-io")))]
 pub mod async_io;

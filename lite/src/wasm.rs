@@ -158,7 +158,9 @@ impl Future for YieldNow {
   }
 }
 
-/// Concrete [`RuntimeLite`](crate::RuntimeLite) implementation based on [`tokio`](::tokio) runtime.
+/// Concrete [`RuntimeLite`](crate::RuntimeLite) implementation based on [`wasm-bindgen-futures`] runtime.
+///
+/// [`wasm-bindgen-futures`]: https://docs.rs/wasm-bindgen-futures
 #[derive(Debug, Clone, Copy)]
 pub struct WasmRuntime;
 

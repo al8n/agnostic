@@ -27,3 +27,16 @@ async-process = { version = "2", optional = true }
 tokio = { workspace = true, default-features = false, optional = true, features = ["process"] }
 smol = { workspace = true, default-features = false, optional = true }
 async-std = { workspace = true, default-features = false, optional = true, features = ["unstable"] }
+
+[target.'cfg(windows)'.dev-dependencies.windows-sys]
+version = "0.59"
+default-features = false
+features = [
+  "Win32_Foundation",
+  "Win32_System_Threading",
+]
+
+[dev-dependencies]
+tokio = { workspace = true, default-features = false, features = ["process", "rt"] }
+smol = { workspace = true, features = ["default"] }
+async-std = { workspace = true, features = ["default"] }

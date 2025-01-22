@@ -12,45 +12,9 @@ use super::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs}
 
 use agnostic_lite::smol::SmolRuntime;
 
-#[cfg(feature = "quinn")]
-pub use quinn_::SmolQuinnRuntime;
-
-#[cfg(feature = "quinn")]
-mod quinn_ {
-  use std::net::UdpSocket;
-
-  use quinn::{Runtime, SmolRuntime};
-
-  /// A Quinn runtime for tokio
-  #[derive(Debug)]
-  #[repr(transparent)]
-  pub struct SmolQuinnRuntime(SmolRuntime);
-
-  impl Default for SmolQuinnRuntime {
-    fn default() -> Self {
-      Self(SmolRuntime)
-    }
-  }
-
-  impl Runtime for SmolQuinnRuntime {
-    fn new_timer(&self, i: std::time::Instant) -> std::pin::Pin<Box<dyn quinn::AsyncTimer>> {
-      self.0.new_timer(i)
-    }
-
-    fn spawn(&self, future: std::pin::Pin<Box<dyn core::future::Future<Output = ()> + Send>>) {
-      self.0.spawn(future)
-    }
-
-    fn wrap_udp_socket(
-      &self,
-      t: UdpSocket,
-    ) -> std::io::Result<std::sync::Arc<dyn quinn::AsyncUdpSocket>> {
-      self.0.wrap_udp_socket(t)
-    }
-  }
-}
-
-/// The [`Net`] implementation for [`smol`](::smol) runtime
+/// The [`Net`] implementation for [`smol`] runtime
+/// 
+/// [`smol`]: https://docs.rs/smol
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SmolNet;
 
@@ -59,12 +23,11 @@ impl Net for SmolNet {
   type TcpListener = SmolTcpListener;
   type TcpStream = SmolTcpStream;
   type UdpSocket = SmolUdpSocket;
-
-  #[cfg(feature = "quinn")]
-  type Quinn = SmolQuinnRuntime;
 }
 
-/// The [`TcpListener`](super::TcpListener) implementation for [`smol`](::smol) runtime
+/// The [`TcpListener`](super::TcpListener) implementation for [`smol`] runtime
+/// 
+/// [`smol`]: https://docs.rs/smol
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct SmolTcpListener {
@@ -119,7 +82,9 @@ impl super::TcpListener for SmolTcpListener {
   }
 }
 
-/// The [`TcpStream`](super::TcpStream) implementation for [`smol`](::smol) runtime
+/// The [`TcpStream`](super::TcpStream) implementation for [`smol`] runtime
+/// 
+/// [`smol`]: https://docs.rs/smol
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct SmolTcpStream {
@@ -224,14 +189,18 @@ impl core::fmt::Display for ReuniteError {
 
 impl core::error::Error for ReuniteError {}
 
-/// The [`TcpStreamOwnedReadHalf`](super::TcpStreamOwnedReadHalf) implementation for [`smol`](::smol) runtime
+/// The [`TcpStreamOwnedReadHalf`](super::TcpStreamOwnedReadHalf) implementation for [`smol`] runtime
+/// 
+/// [`smol`]: https://docs.rs/smol
 #[derive(Debug)]
 pub struct SmolTcpStreamOwnedReadHalf {
   stream: TcpStream,
   id: usize,
 }
 
-/// The [`TcpStreamOwnedWriteHalf`](super::TcpStreamOwnedWriteHalf) implementation for [`smol`](::smol) runtime
+/// The [`TcpStreamOwnedWriteHalf`](super::TcpStreamOwnedWriteHalf) implementation for [`smol`] runtime
+/// 
+/// [`smol`]: https://docs.rs/smol
 #[derive(Debug)]
 pub struct SmolTcpStreamOwnedWriteHalf {
   stream: TcpStream,
@@ -459,7 +428,9 @@ impl super::TcpStream for SmolTcpStream {
   }
 }
 
-/// The [`UdpSocket`](super::UdpSocket) implementation for [`smol`](::smol) runtime
+/// The [`UdpSocket`](super::UdpSocket) implementation for [`smol`] runtime
+/// 
+/// [`smol`]: https://docs.rs/smol
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct SmolUdpSocket {

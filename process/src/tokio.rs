@@ -7,15 +7,12 @@ use std::{
   task::{Context, Poll},
 };
 
-use super::{ChildStderr, ChildStdin, ChildStdout, Stderr, Stdin, Stdout};
-use ::tokio::{
-  io::{AsyncRead, AsyncWrite, ReadBuf},
-  process::{
-    Child, ChildStderr as TokioChildStderr, ChildStdin as TokioChildStdin,
-    ChildStdout as TokioChildStdout, Command,
-  },
+use super::{
+  ChildStderr as ChildStderrWrapper, ChildStdin as ChildStdinWrapper,
+  ChildStdout as ChildStdoutWrapper,
 };
-
+use ::tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+pub use ::tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 macro_rules! impl_async_write {
   ($outer:ident($($inner:ty),+$(,)?)) => {
     $(
@@ -33,26 +30,26 @@ macro_rules! impl_async_write {
         }
       }
 
-      impl futures_util::io::AsyncWrite for super::$outer<$inner> {
+      impl futures_util::io::AsyncWrite for $outer<$inner> {
         fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
           let mut compat = super::io::tokio_compat::TokioAsyncWriteCompatExt::compat_write(self.get_mut());
           let pinned = Pin::new(&mut compat);
 
-          AsyncWrite::poll_write(pinned, cx, buf)
+          futures_util::io::AsyncWrite::poll_write(pinned, cx, buf)
         }
 
         fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
           let mut compat = super::io::tokio_compat::TokioAsyncWriteCompatExt::compat_write(self.get_mut());
           let pinned = Pin::new(&mut compat);
 
-          AsyncWrite::poll_flush(pinned, cx)
+          futures_util::io::AsyncWrite::poll_flush(pinned, cx)
         }
 
         fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
           let mut compat = super::io::tokio_compat::TokioAsyncWriteCompatExt::compat_write(self.get_mut());
           let pinned = Pin::new(&mut compat);
 
-          AsyncWrite::poll_shutdown(pinned, cx)
+          futures_util::io::AsyncWrite::poll_close(pinned, cx)
         }
       }
     )*
@@ -89,74 +86,72 @@ macro_rules! impl_async_read {
   };
 }
 
-converter!(ChildStdin(TokioChildStdin));
-impl_async_write!(ChildStdin(TokioChildStdin, &mut TokioChildStdin));
+converter!(ChildStdinWrapper(ChildStdin));
+impl_async_write!(ChildStdinWrapper(ChildStdin, &mut ChildStdin));
 
-converter!(ChildStdout(TokioChildStdout));
-impl_async_read!(ChildStdout(TokioChildStdout, &mut TokioChildStdout));
+converter!(ChildStdoutWrapper(ChildStdout));
+impl_async_read!(ChildStdoutWrapper(ChildStdout, &mut ChildStdout));
 
-converter!(ChildStderr(TokioChildStderr));
-impl_async_read!(ChildStderr(TokioChildStderr, &mut TokioChildStderr));
+converter!(ChildStderrWrapper(ChildStderr));
+impl_async_read!(ChildStderrWrapper(ChildStderr, &mut ChildStderr));
 
-/// Process abstraction for [`tokio`](::tokio) runtime
+macro_rules! impl_into_stdio {
+  ($($ident:ident), +$(,)?) => {
+    $(
+      impl super::IntoStdio for $ident {
+        async fn into_stdio(self) -> std::io::Result<std::process::Stdio> {
+          self.try_into()
+        }
+      }
+    )*
+  };
+}
+
+impl_into_stdio!(ChildStdin, ChildStdout, ChildStderr);
+
+/// Process abstraction for [`tokio`] runtime
+///
+/// [`tokio`]: https://docs.rs/tokio
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TokioProcess;
 
 impl super::Process for TokioProcess {
   type Command = Command;
   type Child = Child;
-  type Stdin = TokioChildStdin;
-  type Stdout = TokioChildStdout;
-  type Stderr = TokioChildStderr;
+  type Stdin = ChildStdin;
+  type Stdout = ChildStdout;
+  type Stderr = ChildStderr;
 }
 
 impl super::Child for Child {
-  type Stdin = TokioChildStdin;
+  type Stdin = ChildStdin;
 
-  type Stdout = TokioChildStdout;
+  type Stdout = ChildStdout;
 
-  type Stderr = TokioChildStderr;
+  type Stderr = ChildStderr;
 
-  fn stdin<'a>(&'a self) -> Option<ChildStdin<&'a Self::Stdin>>
-  where
-    ChildStdin<&'a Self::Stdin>: Stdin,
-  {
-    self.stdin.as_ref().map(ChildStdin)
+  fn stdin(&self) -> Option<ChildStdinWrapper<&Self::Stdin>> {
+    self.stdin.as_ref().map(ChildStdinWrapper)
   }
 
-  fn stdout<'a>(&'a self) -> Option<ChildStdout<&'a Self::Stdout>>
-  where
-    ChildStdout<&'a Self::Stdout>: Stdout,
-  {
-    self.stdout.as_ref().map(ChildStdout)
+  fn stdout(&self) -> Option<ChildStdoutWrapper<&Self::Stdout>> {
+    self.stdout.as_ref().map(ChildStdoutWrapper)
   }
 
-  fn stderr<'a>(&'a self) -> Option<ChildStderr<&'a Self::Stderr>>
-  where
-    ChildStderr<&'a Self::Stderr>: Stderr,
-  {
-    self.stderr.as_ref().map(ChildStderr)
+  fn stderr(&self) -> Option<ChildStderrWrapper<&Self::Stderr>> {
+    self.stderr.as_ref().map(ChildStderrWrapper)
   }
 
-  fn stdin_mut<'a>(&'a mut self) -> Option<ChildStdin<&'a mut Self::Stdin>>
-  where
-    ChildStdin<&'a mut Self::Stdin>: futures_util::io::AsyncWrite + Stdin,
-  {
-    self.stdin.as_mut().map(ChildStdin)
+  fn stdin_mut(&mut self) -> Option<ChildStdinWrapper<&mut Self::Stdin>> {
+    self.stdin.as_mut().map(ChildStdinWrapper)
   }
 
-  fn stdout_mut<'a>(&'a mut self) -> Option<ChildStdout<&'a mut Self::Stdout>>
-  where
-    ChildStdout<&'a mut Self::Stdout>: futures_util::io::AsyncRead + Stdout,
-  {
-    self.stdout.as_mut().map(ChildStdout)
+  fn stdout_mut(&mut self) -> Option<ChildStdoutWrapper<&mut Self::Stdout>> {
+    self.stdout.as_mut().map(ChildStdoutWrapper)
   }
 
-  fn stderr_mut<'a>(&'a mut self) -> Option<ChildStderr<&'a mut Self::Stderr>>
-  where
-    ChildStderr<&'a mut Self::Stderr>: futures_util::io::AsyncRead + Stderr,
-  {
-    self.stderr.as_mut().map(ChildStderr)
+  fn stderr_mut(&mut self) -> Option<ChildStderrWrapper<&mut Self::Stderr>> {
+    self.stderr.as_mut().map(ChildStderrWrapper)
   }
 
   fn set_stdin(&mut self, stdin: Option<Self::Stdin>) {
@@ -171,16 +166,16 @@ impl super::Child for Child {
     self.stderr = stderr;
   }
 
-  fn take_stdin(&mut self) -> Option<ChildStdin<Self::Stdin>> {
-    self.stdin.take().map(ChildStdin)
+  fn take_stdin(&mut self) -> Option<ChildStdinWrapper<Self::Stdin>> {
+    self.stdin.take().map(ChildStdinWrapper)
   }
 
-  fn take_stdout(&mut self) -> Option<ChildStdout<Self::Stdout>> {
-    self.stdout.take().map(ChildStdout)
+  fn take_stdout(&mut self) -> Option<ChildStdoutWrapper<Self::Stdout>> {
+    self.stdout.take().map(ChildStdoutWrapper)
   }
 
-  fn take_stderr(&mut self) -> Option<ChildStderr<Self::Stderr>> {
-    self.stderr.take().map(ChildStderr)
+  fn take_stderr(&mut self) -> Option<ChildStderrWrapper<Self::Stderr>> {
+    self.stderr.take().map(ChildStderrWrapper)
   }
 
   fn id(&self) -> Option<u32> {
@@ -202,6 +197,12 @@ impl super::Child for Child {
   async fn wait_with_output(self) -> io::Result<Output> {
     Child::wait_with_output(self).await
   }
+
+  cfg_windows!(
+    fn raw_handle(&self) -> Option<std::os::windows::io::RawHandle> {
+      Child::raw_handle(self)
+    }
+  );
 }
 
 impl super::Command for Command {

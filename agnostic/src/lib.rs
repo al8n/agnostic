@@ -1,23 +1,17 @@
-//! Agnostic is a trait for users who want to write async runtime-agnostic crate.
+#![doc = include_str!("../README.md")]
 #![deny(warnings, missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 #![allow(clippy::needless_return)]
 #![allow(unreachable_code)]
 
-#[cfg(all(feature = "tokio-compat", not(feature = "net")))]
-compile_error!("`tokio-compat` feature is enabled, but `net` feature is disabled, `tokio-compact` feature must only be enabled with `net` feature");
-
-#[macro_use]
-mod macros;
-
-#[cfg(feature = "async-io")]
-#[cfg_attr(docsrs, doc(cfg(feature = "async-io")))]
-pub use agnostic_lite::async_io::*;
-
 pub use agnostic_lite::{
-  time, AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, RuntimeLite, Yielder,
+  cfg_async_std, cfg_smol, cfg_tokio, time, AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner,
+  RuntimeLite, Yielder,
 };
+
+/// Traits, helpers, and type definitions for asynchronous I/O functionality.
+pub use agnostic_io as io;
 
 /// [`tokio`] runtime adapter
 ///
@@ -45,6 +39,11 @@ pub mod smol;
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
 pub mod net;
 
+/// Quinn related traits
+#[cfg(feature = "quinn")]
+#[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
+pub mod quinn;
+
 /// Process related traits
 #[cfg(feature = "process")]
 #[cfg_attr(docsrs, doc(cfg(feature = "process")))]
@@ -61,15 +60,14 @@ pub trait Runtime: RuntimeLite {
   #[cfg(feature = "process")]
   #[cfg_attr(docsrs, doc(cfg(feature = "process")))]
   type Process: process::Process;
-}
 
-/// Traits for IO
-#[cfg(feature = "io")]
-#[cfg_attr(docsrs, doc(cfg(feature = "io")))]
-pub mod io {
-  pub use futures_util::{AsyncRead, AsyncWrite};
+  /// The Quinn abstraction for this runtime
+  #[cfg(feature = "quinn")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
+  type Quinn: quinn::QuinnRuntime;
 
-  #[cfg(feature = "tokio-compat")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "tokio-compat")))]
-  pub use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
+  /// Returns the runtime for [`quinn`](::quinn)
+  #[cfg(feature = "quinn")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
+  fn quinn() -> Self::Quinn;
 }

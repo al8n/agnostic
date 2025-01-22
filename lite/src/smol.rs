@@ -15,7 +15,9 @@ impl<T> super::Detach for ::smol::Task<T> {
   }
 }
 
-/// A [`AsyncSpawner`] that uses the [`smol`](::smol) runtime.
+/// A [`AsyncSpawner`] that uses the [`smol`] runtime.
+///
+/// [`smol`]: https://docs.rs/smol
 #[derive(Debug, Clone, Copy)]
 pub struct SmolSpawner;
 
@@ -98,7 +100,9 @@ impl AsyncBlockingSpawner for SmolSpawner {
   }
 }
 
-/// Concrete [`RuntimeLite`](crate::RuntimeLite) implementation based on [`smol`](::smol) runtime.
+/// Concrete [`RuntimeLite`](crate::RuntimeLite) implementation based on [`smol`] runtime.
+///
+/// [`smol`]: https://docs.rs/smol
 #[derive(Debug, Clone, Copy)]
 pub struct SmolRuntime;
 

@@ -90,7 +90,9 @@ impl AsyncBlockingSpawner for TokioSpawner {
   }
 }
 
-/// Concrete [`RuntimeLite`](crate::RuntimeLite) implementation based on [`tokio`](::tokio) runtime.
+/// Concrete [`RuntimeLite`](crate::RuntimeLite) implementation based on [`tokio`] runtime.
+///
+/// [`tokio`]: https://docs.rs/tokio
 #[derive(Debug, Clone, Copy)]
 pub struct TokioRuntime;
 

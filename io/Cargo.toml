@@ -14,7 +14,7 @@ default = []
 tokio = ["dep:tokio", "dep:tokio-util"]
 
 [dependencies]
-futures-util.workspace = true
+futures-util = { workspace = true, features = ["io"] }
 
 tokio = { workspace = true, default-features = false, optional = true }
 tokio-util = { workspace = true, default-features = false, optional = true, features = ["compat"] }

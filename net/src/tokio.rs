@@ -11,11 +11,9 @@ use super::io::tokio_compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt}
 use super::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs};
 
 use agnostic_lite::tokio::TokioRuntime;
-
-#[cfg(feature = "quinn")]
-pub use quinn_::TokioQuinnRuntime;
-
-/// The [`Net`] implementation for [`tokio`](::tokio) runtime.
+/// The [`Net`] implementation for [`tokio`] runtime.
+/// 
+/// [`tokio`]: https://docs.rs/tokio
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TokioNet;
 
@@ -24,47 +22,11 @@ impl Net for TokioNet {
   type TcpListener = TokioTcpListener;
   type TcpStream = TokioTcpStream;
   type UdpSocket = TokioUdpSocket;
-
-  #[cfg(feature = "quinn")]
-  type Quinn = TokioQuinnRuntime;
-}
-
-#[cfg(feature = "quinn")]
-mod quinn_ {
-  use std::net::UdpSocket;
-
-  use quinn::{Runtime, TokioRuntime};
-
-  /// A Quinn runtime for tokio
-  #[derive(Debug)]
-  #[repr(transparent)]
-  pub struct TokioQuinnRuntime(TokioRuntime);
-
-  impl Default for TokioQuinnRuntime {
-    fn default() -> Self {
-      Self(TokioRuntime)
-    }
-  }
-
-  impl Runtime for TokioQuinnRuntime {
-    fn new_timer(&self, i: std::time::Instant) -> std::pin::Pin<Box<dyn quinn::AsyncTimer>> {
-      self.0.new_timer(i)
-    }
-
-    fn spawn(&self, future: std::pin::Pin<Box<dyn core::future::Future<Output = ()> + Send>>) {
-      self.0.spawn(future)
-    }
-
-    fn wrap_udp_socket(
-      &self,
-      t: UdpSocket,
-    ) -> std::io::Result<std::sync::Arc<dyn quinn::AsyncUdpSocket>> {
-      self.0.wrap_udp_socket(t)
-    }
-  }
 }
 
 /// A [`TcpListener`](super::TcpListener) implementation for [`tokio`] runtime.
+/// 
+/// [`tokio`]: https://docs.rs/tokio
 pub struct TokioTcpListener {
   ln: TcpListener,
 }
