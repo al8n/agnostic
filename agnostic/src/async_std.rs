@@ -6,7 +6,17 @@ pub use agnostic_lite::async_std::*;
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
 pub mod net;
 
+/// Network abstractions for [`async-std`](::async_std) runtime
+#[cfg(feature = "process")]
+#[cfg_attr(docsrs, doc(cfg(feature = "process")))]
+pub mod process {
+  pub use agnostic_process::async_std::*;
+}
+
 impl Runtime for AsyncStdRuntime {
   #[cfg(feature = "net")]
   type Net = net::AsyncStdNet;
+
+  #[cfg(feature = "process")]
+  type Process = process::AsyncProcess;
 }

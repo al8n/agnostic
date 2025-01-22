@@ -46,6 +46,8 @@ pub mod smol;
 pub mod net;
 
 /// Process related traits
+#[cfg(feature = "process")]
+#[cfg_attr(docsrs, doc(cfg(feature = "process")))]
 pub mod process;
 
 /// Runtime trait
@@ -54,6 +56,11 @@ pub trait Runtime: RuntimeLite {
   #[cfg(feature = "net")]
   #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
   type Net: net::Net;
+
+  /// The process abstraction for this runtime
+  #[cfg(feature = "process")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "process")))]
+  type Process: process::Process;
 }
 
 /// Traits for IO

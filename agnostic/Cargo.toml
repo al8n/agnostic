@@ -82,6 +82,8 @@ quinn = [
   "net",
 ]
 
+process = ["agnostic-process"]
+
 net = [
   "io",
   "socket2",
@@ -101,6 +103,7 @@ tokio-compat = ["tokio-util/compat", "dep:tokio", "net"]
 tokio = [
   "dep:tokio",
   "agnostic-lite/tokio",
+  "agnostic-process?/tokio",
   "quinn?/runtime-tokio",
   "pin-project-lite",
   "tokio-stream",
@@ -112,12 +115,13 @@ tokio = [
 ]
 async-std = [
   "dep:async-std",
+  "agnostic-process?/async-std",
   "agnostic-lite/async-std",
   "quinn?/runtime-async-std",
   "async-io",
   "pin-project-lite",
 ]
-smol = ["dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io", "quinn?/runtime-smol"]
+smol = ["dep:smol", "agnostic-lite/smol", "agnostic-process?/smol", "pin-project-lite", "async-io", "quinn?/runtime-smol"]
 
 tracing = ["dep:tracing"]
 
@@ -156,6 +160,8 @@ pin-project-lite = { workspace = true, optional = true }
 smol = { workspace = true, default-features = false, optional = true }
 
 async-channel = { version = "2", optional = true }
+
+agnostic-process = { workspace = true, optional = true }
 
 hickory-proto = { version = "0.24", default-features = false, optional = true }
 resolv-conf = { version = "0.7", default-features = false, optional = true }

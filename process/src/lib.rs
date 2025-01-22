@@ -37,24 +37,7 @@ macro_rules! cfg_linux {
   };
 }
 
-mod async_process_impl;
-
-/// Async process related implementations for `async-std` runtime.
-#[cfg(feature = "async-std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
-pub mod async_std;
-
-/// Async process related implementations for `tokio` runtime.
-#[cfg(feature = "tokio")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
-pub mod tokio;
-
-/// Async process related implementations for `smol` runtime.
-#[cfg(feature = "smol")]
-#[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
-pub mod smol;
-
-pub use agnostic_lite::*;
+pub use futures_io::{AsyncRead, AsyncWrite};
 
 use std::{
   ffi::OsStr,
@@ -64,37 +47,245 @@ use std::{
   process::{ExitStatus, Output, Stdio},
 };
 
-/// The components of a child process.
-pub struct ChildComponents<C: Child> {
-  /// The stdin handle.
-  pub stdin: Option<C::Stdin>,
-  /// The stdout handle.
-  pub stdout: Option<C::Stdout>,
-  /// The stderr handle.
-  pub stderr: Option<C::Stderr>,
+macro_rules! std_trait {
+  (
+    $(#[$attr:meta])*
+    trait $name:ident: $trait:ident
+  ) => {
+    $(#[$attr])*
+    #[cfg(unix)]
+    pub trait $name: std::os::fd::AsFd + std::os::fd::AsRawFd {}
+
+    #[cfg(unix)]
+    impl<T> $name for T where T: std::os::fd::AsFd + std::os::fd::AsRawFd {}
+
+    $(#[$attr])*
+    #[cfg(not(unix))]
+    pub trait $name {}
+
+    #[cfg(not(unix))]
+    impl<T> $name for T {}
+  };
 }
+
+macro_rules! child_std {
+  (
+    $(#[$attr:meta])*
+    $name:ident
+  ) => {
+    $(#[$attr])*
+    pub struct $name<T>(T);
+
+    impl<T> From<T> for $name<T> {
+      fn from(inner: T) -> Self {
+        $name(inner)
+      }
+    }
+
+    impl<T> core::convert::AsRef<T> for $name<T> {
+      fn as_ref(&self) -> &T {
+        &self.0
+      }
+    }
+
+    impl<T> core::convert::AsMut<T> for $name<T> {
+      fn as_mut(&mut self) -> &mut T {
+        &mut self.0
+      }
+    }
+
+    impl<T> core::ops::Deref for $name<T> {
+      type Target = T;
+
+      fn deref(&self) -> &Self::Target {
+        &self.0
+      }
+    }
+
+    impl<T> core::ops::DerefMut for $name<T> {
+      fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+      }
+    }
+
+    impl<T> $name<T> {
+      /// Consumes the wrapper, returning the inner value.
+      #[inline]
+      pub fn into_inner(self) -> T {
+        self.0
+      }
+
+      /// Gets a reference to the inner value.
+      #[inline]
+      pub fn as_inner(&self) -> &T {
+        &self.0
+      }
+
+      /// Gets a mutable reference to the inner value.
+      #[inline]
+      pub fn as_inner_mut(&mut self) -> &mut T {
+        &mut self.0
+      }
+    }
+  };
+}
+
+macro_rules! converter {
+  ($outer:ident($inner:ty)) => {
+    impl From<$outer<$inner>> for $inner {
+      fn from(outer: $outer<$inner>) -> Self {
+        outer.0
+      }
+    }
+
+    impl<'a> From<$outer<&'a mut $inner>> for &'a mut $inner {
+      fn from(outer: $outer<&'a mut $inner>) -> &'a mut $inner {
+        outer.0
+      }
+    }
+
+    impl<'a> From<$outer<&'a $inner>> for &'a $inner {
+      fn from(outer: $outer<&'a $inner>) -> &'a $inner {
+        outer.0
+      }
+    }
+
+    cfg_unix!(
+      impl std::os::fd::AsFd for $outer<$inner> {
+        fn as_fd(&self) -> std::os::fd::BorrowedFd {
+          self.0.as_fd()
+        }
+      }
+
+      impl std::os::fd::AsRawFd for $outer<$inner> {
+        fn as_raw_fd(&self) -> std::os::raw::c_int {
+          self.0.as_raw_fd()
+        }
+      }
+
+      impl std::os::fd::AsFd for $outer<&mut $inner> {
+        fn as_fd(&self) -> std::os::fd::BorrowedFd {
+          self.0.as_fd()
+        }
+      }
+
+      impl std::os::fd::AsRawFd for $outer<&mut $inner> {
+        fn as_raw_fd(&self) -> std::os::raw::c_int {
+          self.0.as_raw_fd()
+        }
+      }
+
+      impl std::os::fd::AsFd for $outer<&$inner> {
+        fn as_fd(&self) -> std::os::fd::BorrowedFd {
+          self.0.as_fd()
+        }
+      }
+
+      impl std::os::fd::AsRawFd for $outer<&$inner> {
+        fn as_raw_fd(&self) -> std::os::raw::c_int {
+          self.0.as_raw_fd()
+        }
+      }
+    );
+  };
+}
+
+std_trait!(
+  /// Marker trait for the standard input (stdin) handle of a child process.
+  trait Stdin: AsyncWrite
+);
+
+std_trait!(
+  /// Marker trait for the standard output (stdout) handle of a child process.
+  trait Stdout: AsyncRead
+);
+
+std_trait!(
+  /// Marker trait for the standard error (stderr) handle of a child process.
+  trait Stderr: AsyncRead
+);
+
+child_std!(
+  /// A handle to a child process’s standard input (stdin).
+  ChildStdin
+);
+
+child_std!(
+  /// A handle to a child process’s standard output (stdout).
+  ChildStdout
+);
+
+child_std!(
+  /// A handle to a child process’s standard error (stderr).
+  ChildStderr
+);
 
 /// An abstraction of a spawned child process.
 pub trait Child {
-  /// A handle to a child process’s standard error (stderr).
-  type Stdin;
   /// A handle to a child process’s standard input (stdin).
-  type Stdout;
+  type Stdin;
+
   /// A handle to a child process’s standard output (stdout).
+  type Stdout;
+
+  /// A handle to a child process’s standard error (stderr).
   type Stderr;
 
+  /// Returns the stdin handle if it was configured.
+  fn stdin<'a>(&'a self) -> Option<ChildStdin<&'a Self::Stdin>>
+  where
+    ChildStdin<&'a Self::Stdin>: Stdin;
+
+  /// Returns the stdout handle if it was configured.
+  fn stdout<'a>(&'a self) -> Option<ChildStdout<&'a Self::Stdout>>
+  where
+    ChildStdout<&'a Self::Stdout>: Stdout;
+
+  /// Returns the stderr handle if it was configured.
+  fn stderr<'a>(&'a self) -> Option<ChildStderr<&'a Self::Stderr>>
+  where
+    ChildStderr<&'a Self::Stderr>: Stderr;
+
+  /// Returns a mutable reference to the stdin handle if it was configured.
+  fn stdin_mut<'a>(&'a mut self) -> Option<ChildStdin<&'a mut Self::Stdin>>
+  where
+    ChildStdin<&'a mut Self::Stdin>: AsyncWrite + Stdin;
+
+  /// Returns a mutable reference to the stdout handle if it was configured.
+  fn stdout_mut<'a>(&'a mut self) -> Option<ChildStdout<&'a mut Self::Stdout>>
+  where
+    ChildStdout<&'a mut Self::Stdout>: AsyncRead + Stdout;
+
+  /// Returns a mutable reference to the stderr handle if it was configured.
+  fn stderr_mut<'a>(&'a mut self) -> Option<ChildStderr<&'a mut Self::Stderr>>
+  where
+    ChildStderr<&'a mut Self::Stderr>: AsyncRead + Stderr;
+
+  /// Sets the stdin handle.
+  fn set_stdin(&mut self, stdin: Option<Self::Stdin>);
+
+  /// Sets the stdout handle.
+  fn set_stdout(&mut self, stdout: Option<Self::Stdout>);
+
+  /// Sets the stderr handle.
+  fn set_stderr(&mut self, stderr: Option<Self::Stderr>);
+
+  /// Takes the stdin handle.
+  fn take_stdin(&mut self) -> Option<ChildStdin<Self::Stdin>>
+  where
+    ChildStdin<Self::Stdin>: AsyncWrite + Stdin;
+
+  /// Takes the stdout handle.
+  fn take_stdout(&mut self) -> Option<ChildStdout<Self::Stdout>>
+  where
+    ChildStdout<Self::Stdout>: AsyncRead + Stdout;
+
+  /// Takes the stderr handle.
+  fn take_stderr(&mut self) -> Option<ChildStderr<Self::Stderr>>
+  where
+    ChildStderr<Self::Stderr>: AsyncRead + Stderr;
+
   /// Returns the OS-assigned process identifier associated with this child.
-  ///
-  /// # Examples
-  ///
-  /// ```no_run
-  /// # futures_lite::future::block_on(async {
-  /// use async_process::Command;
-  ///
-  /// let mut child = Command::new("ls").spawn()?;
-  /// println!("id: {}", child.id());
-  /// # std::io::Result::Ok(()) });
-  /// ```
   fn id(&self) -> Option<u32>;
 
   /// Forces the child process to exit.
@@ -104,38 +295,11 @@ pub trait Child {
   /// This is equivalent to sending a SIGKILL on Unix platforms.
   ///
   /// [`InvalidInput`]: `std::io::ErrorKind::InvalidInput`
-  ///
-  /// # Examples
-  ///
-  /// ```no_run
-  /// # futures_lite::future::block_on(async {
-  /// use async_process::Command;
-  ///
-  /// let mut child = Command::new("yes").spawn()?;
-  /// child.kill()?;
-  /// println!("exit status: {}", child.status().await?);
-  /// # std::io::Result::Ok(()) });
-  /// ```
   fn kill(&mut self) -> impl Future<Output = io::Result<()>> + Send;
 
   /// Returns the exit status if the process has exited.
   ///
-  /// Unlike [`status()`][`Child::status()`], this method will not drop the stdin handle.
-  ///
-  /// # Examples
-  ///
-  /// ```no_run
-  /// # futures_lite::future::block_on(async {
-  /// use async_process::Command;
-  ///
-  /// let mut child = Command::new("ls").spawn()?;
-  ///
-  /// match child.try_status()? {
-  ///     None => println!("still running"),
-  ///     Some(status) => println!("exited with: {}", status),
-  /// }
-  /// # std::io::Result::Ok(()) });
-  /// ```
+  /// Unlike [`wait()`][Child::wait], this method will not drop the stdin handle.
   fn try_wait(&mut self) -> io::Result<Option<ExitStatus>>;
 
   /// Drops the stdin handle and waits for the process to exit.
@@ -143,21 +307,6 @@ pub trait Child {
   /// Closing the stdin of the process helps avoid deadlocks. It ensures that the process does
   /// not block waiting for input from the parent process while the parent waits for the child to
   /// exit.
-  ///
-  /// # Examples
-  ///
-  /// ```no_run
-  /// # futures_lite::future::block_on(async {
-  /// use async_process::{Command, Stdio};
-  ///
-  /// let mut child = Command::new("cp")
-  ///     .arg("a.txt")
-  ///     .arg("b.txt")
-  ///     .spawn()?;
-  ///
-  /// println!("exit status: {}", child.status().await?);
-  /// # std::io::Result::Ok(()) });
-  /// ```
   fn wait(&mut self) -> impl Future<Output = io::Result<ExitStatus>> + Send;
 
   /// Drops the stdin handle and collects the output of the process.
@@ -168,21 +317,6 @@ pub trait Child {
   ///
   /// In order to capture the output of the process, [`Command::stdout()`] and
   /// [`Command::stderr()`] must be configured with [`Stdio::piped()`].
-  ///
-  /// # Examples
-  ///
-  /// ```no_run
-  /// # futures_lite::future::block_on(async {
-  /// use async_process::{Command, Stdio};
-  ///
-  /// let child = Command::new("ls")
-  ///     .stdout(Stdio::piped())
-  ///     .stderr(Stdio::piped())
-  ///     .spawn()?;
-  ///
-  /// let out = child.output().await?;
-  /// # std::io::Result::Ok(()) });
-  /// ```
   fn wait_with_output(self) -> impl Future<Output = io::Result<Output>> + Send;
 }
 
@@ -195,41 +329,14 @@ pub trait Command: Sized + From<std::process::Command> {
   ///
   /// The initial configuration (the working directory and environment variables) is inherited
   /// from the current process.
-  ///
-  /// ## Examples
-  ///
-  /// ```
-  /// use async_process::Command;
-  ///
-  /// let mut cmd = Command::new("ls");
-  /// ```
   fn new<S>(program: S) -> Self
   where
     S: AsRef<OsStr>;
 
   /// Adds a single argument to pass to the program.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use async_process::Command;
-  ///
-  /// let mut cmd = Command::new("echo");
-  /// cmd.arg("hello");
-  /// cmd.arg("world");
-  /// ```
   fn arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self;
 
   /// Adds multiple arguments to pass to the program.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use async_process::Command;
-  ///
-  /// let mut cmd = Command::new("echo");
-  /// cmd.args(&["hello", "world"]);
-  /// ```
   fn args<I, S>(&mut self, args: I) -> &mut Self
   where
     I: IntoIterator<Item = S>,
@@ -239,15 +346,6 @@ pub trait Command: Sized + From<std::process::Command> {
   ///
   /// Note that environment variable names are case-insensitive (but case-preserving) on Windows,
   /// and case-sensitive on all other platforms.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use async_process::Command;
-  ///
-  /// let mut cmd = Command::new("ls");
-  /// cmd.env("PATH", "/bin");
-  /// ```
   fn env<K, V>(&mut self, key: K, val: V) -> &mut Self
   where
     K: AsRef<OsStr>,
@@ -257,15 +355,6 @@ pub trait Command: Sized + From<std::process::Command> {
   ///
   /// Note that environment variable names are case-insensitive (but case-preserving) on Windows,
   /// and case-sensitive on all other platforms.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use async_process::Command;
-  ///
-  /// let mut cmd = Command::new("ls");
-  /// cmd.envs(vec![("PATH", "/bin"), ("TERM", "xterm-256color")]);
-  /// ```
   fn envs<I, K, V>(&mut self, vars: I) -> &mut Self
   where
     I: IntoIterator<Item = (K, V)>,
@@ -273,75 +362,21 @@ pub trait Command: Sized + From<std::process::Command> {
     V: AsRef<OsStr>;
 
   /// Removes an environment variable mapping.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use async_process::Command;
-  ///
-  /// let mut cmd = Command::new("ls");
-  /// cmd.env_remove("PATH");
-  /// ```
   fn env_remove<K: AsRef<OsStr>>(&mut self, key: K) -> &mut Self;
 
   /// Removes all environment variable mappings.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use async_process::Command;
-  ///
-  /// let mut cmd = Command::new("ls");
-  /// cmd.env_clear();
-  /// ```
   fn env_clear(&mut self) -> &mut Self;
 
   /// Configures the working directory for the new process.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use async_process::Command;
-  ///
-  /// let mut cmd = Command::new("ls");
-  /// cmd.current_dir("/");
-  /// ```
   fn current_dir<P: AsRef<Path>>(&mut self, dir: P) -> &mut Self;
 
   /// Configures the standard input (stdin) for the new process.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use async_process::{Command, Stdio};
-  ///
-  /// let mut cmd = Command::new("cat");
-  /// cmd.stdin(Stdio::null());
-  /// ```
   fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self;
 
   /// Configures the standard output (stdout) for the new process.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use async_process::{Command, Stdio};
-  ///
-  /// let mut cmd = Command::new("ls");
-  /// cmd.stdout(Stdio::piped());
-  /// ```
   fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self;
 
   /// Configures the standard error (stderr) for the new process.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use async_process::{Command, Stdio};
-  ///
-  /// let mut cmd = Command::new("ls");
-  /// cmd.stderr(Stdio::piped());
-  /// ```
   fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self;
 
   // /// Configures whether to reap the zombie process when [`Child`] is dropped.
@@ -369,68 +404,22 @@ pub trait Command: Sized + From<std::process::Command> {
   /// Configures whether to kill the process when [`Child`] is dropped.
   ///
   /// The default value of this option is `false`.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use async_process::{Command, Stdio};
-  ///
-  /// let mut cmd = Command::new("cat");
-  /// cmd.kill_on_drop(true);
-  /// ```
   fn kill_on_drop(&mut self, kill_on_drop: bool) -> &mut Self;
 
   /// Executes the command and returns the [`Child`] handle to it.
   ///
   /// If not configured, stdin, stdout and stderr will be set to [`Stdio::inherit()`].
-  ///
-  /// # Examples
-  ///
-  /// ```no_run
-  /// # futures_lite::future::block_on(async {
-  /// use async_process::Command;
-  ///
-  /// let child = Command::new("ls").spawn()?;
-  /// # std::io::Result::Ok(()) });
-  /// ```
   fn spawn(&mut self) -> io::Result<Self::Child>;
 
   /// Executes the command, waits for it to exit, and returns the exit status.
   ///
   /// If not configured, stdin, stdout and stderr will be set to [`Stdio::inherit()`].
-  ///
-  /// # Examples
-  ///
-  /// ```no_run
-  /// # futures_lite::future::block_on(async {
-  /// use async_process::Command;
-  ///
-  /// let status = Command::new("cp")
-  ///     .arg("a.txt")
-  ///     .arg("b.txt")
-  ///     .status()
-  ///     .await?;
-  /// # std::io::Result::Ok(()) });
-  /// ```
   fn status(&mut self) -> impl Future<Output = io::Result<ExitStatus>> + Send;
 
   /// Executes the command and collects its output.
   ///
   /// If not configured, stdin will be set to [`Stdio::null()`], and stdout and stderr will be
   /// set to [`Stdio::piped()`].
-  ///
-  /// # Examples
-  ///
-  /// ```no_run
-  /// # futures_lite::future::block_on(async {
-  /// use async_process::Command;
-  ///
-  /// let output = Command::new("cat")
-  ///     .arg("a.txt")
-  ///     .output()
-  ///     .await?;
-  /// # std::io::Result::Ok(()) });
-  /// ```
   fn output(&mut self) -> impl Future<Output = io::Result<Output>> + Send;
 
   cfg_unix!(
@@ -493,59 +482,6 @@ pub trait Command: Sized + From<std::process::Command> {
     ///
     /// This is useful for passing arguments to applications that don't follow
     /// the standard C run-time escaping rules, such as `cmd.exe /c`.
-    ///
-    /// # Batch files
-    ///
-    /// Note the `cmd /c` command line has slightly different escaping rules than batch files
-    /// themselves. If possible, it may be better to write complex arguments to a temporary
-    /// `.bat` file, with appropriate escaping, and simply run that using:
-    ///
-    /// ```no_run
-    /// # use std::process::Command;
-    /// # let temp_bat_file = "";
-    /// # #[allow(unused)]
-    /// let output = Command::new("cmd").args(["/c", &format!("\"{temp_bat_file}\"")]).output();
-    /// ```
-    ///
-    /// # Example
-    ///
-    /// Run a batch script using both trusted and untrusted arguments.
-    ///
-    /// ```no_run
-    /// #[cfg(windows)]
-    /// // `my_script_path` is a path to known bat file.
-    /// // `user_name` is an untrusted name given by the user.
-    /// fn run_script(
-    ///     my_script_path: &str,
-    ///     user_name: &str,
-    /// ) -> Result<std::process::Output, std::io::Error> {
-    ///     use std::io::{Error, ErrorKind};
-    ///     use std::os::windows::process::CommandExt;
-    ///     use std::process::Command;
-    ///
-    ///     // Create the command line, making sure to quote the script path.
-    ///     // This assumes the fixed arguments have been tested to work with the script we're using.
-    ///     let mut cmd_args = format!(r#""{my_script_path}" "--features=[a,b,c]""#);
-    ///
-    ///     // Make sure the user name is safe. In particular we need to be
-    ///     // cautious of ascii symbols that cmd may interpret specially.
-    ///     // Here we only allow alphanumeric characters.
-    ///     if !user_name.chars().all(|c| c.is_alphanumeric()) {
-    ///         return Err(Error::new(ErrorKind::InvalidInput, "invalid user name"));
-    ///     }
-    ///
-    ///     // now we have validated the user name, let's add that too.
-    ///     cmd_args.push_str(" --user ");
-    ///     cmd_args.push_str(user_name);
-    ///
-    ///     // call cmd.exe and return the output
-    ///     Command::new("cmd.exe")
-    ///         .arg("/c")
-    ///         // surround the entire command in an extra pair of quotes, as required by cmd.exe.
-    ///         .raw_arg(&format!("\"{cmd_args}\""))
-    ///         .output()
-    /// }
-    /// ````
     fn raw_arg<S: AsRef<OsStr>>(&mut self, text_to_append_as_is: S) -> &mut Self;
   );
 
@@ -572,3 +508,35 @@ pub trait Command: Sized + From<std::process::Command> {
   //   fn create_pidfd(&mut self, val: bool) -> &mut Self;
   // );
 }
+
+/// Trait for spawning a child process.
+pub trait Process {
+  /// The command type.
+  type Command: Command<Child = Self::Child>;
+  /// The child process type.
+  type Child: Child<Stdin = Self::Stdin, Stdout = Self::Stdout, Stderr = Self::Stderr>;
+  /// The standard input (stdin) handle type.
+  type Stdin: Stdin;
+  /// The standard output (stdout) handle type.
+  type Stdout: Stdout;
+  /// The standard error (stderr) handle type.
+  type Stderr: Stderr;
+}
+
+#[cfg(feature = "async-process")]
+mod async_process_impl;
+
+/// Async process related implementations for `async-std` runtime.
+#[cfg(feature = "async-std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
+pub mod async_std;
+
+/// Async process related implementations for `tokio` runtime.
+#[cfg(feature = "tokio")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
+pub mod tokio;
+
+/// Async process related implementations for `smol` runtime.
+#[cfg(feature = "smol")]
+#[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
+pub mod smol;

@@ -2,10 +2,72 @@ use std::{
   ffi::OsStr,
   io,
   path::Path,
+  pin::Pin,
   process::{ExitStatus, Output, Stdio},
+  task::{Context, Poll},
 };
 
+use super::{
+  ChildStderr as ChildStderrWrapper, ChildStdin as ChildStdinWrapper,
+  ChildStdout as ChildStdoutWrapper, Stderr, Stdin, Stdout,
+};
 pub use async_process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
+use futures_io::{AsyncRead, AsyncWrite};
+
+macro_rules! impl_async_write {
+  ($outer:ident($($inner:ty),+$(,)?)) => {
+    $(
+      impl AsyncWrite for $outer<$inner> {
+        fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+          Pin::new(&mut self.0).poll_write(cx, buf)
+        }
+
+        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+          Pin::new(&mut self.0).poll_flush(cx)
+        }
+
+        fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+          Pin::new(&mut self.0).poll_close(cx)
+        }
+      }
+    )+
+  };
+}
+
+macro_rules! impl_async_read {
+  ($outer:ident($($inner:ty),+$(,)?)) => {
+    $(
+      impl AsyncRead for $outer<$inner> {
+        fn poll_read(
+          mut self: Pin<&mut Self>,
+          cx: &mut Context<'_>,
+          buf: &mut [u8],
+        ) -> Poll<io::Result<usize>> {
+          Pin::new(&mut self.0).poll_read(cx, buf)
+        }
+      }
+    )*
+  };
+}
+
+converter!(ChildStdinWrapper(ChildStdin));
+impl_async_write!(ChildStdinWrapper(ChildStdin, &mut ChildStdin));
+converter!(ChildStdoutWrapper(ChildStdout));
+impl_async_read!(ChildStdoutWrapper(ChildStdout, &mut ChildStdout));
+converter!(ChildStderrWrapper(ChildStderr));
+impl_async_read!(ChildStderrWrapper(ChildStderr, &mut ChildStderr));
+
+/// Process abstraction for [`async-process`](::async_process)
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AsyncProcess;
+
+impl super::Process for AsyncProcess {
+  type Command = Command;
+  type Child = Child;
+  type Stdin = ChildStdin;
+  type Stdout = ChildStdout;
+  type Stderr = ChildStderr;
+}
 
 impl super::Child for Child {
   type Stdin = ChildStdin;
@@ -13,6 +75,72 @@ impl super::Child for Child {
   type Stdout = ChildStdout;
 
   type Stderr = ChildStderr;
+
+  fn stdin<'a>(&'a self) -> Option<ChildStdinWrapper<&'a Self::Stdin>>
+  where
+    ChildStdinWrapper<&'a Self::Stdin>: Stdin,
+  {
+    self.stdin.as_ref().map(ChildStdinWrapper)
+  }
+
+  fn stdout<'a>(&'a self) -> Option<ChildStdoutWrapper<&'a Self::Stdout>>
+  where
+    ChildStdoutWrapper<&'a Self::Stdout>: Stdout,
+  {
+    self.stdout.as_ref().map(ChildStdoutWrapper)
+  }
+
+  fn stderr<'a>(&'a self) -> Option<ChildStderrWrapper<&'a Self::Stderr>>
+  where
+    ChildStderrWrapper<&'a Self::Stderr>: Stderr,
+  {
+    self.stderr.as_ref().map(ChildStderrWrapper)
+  }
+
+  fn stdin_mut<'a>(&'a mut self) -> Option<ChildStdinWrapper<&'a mut Self::Stdin>>
+  where
+    ChildStdinWrapper<&'a mut Self::Stdin>: AsyncWrite + Stdin,
+  {
+    self.stdin.as_mut().map(ChildStdinWrapper)
+  }
+
+  fn stdout_mut<'a>(&'a mut self) -> Option<ChildStdoutWrapper<&'a mut Self::Stdout>>
+  where
+    ChildStdoutWrapper<&'a mut Self::Stdout>: AsyncRead + Stdout,
+  {
+    self.stdout.as_mut().map(ChildStdoutWrapper)
+  }
+
+  fn stderr_mut<'a>(&'a mut self) -> Option<ChildStderrWrapper<&'a mut Self::Stderr>>
+  where
+    ChildStderrWrapper<&'a mut Self::Stderr>: AsyncRead + Stderr,
+  {
+    self.stderr.as_mut().map(ChildStderrWrapper)
+  }
+
+  fn set_stdin(&mut self, stdin: Option<Self::Stdin>) {
+    self.stdin = stdin;
+  }
+
+  fn set_stdout(&mut self, stdout: Option<Self::Stdout>) {
+    self.stdout = stdout;
+  }
+
+  fn set_stderr(&mut self, stderr: Option<Self::Stderr>) {
+    self.stderr = stderr;
+  }
+
+  fn take_stdin(&mut self) -> Option<ChildStdinWrapper<Self::Stdin>> {
+    self.stdin.take().map(ChildStdinWrapper)
+  }
+
+  fn take_stdout(&mut self) -> Option<ChildStdoutWrapper<Self::Stdout>> {
+    self.stdout.take().map(ChildStdoutWrapper)
+  }
+
+  fn take_stderr(&mut self) -> Option<ChildStderrWrapper<Self::Stderr>> {
+    self.stderr.take().map(ChildStderrWrapper)
+  }
 
   fn id(&self) -> Option<u32> {
     Some(Child::id(self))

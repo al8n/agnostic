@@ -25,12 +25,14 @@ futures-util = { version = "0.3", default-features = false }
 futures-channel = "0.3"
 pin-project-lite = "0.2"
 agnostic-lite = { path = "./lite", version = "0.3" }
+agnostic-process = { path = "./process", version = "0.1" }
 
 # runtimes
 smol = { package = "feature-extension-for-smol", version = "^0.2.1", path = "smol", default-features = false }
 async-std = { package = "feature-extension-for-async-std", version = "^0.2.1", path = "async-std", default-features = false }
 wasm = { package = "feature-extension-for-wasm-bindgen-futures", version = "^0.2.1", path = "wasm" }
 tokio = { version = "1", default-features = false }
+tokio-util = { version = "0.7", default-features = false }
 
 [workspace.metadata.docs.rs]
 all-features = true

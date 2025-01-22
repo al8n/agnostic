@@ -11,15 +11,17 @@ keywords.workspace = true
 [features]
 default = []
 
-tokio = ["dep:tokio", "agnostic-lite/tokio"]
-smol = ["dep:smol", "agnostic-lite/smol", "async-process"]
-async-std = ["dep:async-std", "agnostic-lite/async-std", "async-process"]
+tokio = ["dep:tokio", "dep:tokio-util"]
+smol = ["dep:smol", "async-process"]
+async-std = ["dep:async-std", "async-process"]
 
 
 [dependencies]
-agnostic-lite = { workspace = true, default-features = false }
+futures-io = { version = "0.3", default-features = false }
+paste = "1"
 
 async-process = { version = "2", optional = true }
 tokio = { workspace = true, default-features = false, optional = true, features = ["process"] }
+tokio-util = { workspace = true, default-features = false, optional = true, features = ["compat"] }
 smol = { workspace = true, default-features = false, optional = true }
 async-std = { workspace = true, default-features = false, optional = true, features = ["unstable"] }

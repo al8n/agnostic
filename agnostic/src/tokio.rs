@@ -6,7 +6,18 @@ pub use agnostic_lite::tokio::*;
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
 pub mod net;
 
+/// Command abstractions for [`tokio`](::tokio) runtime
+#[cfg(feature = "process")]
+#[cfg_attr(docsrs, doc(cfg(feature = "process")))]
+pub mod process {
+  pub use ::tokio::process::*;
+  pub use agnostic_process::tokio::TokioProcess;
+}
+
 impl Runtime for TokioRuntime {
   #[cfg(feature = "net")]
-  type Net = self::net::TokioNet;
+  type Net = net::TokioNet;
+
+  #[cfg(feature = "process")]
+  type Process = process::TokioProcess;
 }
