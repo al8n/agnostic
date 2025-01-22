@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 // Modified based on https://github.com/smol-rs/async-process/tree/master/tests
 
 use std::{
@@ -31,6 +33,7 @@ macro_rules! test_suites {
       }
 
       #[test]
+      #[cfg(unix)]
       fn signal_reported_right() {
         run(super::signal_reported_right::<[<$runtime:camel Process>]>());
       }
@@ -91,6 +94,7 @@ macro_rules! test_suites {
       }
 
       #[test]
+      #[cfg(unix)]
       fn child_status_preserved_with_kill_on_drop() {
         run(super::child_status_preserved_with_kill_on_drop::<[<$runtime:camel Process>]>());
       }
@@ -547,14 +551,14 @@ async fn child_as_raw_handle<P: Process>() {
     .unwrap();
 
   let std_pid = p.id();
-  assert!(std_pid > 0);
+  assert!(std_pid.unwrap() > 0);
 
   let handle = p.raw_handle();
 
   // We verify that we have the correct handle by obtaining the PID
   // with the Windows API rather than via std:
-  let win_pid = unsafe { GetProcessId(handle as _) };
-  assert_eq!(win_pid, std_pid);
+  let win_pid = unsafe { GetProcessId(handle) };
+  assert_eq!(win_pid, std_pid.unwrap());
 }
 
 #[cfg(unix)]
