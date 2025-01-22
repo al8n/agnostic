@@ -74,7 +74,7 @@ jobs:
       
       - name: Count lines of code in subcrates
         run: |
-          for crate in agnostic lite; do
+          for crate in agnostic lite process net io; do
             cd $crate
             tokeit
             cd ..
