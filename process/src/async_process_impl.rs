@@ -12,7 +12,7 @@ use super::{
   ChildStdout as ChildStdoutWrapper, Stderr, Stdin, Stdout,
 };
 pub use async_process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
-use futures_io::{AsyncRead, AsyncWrite};
+use futures_util::io::{AsyncRead, AsyncWrite};
 
 macro_rules! impl_async_write {
   ($outer:ident($($inner:ty),+$(,)?)) => {
@@ -30,6 +30,34 @@ macro_rules! impl_async_write {
           Pin::new(&mut self.0).poll_close(cx)
         }
       }
+
+      #[cfg(feature = "tokio")]
+      impl ::tokio::io::AsyncWrite for $outer<$inner> {
+        fn poll_write(
+          self: Pin<&mut Self>,
+          cx: &mut Context<'_>,
+          buf: &[u8],
+        ) -> Poll<Result<usize, io::Error>> {
+          let mut compat = super::io::tokio_compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut());
+          let pinned = Pin::new(&mut compat);
+
+          ::tokio::io::AsyncWrite::poll_write(pinned, cx, buf)
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+          let mut compat = super::io::tokio_compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut());
+          let pinned = Pin::new(&mut compat);
+
+          ::tokio::io::AsyncWrite::poll_flush(pinned, cx)
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+          let mut compat = super::io::tokio_compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut());
+          let pinned = Pin::new(&mut compat);
+
+          ::tokio::io::AsyncWrite::poll_shutdown(pinned, cx)
+        }
+      }
     )+
   };
 }
@@ -44,6 +72,20 @@ macro_rules! impl_async_read {
           buf: &mut [u8],
         ) -> Poll<io::Result<usize>> {
           Pin::new(&mut self.0).poll_read(cx, buf)
+        }
+      }
+
+      #[cfg(feature = "tokio")]
+      impl ::tokio::io::AsyncRead for $outer<$inner> {
+        fn poll_read(
+          self: Pin<&mut Self>,
+          cx: &mut Context<'_>,
+          buf: &mut tokio::io::ReadBuf,
+        ) -> Poll<io::Result<()>> {
+          let mut compat = super::io::tokio_compat::FuturesAsyncReadCompatExt::compat(self.get_mut());
+          let pinned = Pin::new(&mut compat);
+
+          ::tokio::io::AsyncRead::poll_read(pinned, cx, buf)
         }
       }
     )*

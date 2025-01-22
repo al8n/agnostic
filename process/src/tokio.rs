@@ -33,23 +33,23 @@ macro_rules! impl_async_write {
         }
       }
 
-      impl futures_io::AsyncWrite for super::$outer<$inner> {
+      impl futures_util::io::AsyncWrite for super::$outer<$inner> {
         fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
-          let mut compat = tokio_util::compat::TokioAsyncWriteCompatExt::compat_write(self.get_mut());
+          let mut compat = super::io::tokio_compat::TokioAsyncWriteCompatExt::compat_write(self.get_mut());
           let pinned = Pin::new(&mut compat);
 
           AsyncWrite::poll_write(pinned, cx, buf)
         }
 
         fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-          let mut compat = tokio_util::compat::TokioAsyncWriteCompatExt::compat_write(self.get_mut());
+          let mut compat = super::io::tokio_compat::TokioAsyncWriteCompatExt::compat_write(self.get_mut());
           let pinned = Pin::new(&mut compat);
 
           AsyncWrite::poll_flush(pinned, cx)
         }
 
         fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-          let mut compat = tokio_util::compat::TokioAsyncWriteCompatExt::compat_write(self.get_mut());
+          let mut compat = super::io::tokio_compat::TokioAsyncWriteCompatExt::compat_write(self.get_mut());
           let pinned = Pin::new(&mut compat);
 
           AsyncWrite::poll_shutdown(pinned, cx)
@@ -73,16 +73,16 @@ macro_rules! impl_async_read {
         }
       }
 
-      impl futures_io::AsyncRead for $outer<$inner> {
+      impl futures_util::io::AsyncRead for $outer<$inner> {
         fn poll_read(
           self: Pin<&mut Self>,
           cx: &mut Context<'_>,
           buf: &mut [u8],
         ) -> Poll<io::Result<usize>> {
-          let mut compat = tokio_util::compat::TokioAsyncReadCompatExt::compat(self.get_mut());
+          let mut compat = super::io::tokio_compat::TokioAsyncReadCompatExt::compat(self.get_mut());
           let pinned = Pin::new(&mut compat);
 
-          futures_io::AsyncRead::poll_read(pinned, cx, buf)
+          futures_util::io::AsyncRead::poll_read(pinned, cx, buf)
         }
       }
     )*
@@ -140,21 +140,21 @@ impl super::Child for Child {
 
   fn stdin_mut<'a>(&'a mut self) -> Option<ChildStdin<&'a mut Self::Stdin>>
   where
-    ChildStdin<&'a mut Self::Stdin>: futures_io::AsyncWrite + Stdin,
+    ChildStdin<&'a mut Self::Stdin>: futures_util::io::AsyncWrite + Stdin,
   {
     self.stdin.as_mut().map(ChildStdin)
   }
 
   fn stdout_mut<'a>(&'a mut self) -> Option<ChildStdout<&'a mut Self::Stdout>>
   where
-    ChildStdout<&'a mut Self::Stdout>: futures_io::AsyncRead + Stdout,
+    ChildStdout<&'a mut Self::Stdout>: futures_util::io::AsyncRead + Stdout,
   {
     self.stdout.as_mut().map(ChildStdout)
   }
 
   fn stderr_mut<'a>(&'a mut self) -> Option<ChildStderr<&'a mut Self::Stderr>>
   where
-    ChildStderr<&'a mut Self::Stderr>: futures_io::AsyncRead + Stderr,
+    ChildStderr<&'a mut Self::Stderr>: futures_util::io::AsyncRead + Stderr,
   {
     self.stderr.as_mut().map(ChildStderr)
   }

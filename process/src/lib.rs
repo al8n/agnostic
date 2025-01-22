@@ -37,12 +37,12 @@ macro_rules! cfg_linux {
   };
 }
 
-pub use futures_io::{AsyncRead, AsyncWrite};
+/// Traits, helpers, and type definitions for asynchronous I/O functionality.
+pub use agnostic_io as io;
 
 use std::{
   ffi::OsStr,
   future::Future,
-  io,
   path::Path,
   process::{ExitStatus, Output, Stdio},
 };
@@ -109,6 +109,12 @@ macro_rules! child_std {
     }
 
     impl<T> $name<T> {
+      /// Creates a new instance of the wrapper.
+      #[inline]
+      pub const fn new(inner: T) -> Self {
+        Self(inner)
+      }
+
       /// Consumes the wrapper, returning the inner value.
       #[inline]
       pub fn into_inner(self) -> T {
@@ -117,13 +123,13 @@ macro_rules! child_std {
 
       /// Gets a reference to the inner value.
       #[inline]
-      pub fn as_inner(&self) -> &T {
+      pub const fn as_inner(&self) -> &T {
         &self.0
       }
 
       /// Gets a mutable reference to the inner value.
       #[inline]
-      pub fn as_inner_mut(&mut self) -> &mut T {
+      pub const fn as_inner_mut(&mut self) -> &mut T {
         &mut self.0
       }
     }
@@ -249,17 +255,17 @@ pub trait Child {
   /// Returns a mutable reference to the stdin handle if it was configured.
   fn stdin_mut<'a>(&'a mut self) -> Option<ChildStdin<&'a mut Self::Stdin>>
   where
-    ChildStdin<&'a mut Self::Stdin>: AsyncWrite + Stdin;
+    ChildStdin<&'a mut Self::Stdin>: io::AsyncWrite + Stdin;
 
   /// Returns a mutable reference to the stdout handle if it was configured.
   fn stdout_mut<'a>(&'a mut self) -> Option<ChildStdout<&'a mut Self::Stdout>>
   where
-    ChildStdout<&'a mut Self::Stdout>: AsyncRead + Stdout;
+    ChildStdout<&'a mut Self::Stdout>: io::AsyncRead + Stdout;
 
   /// Returns a mutable reference to the stderr handle if it was configured.
   fn stderr_mut<'a>(&'a mut self) -> Option<ChildStderr<&'a mut Self::Stderr>>
   where
-    ChildStderr<&'a mut Self::Stderr>: AsyncRead + Stderr;
+    ChildStderr<&'a mut Self::Stderr>: io::AsyncRead + Stderr;
 
   /// Sets the stdin handle.
   fn set_stdin(&mut self, stdin: Option<Self::Stdin>);
@@ -273,17 +279,17 @@ pub trait Child {
   /// Takes the stdin handle.
   fn take_stdin(&mut self) -> Option<ChildStdin<Self::Stdin>>
   where
-    ChildStdin<Self::Stdin>: AsyncWrite + Stdin;
+    ChildStdin<Self::Stdin>: io::AsyncWrite + Stdin;
 
   /// Takes the stdout handle.
   fn take_stdout(&mut self) -> Option<ChildStdout<Self::Stdout>>
   where
-    ChildStdout<Self::Stdout>: AsyncRead + Stdout;
+    ChildStdout<Self::Stdout>: io::AsyncRead + Stdout;
 
   /// Takes the stderr handle.
   fn take_stderr(&mut self) -> Option<ChildStderr<Self::Stderr>>
   where
-    ChildStderr<Self::Stderr>: AsyncRead + Stderr;
+    ChildStderr<Self::Stderr>: io::AsyncRead + Stderr;
 
   /// Returns the OS-assigned process identifier associated with this child.
   fn id(&self) -> Option<u32>;

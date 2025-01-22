@@ -13,17 +13,16 @@ description = "An async runtime agnostic version `std::process`."
 [features]
 default = []
 
-tokio = ["dep:tokio", "dep:tokio-util"]
+tokio = ["dep:tokio", "agnostic-io/tokio"]
 smol = ["dep:smol", "async-process"]
 async-std = ["dep:async-std", "async-process"]
 
-
 [dependencies]
-futures-io = { version = "0.3", default-features = false }
+agnostic-io = { workspace = true, default-features = false }
+futures-util.workspace = true
 paste = "1"
 
 async-process = { version = "2", optional = true }
 tokio = { workspace = true, default-features = false, optional = true, features = ["process"] }
-tokio-util = { workspace = true, default-features = false, optional = true, features = ["compat"] }
 smol = { workspace = true, default-features = false, optional = true }
 async-std = { workspace = true, default-features = false, optional = true, features = ["unstable"] }

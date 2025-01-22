@@ -277,9 +277,9 @@ impl TcpStreamOwnedReadHalf for TokioTcpStreamOwnedReadHalf {
     self.stream.peer_addr()
   }
 
-  // async fn peek(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-  //   self.stream.peek(buf).await
-  // }
+  async fn peek(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    self.stream.peek(buf).await
+  }
 }
 
 impl TcpStreamOwnedWriteHalf for TokioTcpStreamOwnedWriteHalf {
@@ -475,10 +475,10 @@ impl super::UdpSocket for TokioUdpSocket {
     if let Some(addr) = addrs.next() {
       self.socket.send_to(buf, addr).await
     } else {
-      return Err(io::Error::new(
+      Err(io::Error::new(
         io::ErrorKind::InvalidInput,
         "invalid socket address",
-      ));
+      ))
     }
   }
 
@@ -550,43 +550,42 @@ impl super::UdpSocket for TokioUdpSocket {
     #[cfg(not(any(unix, windows)))]
     {
       panic!("unsupported platform");
+      let _ = size;
+      Ok(())
     }
 
     #[cfg(all(unix, feature = "socket2"))]
     {
       use std::os::fd::AsRawFd;
-      return super::set_read_buffer(self.socket.as_raw_fd(), size);
+      super::set_read_buffer(self.socket.as_raw_fd(), size)
     }
 
     #[cfg(all(windows, feature = "socket2"))]
     {
       use std::os::windows::io::AsRawSocket;
-      return super::set_read_buffer(self.socket.as_raw_socket(), size);
+      super::set_read_buffer(self.socket.as_raw_socket(), size)
     }
-
-    let _ = size;
-    Ok(())
   }
 
   fn set_write_buffer(&self, size: usize) -> io::Result<()> {
     #[cfg(not(any(unix, windows)))]
     {
       panic!("unsupported platform");
+      let _ = size;
+      Ok(())
     }
 
     #[cfg(unix)]
     {
       use std::os::fd::AsRawFd;
-      return super::set_write_buffer(self.socket.as_raw_fd(), size);
+      super::set_write_buffer(self.socket.as_raw_fd(), size)
     }
 
     #[cfg(windows)]
     {
       use std::os::windows::io::AsRawSocket;
-      return super::set_write_buffer(self.socket.as_raw_socket(), size);
+      super::set_write_buffer(self.socket.as_raw_socket(), size)
     }
-    let _ = size;
-    Ok(())
   }
 
   fn poll_recv_from(

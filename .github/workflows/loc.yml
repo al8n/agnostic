@@ -31,6 +31,12 @@ jobs:
             path: agnostic
           - name: agnostic-lite
             path: lite
+          - name: agnostic-process
+            path: process
+          - name: agnostic-net
+            path: net
+          - name: agnostic-io
+            path: io
     steps:
       - uses: actions/checkout@v4
 

@@ -4,8 +4,6 @@ cfg_time!(
   mod after;
   pub use after::*;
   use crate::async_io::*;
-
-
   use std::time::{Duration, Instant};
 );
 

@@ -2,11 +2,13 @@ use std::{future::Future, io, net::SocketAddr};
 
 use agnostic_lite::RuntimeLite;
 
-use super::{IORead, IOWrite, IO, ToSocketAddrs};
-
+use super::{
+  io::{AsyncRead, AsyncReadWrite, AsyncWrite},
+  ToSocketAddrs,
+};
 
 /// The abstraction of a owned read half of a TcpStream.
-pub trait TcpStreamOwnedReadHalf: IORead + Unpin + Send + Sync + 'static {
+pub trait TcpStreamOwnedReadHalf: AsyncRead + Unpin + Send + Sync + 'static {
   /// The async runtime.
   type Runtime: RuntimeLite;
 
@@ -16,18 +18,18 @@ pub trait TcpStreamOwnedReadHalf: IORead + Unpin + Send + Sync + 'static {
   /// Returns the remote address that this stream is connected to.
   fn peer_addr(&self) -> io::Result<SocketAddr>;
 
-  // /// Receives data on the socket from the remote address to which it is connected, without
-  // /// removing that data from the queue.
-  // ///
-  // /// On success, returns the number of bytes peeked.
-  // ///
-  // /// Successive calls return the same data. This is accomplished by passing `MSG_PEEK` as a flag
-  // /// to the underlying `recv` system call.
-  // fn peek(&mut self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
+  /// Receives data on the socket from the remote address to which it is connected, without
+  /// removing that data from the queue.
+  ///
+  /// On success, returns the number of bytes peeked.
+  ///
+  /// Successive calls return the same data. This is accomplished by passing `MSG_PEEK` as a flag
+  /// to the underlying `recv` system call.
+  fn peek(&mut self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
 }
 
 /// The abstraction of a owned write half of a TcpStream.
-pub trait TcpStreamOwnedWriteHalf: IOWrite + Unpin + Send + Sync + 'static {
+pub trait TcpStreamOwnedWriteHalf: AsyncWrite + Unpin + Send + Sync + 'static {
   /// The async runtime.
   type Runtime: RuntimeLite;
 
@@ -43,7 +45,7 @@ pub trait TcpStreamOwnedWriteHalf: IOWrite + Unpin + Send + Sync + 'static {
 
 /// The abstraction of a TCP stream.
 pub trait TcpStream:
-  TryFrom<std::net::TcpStream, Error = io::Error> + IO + Unpin + Send + Sync + 'static
+  TryFrom<std::net::TcpStream, Error = io::Error> + AsyncReadWrite + Unpin + Send + Sync + 'static
 {
   /// The async runtime.
   type Runtime: RuntimeLite;

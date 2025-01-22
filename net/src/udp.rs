@@ -1,4 +1,9 @@
-use std::{future::Future, io, net::{Ipv4Addr, Ipv6Addr, SocketAddr}, task::{Context, Poll}};
+use std::{
+  future::Future,
+  io,
+  net::{Ipv4Addr, Ipv6Addr, SocketAddr},
+  task::{Context, Poll},
+};
 
 use agnostic_lite::RuntimeLite;
 

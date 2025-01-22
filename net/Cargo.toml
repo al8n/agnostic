@@ -95,6 +95,7 @@ tokio-compat = ["tokio-util/compat", "dep:tokio", "net"]
 tokio = [
   "dep:tokio",
   "agnostic-lite/tokio",
+  "agnostic-io/tokio",
   "quinn?/runtime-tokio",
   "pin-project-lite",
   "tokio-stream",
@@ -130,6 +131,7 @@ hickory-resolver = { version = "0.24", default-features = false, optional = true
 
 [dependencies]
 agnostic-lite = { workspace = true, features = ["time"] }
+agnostic-io.workspace = true
 async-trait = "0.1"
 futures-util.workspace = true
 

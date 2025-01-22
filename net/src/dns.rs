@@ -81,7 +81,9 @@ impl<N: Net> Time for Timer<N> {
     duration: Duration,
     future: F,
   ) -> Result<F::Output, std::io::Error> {
-    <N::Runtime as RuntimeLite>::timeout(duration, future).await.map_err(Into::into)
+    <N::Runtime as RuntimeLite>::timeout(duration, future)
+      .await
+      .map_err(Into::into)
   }
 }
 
@@ -102,7 +104,9 @@ where
     duration: Duration,
     future: F,
   ) -> Result<F::Output, std::io::Error> {
-    <N::Runtime as RuntimeLite>::timeout(duration, future).await.map_err(Into::into)
+    <N::Runtime as RuntimeLite>::timeout(duration, future)
+      .await
+      .map_err(Into::into)
   }
 }
 
@@ -160,9 +164,7 @@ pub struct AsyncDnsUdp<N: Net>(N::UdpSocket);
 
 impl<N: Net> AsyncDnsUdp<N> {
   async fn bind(addr: SocketAddr) -> std::io::Result<Self> {
-    <N::UdpSocket as UdpSocket>::bind(addr)
-      .await
-      .map(Self)
+    <N::UdpSocket as UdpSocket>::bind(addr).await.map(Self)
   }
 }
 

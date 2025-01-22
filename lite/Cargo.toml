@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-lite"
-version = "0.3.18"
+version = "0.4.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -61,11 +61,11 @@ wasm = { workspace = true, optional = true }
 
 [dependencies]
 atomic-time = { version = "0.1", optional = true }
-futures-util.workspace = true
+futures-util = { workspace = true, default-features = false }
 pin-project-lite.workspace = true
 pin-project = "1"
 
-tokio = { version = "1", optional = true, default-features = false, features = [
+tokio = { workspace = true, optional = true, default-features = false, features = [
   "rt",
 ] }
 

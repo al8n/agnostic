@@ -1,10 +1,10 @@
-use std::{
-  io,
-  net::SocketAddr,
-};
+use std::net::SocketAddr;
 
 use agnostic_lite::{cfg_async_std, cfg_smol, cfg_tokio, RuntimeLite};
 use futures_util::Future;
+
+/// Traits, helpers, and type definitions for asynchronous I/O functionality.
+pub use agnostic_io as io;
 
 mod to_socket_addrs;
 
@@ -54,62 +54,6 @@ pub trait ToSocketAddrs<R: RuntimeLite>: Send + Sync {
   fn to_socket_addrs(&self) -> Self::Future;
 }
 
-#[doc(hidden)]
-#[cfg(not(feature = "tokio-compat"))]
-pub trait IO: futures_util::io::AsyncRead + futures_util::io::AsyncWrite {}
-
-#[cfg(not(feature = "tokio-compat"))]
-impl<T: futures_util::io::AsyncRead + futures_util::io::AsyncWrite> IO for T {}
-
-#[doc(hidden)]
-#[cfg(feature = "tokio-compat")]
-pub trait IO:
-  ::tokio::io::AsyncRead
-  + ::tokio::io::AsyncWrite
-  + futures_util::io::AsyncRead
-  + futures_util::io::AsyncWrite
-{
-}
-
-#[cfg(feature = "tokio-compat")]
-impl<
-    T: ::tokio::io::AsyncRead
-      + ::tokio::io::AsyncWrite
-      + futures_util::io::AsyncRead
-      + futures_util::io::AsyncWrite,
-  > IO for T
-{
-}
-
-#[doc(hidden)]
-#[cfg(not(feature = "tokio-compat"))]
-pub trait IORead: futures_util::io::AsyncRead {}
-
-#[cfg(not(feature = "tokio-compat"))]
-impl<T: futures_util::io::AsyncRead> IORead for T {}
-
-#[doc(hidden)]
-#[cfg(feature = "tokio-compat")]
-pub trait IORead: ::tokio::io::AsyncRead + futures_util::io::AsyncRead {}
-
-#[cfg(feature = "tokio-compat")]
-impl<T: ::tokio::io::AsyncRead + futures_util::io::AsyncRead> IORead for T {}
-
-#[doc(hidden)]
-#[cfg(not(feature = "tokio-compat"))]
-pub trait IOWrite: futures_util::io::AsyncWrite {}
-
-#[cfg(not(feature = "tokio-compat"))]
-impl<T: futures_util::io::AsyncWrite> IOWrite for T {}
-
-#[doc(hidden)]
-#[cfg(feature = "tokio-compat")]
-pub trait IOWrite: ::tokio::io::AsyncWrite + futures_util::io::AsyncWrite {}
-
-#[cfg(feature = "tokio-compat")]
-impl<T: ::tokio::io::AsyncWrite + futures_util::io::AsyncWrite> IOWrite for T {}
-
-
 /// An abstraction layer for the async runtime's network.
 pub trait Net: Unpin + Send + Sync + 'static {
   /// The runtime type
@@ -134,29 +78,11 @@ pub trait Net: Unpin + Send + Sync + 'static {
   any(feature = "tokio", feature = "smol", feature = "async-std")
 ))]
 #[inline]
-pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Result<()> {
+pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, size: usize) -> io::Result<()> {
   use socket2::Socket;
   use std::os::fd::FromRawFd;
 
-  // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
-  let socket = unsafe { Socket::from_raw_fd(fd) };
-  let mut err = None;
-
-  while size > 0 {
-    match socket.set_recv_buffer_size(size) {
-      Ok(()) => return Ok(()),
-      Err(e) => {
-        err = Some(e);
-        size /= 2;
-      }
-    }
-  }
-  // This is required to prevent double-closing the file descriptor.
-  drop(socket);
-  match err {
-    Some(err) => Err(err),
-    None => Ok(()),
-  }
+  unsafe { Socket::from_raw_fd(fd) }.set_recv_buffer_size(size)
 }
 
 #[cfg(all(
@@ -165,29 +91,10 @@ pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Re
   any(feature = "tokio", feature = "smol", feature = "async-std")
 ))]
 #[inline]
-pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::Result<()> {
+pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, size: usize) -> io::Result<()> {
   use socket2::Socket;
   use std::os::fd::FromRawFd;
-
-  // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
-  let socket = unsafe { Socket::from_raw_fd(fd) };
-  let mut err = None;
-  while size > 0 {
-    match socket.set_send_buffer_size(size) {
-      Ok(()) => return Ok(()),
-      Err(e) => {
-        err = Some(e);
-        size /= 2;
-      }
-    }
-  }
-
-  // This is required to prevent double-closing the file descriptor.
-  drop(socket);
-  match err {
-    Some(err) => Err(err),
-    None => Ok(()),
-  }
+  unsafe { Socket::from_raw_fd(fd).set_send_buffer_size(size) }
 }
 
 #[cfg(all(
@@ -196,33 +103,11 @@ pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, mut size: usize) -> io::R
   any(feature = "tokio", feature = "smol", feature = "async-std")
 ))]
 #[inline]
-pub(crate) fn set_read_buffer(
-  fd: std::os::windows::io::RawSocket,
-  mut size: usize,
-) -> io::Result<()> {
+pub(crate) fn set_read_buffer(fd: std::os::windows::io::RawSocket, size: usize) -> io::Result<()> {
   use socket2::Socket;
   use std::os::windows::io::FromRawSocket;
 
-  // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
-  let socket = unsafe { Socket::from_raw_socket(fd) };
-  let mut err = None;
-
-  while size > 0 {
-    match socket.set_recv_buffer_size(size) {
-      Ok(()) => return Ok(()),
-      Err(e) => {
-        err = Some(e);
-        size /= 2;
-      }
-    }
-  }
-
-  // This is required to prevent double-closing the file descriptor.
-  drop(socket);
-  match err {
-    Some(err) => Err(err),
-    None => Ok(()),
-  }
+  unsafe { Socket::from_raw_socket(fd) }.set_recv_buffer_size(size)
 }
 
 #[cfg(all(
@@ -231,31 +116,9 @@ pub(crate) fn set_read_buffer(
   any(feature = "tokio", feature = "smol", feature = "async-std")
 ))]
 #[inline]
-pub(crate) fn set_write_buffer(
-  fd: std::os::windows::io::RawSocket,
-  mut size: usize,
-) -> io::Result<()> {
+pub(crate) fn set_write_buffer(fd: std::os::windows::io::RawSocket, size: usize) -> io::Result<()> {
   use socket2::Socket;
   use std::os::windows::io::FromRawSocket;
 
-  // Safety: the fd we created from the socket is just created, so it is a valid and open file descriptor
-  let socket = unsafe { Socket::from_raw_socket(fd) };
-  let mut err = None;
-
-  while size > 0 {
-    match socket.set_send_buffer_size(size) {
-      Ok(()) => return Ok(()),
-      Err(e) => {
-        err = Some(e);
-        size /= 2;
-      }
-    }
-  }
-
-  // This is required to prevent double-closing the file descriptor.
-  drop(socket);
-  match err {
-    Some(err) => Err(err),
-    None => Ok(()),
-  }
+  unsafe { Socket::from_raw_socket(fd) }.set_send_buffer_size(size)
 }

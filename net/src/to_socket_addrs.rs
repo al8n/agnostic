@@ -5,9 +5,9 @@ use std::{
   vec,
 };
 
-use agnostic_lite::{AsyncBlockingSpawner, cfg_smol, cfg_tokio, cfg_async_std};
+use agnostic_lite::{cfg_async_std, cfg_smol, cfg_tokio, AsyncBlockingSpawner};
 
-use super::{ToSocketAddrs, RuntimeLite};
+use super::{RuntimeLite, ToSocketAddrs};
 
 #[doc(hidden)]
 pub enum ToSocketAddrsFuture<H> {
@@ -318,4 +318,3 @@ mod sealed {
     }
   }
 }
-

@@ -1,0 +1,19 @@
+[package]
+name = "agnostic-io"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+
+[features]
+default = []
+tokio = ["dep:tokio", "dep:tokio-util"]
+
+[dependencies]
+futures-util.workspace = true
+
+tokio = { workspace = true, default-features = false, optional = true }
+tokio-util = { workspace = true, default-features = false, optional = true, features = ["compat"] }
