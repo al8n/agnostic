@@ -13,7 +13,8 @@ description = "An async runtime agnostic version `std::process`."
 [features]
 default = []
 
-tokio = ["dep:tokio", "agnostic-io/tokio"]
+tokio = ["dep:tokio", "tokio-io"]
+tokio-io = ["agnostic-io/tokio"]
 smol = ["dep:smol", "async-process"]
 async-std = ["dep:async-std", "async-process"]
 

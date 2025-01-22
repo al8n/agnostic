@@ -31,7 +31,7 @@ macro_rules! impl_async_write {
         }
       }
 
-      #[cfg(feature = "tokio")]
+      #[cfg(feature = "tokio-io")]
       impl ::tokio::io::AsyncWrite for $outer<$inner> {
         fn poll_write(
           self: Pin<&mut Self>,
@@ -75,7 +75,7 @@ macro_rules! impl_async_read {
         }
       }
 
-      #[cfg(feature = "tokio")]
+      #[cfg(feature = "tokio-io")]
       impl ::tokio::io::AsyncRead for $outer<$inner> {
         fn poll_read(
           self: Pin<&mut Self>,

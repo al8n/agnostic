@@ -6,7 +6,7 @@ use std::{
 };
 
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
-use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
+use super::io::tokio_compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
 use super::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs};
 
@@ -172,7 +172,7 @@ impl tokio::io::AsyncRead for TokioTcpStream {
     cx: &mut Context<'_>,
     buf: &mut tokio::io::ReadBuf<'_>,
   ) -> Poll<io::Result<()>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncReadCompatExt::compat(
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncReadCompatExt::compat(
       self.get_mut(),
     ))
     .poll_read(cx, buf)
@@ -181,7 +181,7 @@ impl tokio::io::AsyncRead for TokioTcpStream {
 
 impl tokio::io::AsyncWrite for TokioTcpStream {
   fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
       .poll_write(cx, buf)
   }
 
@@ -215,7 +215,7 @@ impl tokio::io::AsyncRead for TokioTcpStreamOwnedReadHalf {
     cx: &mut Context<'_>,
     buf: &mut tokio::io::ReadBuf<'_>,
   ) -> Poll<io::Result<()>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncReadCompatExt::compat(
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncReadCompatExt::compat(
       self.get_mut(),
     ))
     .poll_read(cx, buf)
@@ -253,7 +253,7 @@ impl futures_util::io::AsyncWrite for TokioTcpStreamOwnedWriteHalf {
 
 impl ::tokio::io::AsyncWrite for TokioTcpStreamOwnedWriteHalf {
   fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
       .poll_write(cx, buf)
   }
 

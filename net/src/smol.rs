@@ -169,38 +169,38 @@ impl futures_util::AsyncWrite for SmolTcpStream {
   }
 }
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-io")]
 impl tokio::io::AsyncRead for SmolTcpStream {
   fn poll_read(
     self: Pin<&mut Self>,
     cx: &mut Context<'_>,
     buf: &mut tokio::io::ReadBuf<'_>,
   ) -> Poll<io::Result<()>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncReadCompatExt::compat(
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncReadCompatExt::compat(
       self.get_mut(),
     ))
     .poll_read(cx, buf)
   }
 }
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-io")]
 impl tokio::io::AsyncWrite for SmolTcpStream {
   fn poll_write(
     self: Pin<&mut Self>,
     cx: &mut Context<'_>,
     buf: &[u8],
   ) -> Poll<Result<usize, io::Error>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
       .poll_write(cx, buf)
   }
 
   fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
       .poll_flush(cx)
   }
 
   fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
       .poll_shutdown(cx)
   }
 }
@@ -281,38 +281,38 @@ impl futures_util::AsyncWrite for SmolTcpStreamOwnedWriteHalf {
   }
 }
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-io")]
 impl tokio::io::AsyncRead for SmolTcpStreamOwnedReadHalf {
   fn poll_read(
     self: Pin<&mut Self>,
     cx: &mut Context<'_>,
     buf: &mut tokio::io::ReadBuf<'_>,
   ) -> Poll<io::Result<()>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncReadCompatExt::compat(
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncReadCompatExt::compat(
       self.get_mut(),
     ))
     .poll_read(cx, buf)
   }
 }
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-io")]
 impl tokio::io::AsyncWrite for SmolTcpStreamOwnedWriteHalf {
   fn poll_write(
     self: Pin<&mut Self>,
     cx: &mut Context<'_>,
     buf: &[u8],
   ) -> Poll<Result<usize, io::Error>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
       .poll_write(cx, buf)
   }
 
   fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
       .poll_flush(cx)
   }
 
   fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-    Pin::new(&mut tokio_util::compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
+    Pin::new(&mut super::io::tokio_compat::FuturesAsyncWriteCompatExt::compat_write(self.get_mut()))
       .poll_shutdown(cx)
   }
 }

@@ -23,7 +23,7 @@
 
 ## Introduction
 
-`agnostic-io` is an async runtime agnostic version `std::process`.
+`agnostic-io` defines I/O traits for async runtime agnostic I/O.
 
 Builtin supports runtimes:
 
