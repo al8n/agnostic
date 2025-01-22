@@ -1,15 +1,13 @@
-#[cfg(feature = "time")]
 use core::future::Future;
 
-#[cfg(feature = "time")]
-use crate::async_io::*;
-#[cfg(feature = "time")]
-mod after;
-#[cfg(feature = "time")]
-pub use after::*;
+cfg_time!(
+  mod after;
+  pub use after::*;
 
-#[cfg(feature = "time")]
-use std::time::{Duration, Instant};
+  use crate::async_io::*;
+
+  use std::time::{Duration, Instant};
+);
 
 use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, Yielder};
 
@@ -38,7 +36,7 @@ impl AsyncSpawner for AsyncStdSpawner {
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
-    F: core::future::Future + Send + 'static,
+    F: Future + Send + 'static,
   {
     ::async_std::task::spawn(future)
   }
@@ -53,7 +51,7 @@ impl AsyncLocalSpawner for AsyncStdSpawner {
   fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: 'static,
-    F: core::future::Future + 'static,
+    F: Future + 'static,
   {
     ::async_std::task::spawn_local(future)
   }
@@ -89,39 +87,31 @@ impl super::RuntimeLite for AsyncStdRuntime {
   type LocalSpawner = AsyncStdSpawner;
   type BlockingSpawner = AsyncStdSpawner;
 
-  #[cfg(feature = "time")]
-  type AfterSpawner = AsyncStdSpawner;
-  #[cfg(feature = "time")]
-  type LocalAfterSpawner = AsyncStdSpawner;
+  cfg_time!(
+    type AfterSpawner = AsyncStdSpawner;
+    type LocalAfterSpawner = AsyncStdSpawner;
 
-  #[cfg(feature = "time")]
-  type Interval = AsyncIoInterval;
-  #[cfg(feature = "time")]
-  type LocalInterval = AsyncIoInterval;
-  #[cfg(feature = "time")]
-  type Sleep = AsyncIoSleep;
-  #[cfg(feature = "time")]
-  type LocalSleep = AsyncIoSleep;
-  #[cfg(feature = "time")]
-  type Delay<F>
-    = AsyncIoDelay<F>
-  where
-    F: Future + Send;
-  #[cfg(feature = "time")]
-  type LocalDelay<F>
-    = AsyncIoDelay<F>
-  where
-    F: Future;
-  #[cfg(feature = "time")]
-  type Timeout<F>
-    = AsyncIoTimeout<F>
-  where
-    F: Future + Send;
-  #[cfg(feature = "time")]
-  type LocalTimeout<F>
-    = AsyncIoTimeout<F>
-  where
-    F: Future;
+    type Interval = AsyncIoInterval;
+    type LocalInterval = AsyncIoInterval;
+    type Sleep = AsyncIoSleep;
+    type LocalSleep = AsyncIoSleep;
+    type Delay<F>
+      = AsyncIoDelay<F>
+    where
+      F: Future + Send;
+    type LocalDelay<F>
+      = AsyncIoDelay<F>
+    where
+      F: Future;
+    type Timeout<F>
+      = AsyncIoTimeout<F>
+    where
+      F: Future + Send;
+    type LocalTimeout<F>
+      = AsyncIoTimeout<F>
+    where
+      F: Future;
+  );
 
   fn new() -> Self {
     Self
@@ -131,95 +121,121 @@ impl super::RuntimeLite for AsyncStdRuntime {
     ::async_std::task::block_on(f)
   }
 
-  #[cfg(feature = "time")]
-  fn interval(interval: Duration) -> Self::Interval {
-    AsyncIoInterval::interval(interval)
-  }
-
-  #[cfg(feature = "time")]
-  fn interval_at(start: Instant, period: Duration) -> Self::Interval {
-    AsyncIoInterval::interval_at(start, period)
-  }
-
-  #[cfg(feature = "time")]
-  fn interval_local(interval: Duration) -> Self::LocalInterval {
-    AsyncIoInterval::interval(interval)
-  }
-
-  #[cfg(feature = "time")]
-  fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval {
-    AsyncIoInterval::interval_at(start, period)
-  }
-
-  #[cfg(feature = "time")]
-  fn sleep(duration: Duration) -> Self::Sleep {
-    use crate::time::AsyncSleepExt;
-
-    AsyncIoSleep::sleep(duration)
-  }
-
-  #[cfg(feature = "time")]
-  fn sleep_until(instant: Instant) -> Self::Sleep {
-    use crate::time::AsyncSleepExt;
-
-    AsyncIoSleep::sleep_until(instant)
-  }
-
-  #[cfg(feature = "time")]
-  fn sleep_local(duration: Duration) -> Self::LocalSleep {
-    use crate::time::AsyncSleepExt;
-
-    AsyncIoSleep::sleep(duration)
-  }
-
-  #[cfg(feature = "time")]
-  fn sleep_local_until(instant: Instant) -> Self::LocalSleep {
-    use crate::time::AsyncSleepExt;
-
-    AsyncIoSleep::sleep_until(instant)
-  }
-
   async fn yield_now() {
     ::async_std::task::yield_now().await
   }
 
-  #[cfg(feature = "time")]
-  fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
-  where
-    F: Future + Send,
-  {
-    use crate::time::AsyncDelayExt;
+  cfg_time!(
+    fn interval(interval: Duration) -> Self::Interval {
+      AsyncIoInterval::interval(interval)
+    }
 
-    <AsyncIoDelay<F> as AsyncDelayExt<F>>::delay(duration, fut)
-  }
+    fn interval_at(start: Instant, period: Duration) -> Self::Interval {
+      AsyncIoInterval::interval_at(start, period)
+    }
 
-  #[cfg(feature = "time")]
-  fn delay_local<F>(duration: Duration, fut: F) -> Self::LocalDelay<F>
-  where
-    F: Future,
-  {
-    use crate::time::AsyncLocalDelayExt;
+    fn interval_local(interval: Duration) -> Self::LocalInterval {
+      AsyncIoInterval::interval(interval)
+    }
 
-    <AsyncIoDelay<F> as AsyncLocalDelayExt<F>>::delay(duration, fut)
-  }
+    fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval {
+      AsyncIoInterval::interval_at(start, period)
+    }
 
-  #[cfg(feature = "time")]
-  fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
-  where
-    F: Future + Send,
-  {
-    use crate::time::AsyncDelayExt;
+    fn sleep(duration: Duration) -> Self::Sleep {
+      use crate::time::AsyncSleepExt;
 
-    <AsyncIoDelay<F> as AsyncDelayExt<F>>::delay_at(deadline, fut)
-  }
+      AsyncIoSleep::sleep(duration)
+    }
 
-  #[cfg(feature = "time")]
-  fn delay_local_at<F>(deadline: Instant, fut: F) -> Self::LocalDelay<F>
-  where
-    F: Future,
-  {
-    use crate::time::AsyncLocalDelayExt;
+    fn sleep_until(instant: Instant) -> Self::Sleep {
+      use crate::time::AsyncSleepExt;
 
-    <AsyncIoDelay<F> as AsyncLocalDelayExt<F>>::delay_at(deadline, fut)
-  }
+      AsyncIoSleep::sleep_until(instant)
+    }
+
+    fn sleep_local(duration: Duration) -> Self::LocalSleep {
+      use crate::time::AsyncSleepExt;
+
+      AsyncIoSleep::sleep(duration)
+    }
+
+    fn sleep_local_until(instant: Instant) -> Self::LocalSleep {
+      use crate::time::AsyncSleepExt;
+
+      AsyncIoSleep::sleep_until(instant)
+    }
+
+    fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncDelayExt;
+
+      <AsyncIoDelay<F> as AsyncDelayExt<F>>::delay(duration, fut)
+    }
+
+    fn delay_local<F>(duration: Duration, fut: F) -> Self::LocalDelay<F>
+    where
+      F: Future,
+    {
+      use crate::time::AsyncLocalDelayExt;
+
+      <AsyncIoDelay<F> as AsyncLocalDelayExt<F>>::delay(duration, fut)
+    }
+
+    fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncDelayExt;
+
+      <AsyncIoDelay<F> as AsyncDelayExt<F>>::delay_at(deadline, fut)
+    }
+
+    fn delay_local_at<F>(deadline: Instant, fut: F) -> Self::LocalDelay<F>
+    where
+      F: Future,
+    {
+      use crate::time::AsyncLocalDelayExt;
+
+      <AsyncIoDelay<F> as AsyncLocalDelayExt<F>>::delay_at(deadline, fut)
+    }
+
+    fn timeout<F>(duration: Duration, future: F) -> Self::Timeout<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncTimeout;
+
+      <AsyncIoTimeout<F> as AsyncTimeout<F>>::timeout(duration, future)
+    }
+
+    fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncTimeout;
+
+      <AsyncIoTimeout<F> as AsyncTimeout<F>>::timeout_at(deadline, future)
+    }
+
+    fn timeout_local<F>(duration: Duration, future: F) -> Self::LocalTimeout<F>
+    where
+      F: Future,
+    {
+      use crate::time::AsyncLocalTimeout;
+
+      <AsyncIoTimeout<F> as AsyncLocalTimeout<F>>::timeout_local(duration, future)
+    }
+
+    fn timeout_local_at<F>(deadline: Instant, future: F) -> Self::LocalTimeout<F>
+    where
+      F: Future,
+    {
+      use crate::time::AsyncLocalTimeout;
+
+      <AsyncIoTimeout<F> as AsyncLocalTimeout<F>>::timeout_local_at(deadline, future)
+    }
+  );
 }

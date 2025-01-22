@@ -8,15 +8,71 @@
 #[cfg(any(feature = "std", test))]
 extern crate std;
 
+macro_rules! cfg_time_with_docsrs {
+  ($($item:item)*) => {
+    $(
+      #[cfg(feature = "time")]
+      #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
+      $item
+    )*
+  };
+}
+
+macro_rules! cfg_time {
+  ($($item:item)*) => {
+    $(
+      #[cfg(feature = "time")]
+      $item
+    )*
+  };
+}
+
 use core::future::Future;
 
-#[cfg(feature = "time")]
-use std::time::{Duration, Instant};
+cfg_time!(
+  use std::time::{Duration, Instant};
+);
 
-/// Time related traits
-#[cfg(feature = "time")]
-#[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-pub mod time;
+cfg_time_with_docsrs!(
+  /// Time related traits
+  pub mod time;
+);
+
+/// Macro to conditionally compile items for `async-std` feature
+#[macro_export]
+macro_rules! cfg_async_std {
+  ($($item:item)*) => {
+    $(
+      #[cfg(feature = "async-std")]
+      #[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
+      $item
+    )*
+  }
+}
+
+/// Macro to conditionally compile items for `tokio` feature
+#[macro_export]
+macro_rules! cfg_tokio {
+  ($($item:item)*) => {
+    $(
+      #[cfg(feature = "tokio")]
+      #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
+      $item
+    )*
+  }
+}
+
+/// Macro to conditionally compile items for `smol` feature
+#[macro_export]
+macro_rules! cfg_smol {
+  ($($item:item)*) => {
+    $(
+      #[cfg(feature = "smol")]
+      #[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
+      $item
+    )*
+  }
+}
 
 /// Concrete runtime implementations based on [`tokio`](::tokio) runtime.
 #[cfg(feature = "tokio")]
@@ -64,63 +120,45 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   /// The blocking spawner type for this runtime
   type BlockingSpawner: AsyncBlockingSpawner;
 
-  /// The after spawner type for this runtime
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  type AfterSpawner: AsyncAfterSpawner;
+  cfg_time_with_docsrs!(
+    /// The after spawner type for this runtime
+    type AfterSpawner: AsyncAfterSpawner;
 
-  /// The local after spawner type for this runtime
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  type LocalAfterSpawner: AsyncLocalAfterSpawner;
+    /// The local after spawner type for this runtime
+    type LocalAfterSpawner: AsyncLocalAfterSpawner;
 
-  /// The interval type for this runtime
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  type Interval: time::AsyncInterval;
+    /// The interval type for this runtime
+    type Interval: time::AsyncInterval;
 
-  /// The local interval type for this runtime
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  type LocalInterval: time::AsyncLocalInterval;
+    /// The local interval type for this runtime
+    type LocalInterval: time::AsyncLocalInterval;
 
-  /// The sleep type for this runtime
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  type Sleep: time::AsyncSleep;
+    /// The sleep type for this runtime
+    type Sleep: time::AsyncSleep;
 
-  /// The local sleep type for this runtime
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  type LocalSleep: time::AsyncLocalSleep;
+    /// The local sleep type for this runtime
+    type LocalSleep: time::AsyncLocalSleep;
 
-  /// The delay type for this runtime
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  type Delay<F>: time::AsyncDelay<F>
-  where
-    F: Future + Send;
+    /// The delay type for this runtime
+    type Delay<F>: time::AsyncDelay<F>
+    where
+      F: Future + Send;
 
-  /// The local delay type for this runtime
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  type LocalDelay<F>: time::AsyncLocalDelay<F>
-  where
-    F: Future;
+    /// The local delay type for this runtime
+    type LocalDelay<F>: time::AsyncLocalDelay<F>
+    where
+      F: Future;
 
-  /// The timeout type for this runtime
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  type Timeout<F>: time::AsyncTimeout<F>
-  where
-    F: Future + Send;
+    /// The timeout type for this runtime
+    type Timeout<F>: time::AsyncTimeout<F>
+    where
+      F: Future + Send;
 
-  /// The local timeout type for this runtime
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  type LocalTimeout<F>: time::AsyncLocalTimeout<F>
-  where
-    F: Future;
+    /// The local timeout type for this runtime
+    type LocalTimeout<F>: time::AsyncLocalTimeout<F>
+    where
+      F: Future;
+  );
 
   /// Create a new instance of the runtime
   fn new() -> Self;
@@ -179,213 +217,163 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     <Self::BlockingSpawner as AsyncBlockingSpawner>::spawn_blocking_detach(f);
   }
 
-  /// Spawn a future onto the runtime and run the given future after the given duration
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn spawn_after<F>(
-    duration: core::time::Duration,
-    future: F,
-  ) -> <Self::AfterSpawner as AsyncAfterSpawner>::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    <Self::AfterSpawner as AsyncAfterSpawner>::spawn_after(duration, future)
-  }
-
-  /// Spawn a future onto the runtime and run the given future after the given instant.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn spawn_after_at<F>(
-    at: std::time::Instant,
-    future: F,
-  ) -> <Self::AfterSpawner as AsyncAfterSpawner>::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    <Self::AfterSpawner as AsyncAfterSpawner>::spawn_after_at(at, future)
-  }
-
-  /// Like [`spawn_after`](RuntimeLite::spawn_after), but does not require the `future` to be `Send`.
-  ///
-  /// Spawn a future onto the runtime and run the given future after the given duration
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn spawn_local_after<F>(
-    duration: core::time::Duration,
-    future: F,
-  ) -> <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::spawn_local_after(duration, future)
-  }
-
-  /// Like [`spawn_after_at`](RuntimeLite::spawn_after_at), but does not require the `future` to be `Send`.
-  ///
-  /// Spawn a future onto the runtime and run the given future after the given instant.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn spawn_local_after_at<F>(
-    at: std::time::Instant,
-    future: F,
-  ) -> <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::spawn_local_after_at(at, future)
-  }
-
   /// Block the current thread on the given future
   fn block_on<F: Future>(f: F) -> F::Output;
 
   /// Yield the current task
   fn yield_now() -> impl Future<Output = ()> + Send;
 
-  /// Create a new interval that starts at the current time and
-  /// yields every `period` duration
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn interval(interval: Duration) -> Self::Interval;
+  cfg_time_with_docsrs!(
+    /// Spawn a future onto the runtime and run the given future after the given duration
+    fn spawn_after<F>(
+      duration: core::time::Duration,
+      future: F,
+    ) -> <Self::AfterSpawner as AsyncAfterSpawner>::JoinHandle<F::Output>
+    where
+      F::Output: Send + 'static,
+      F: Future + Send + 'static,
+    {
+      <Self::AfterSpawner as AsyncAfterSpawner>::spawn_after(duration, future)
+    }
 
-  /// Create a new interval that starts at the given instant and
-  /// yields every `period` duration
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn interval_at(start: Instant, period: Duration) -> Self::Interval;
+    /// Spawn a future onto the runtime and run the given future after the given instant.
+    fn spawn_after_at<F>(
+      at: std::time::Instant,
+      future: F,
+    ) -> <Self::AfterSpawner as AsyncAfterSpawner>::JoinHandle<F::Output>
+    where
+      F::Output: Send + 'static,
+      F: Future + Send + 'static,
+    {
+      <Self::AfterSpawner as AsyncAfterSpawner>::spawn_after_at(at, future)
+    }
 
-  /// Create a new interval that starts at the current time and
-  /// yields every `period` duration
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn interval_local(interval: Duration) -> Self::LocalInterval;
+    /// Like [`spawn_after`](RuntimeLite::spawn_after), but does not require the `future` to be `Send`.
+    ///
+    /// Spawn a future onto the runtime and run the given future after the given duration
+    fn spawn_local_after<F>(
+      duration: core::time::Duration,
+      future: F,
+    ) -> <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::JoinHandle<F::Output>
+    where
+      F::Output: Send + 'static,
+      F: Future + Send + 'static,
+    {
+      <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::spawn_local_after(duration, future)
+    }
 
-  /// Create a new interval that starts at the given instant and
-  /// yields every `period` duration
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval;
+    /// Like [`spawn_after_at`](RuntimeLite::spawn_after_at), but does not require the `future` to be `Send`.
+    ///
+    /// Spawn a future onto the runtime and run the given future after the given instant.
+    fn spawn_local_after_at<F>(
+      at: std::time::Instant,
+      future: F,
+    ) -> <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::JoinHandle<F::Output>
+    where
+      F::Output: Send + 'static,
+      F: Future + Send + 'static,
+    {
+      <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::spawn_local_after_at(at, future)
+    }
 
-  /// Create a new sleep future that completes after the given duration
-  /// has elapsed
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn sleep(duration: Duration) -> Self::Sleep;
+    /// Create a new interval that starts at the current time and
+    /// yields every `period` duration
+    fn interval(interval: Duration) -> Self::Interval;
 
-  /// Create a new sleep future that completes at the given instant
-  /// has elapsed
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn sleep_until(instant: Instant) -> Self::Sleep;
+    /// Create a new interval that starts at the given instant and
+    /// yields every `period` duration
+    fn interval_at(start: Instant, period: Duration) -> Self::Interval;
 
-  /// Create a new sleep future that completes after the given duration
-  /// has elapsed
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn sleep_local(duration: Duration) -> Self::LocalSleep;
+    /// Create a new interval that starts at the current time and
+    /// yields every `period` duration
+    fn interval_local(interval: Duration) -> Self::LocalInterval;
 
-  /// Create a new sleep future that completes at the given instant
-  /// has elapsed
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn sleep_local_until(instant: Instant) -> Self::LocalSleep;
+    /// Create a new interval that starts at the given instant and
+    /// yields every `period` duration
+    fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval;
 
-  /// Create a new delay future that runs the `fut` after the given duration
-  /// has elapsed. The `Future` will never be polled until the duration has
-  /// elapsed.
-  ///
-  /// The behavior of this function may different in different runtime implementations.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
-  where
-    F: Future + Send;
+    /// Create a new sleep future that completes after the given duration
+    /// has elapsed
+    fn sleep(duration: Duration) -> Self::Sleep;
 
-  /// Like [`delay`](RuntimeLite::delay), but does not require the `fut` to be `Send`.
-  /// Create a new delay future that runs the `fut` after the given duration
-  /// has elapsed. The `Future` will never be polled until the duration has
-  /// elapsed.
-  ///
-  /// The behavior of this function may different in different runtime implementations.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn delay_local<F>(duration: Duration, fut: F) -> Self::LocalDelay<F>
-  where
-    F: Future;
+    /// Create a new sleep future that completes at the given instant
+    /// has elapsed
+    fn sleep_until(instant: Instant) -> Self::Sleep;
 
-  /// Create a new timeout future that runs the `future` after the given deadline.
-  /// The `Future` will never be polled until the deadline has reached.
-  ///
-  /// The behavior of this function may different in different runtime implementations.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
-  where
-    F: Future + Send;
+    /// Create a new sleep future that completes after the given duration
+    /// has elapsed
+    fn sleep_local(duration: Duration) -> Self::LocalSleep;
 
-  /// Like [`delay_at`](RuntimeLite::delay_at), but does not require the `fut` to be `Send`.
-  /// Create a new timeout future that runs the `future` after the given deadline
-  /// The `Future` will never be polled until the deadline has reached.
-  ///
-  /// The behavior of this function may different in different runtime implementations.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn delay_local_at<F>(deadline: Instant, fut: F) -> Self::LocalDelay<F>
-  where
-    F: Future;
+    /// Create a new sleep future that completes at the given instant
+    /// has elapsed
+    fn sleep_local_until(instant: Instant) -> Self::LocalSleep;
 
-  /// Requires a `Future` to complete before the specified duration has elapsed.
-  ///
-  /// The behavior of this function may different in different runtime implementations.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn timeout<F>(duration: Duration, future: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    <Self::Timeout<F> as time::AsyncTimeout<F>>::timeout(duration, future)
-  }
+    /// Create a new delay future that runs the `fut` after the given duration
+    /// has elapsed. The `Future` will never be polled until the duration has
+    /// elapsed.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
+    where
+      F: Future + Send;
 
-  /// Requires a `Future` to complete before the specified instant in time.
-  ///
-  /// The behavior of this function may different in different runtime implementations.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    <Self::Timeout<F> as time::AsyncTimeout<F>>::timeout_at(deadline, future)
-  }
+    /// Like [`delay`](RuntimeLite::delay), but does not require the `fut` to be `Send`.
+    /// Create a new delay future that runs the `fut` after the given duration
+    /// has elapsed. The `Future` will never be polled until the duration has
+    /// elapsed.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn delay_local<F>(duration: Duration, fut: F) -> Self::LocalDelay<F>
+    where
+      F: Future;
 
-  /// Like [`timeout`](RuntimeLite::timeout), but does not requrie the `future` to be `Send`.
-  /// Requires a `Future` to complete before the specified duration has elapsed.
-  ///
-  /// The behavior of this function may different in different runtime implementations.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn timeout_local<F>(duration: Duration, future: F) -> Self::LocalTimeout<F>
-  where
-    F: Future,
-  {
-    <Self::LocalTimeout<F> as time::AsyncLocalTimeout<F>>::timeout_local(duration, future)
-  }
+    /// Create a new timeout future that runs the `future` after the given deadline.
+    /// The `Future` will never be polled until the deadline has reached.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
+    where
+      F: Future + Send;
 
-  /// Like [`timeout_at`](RuntimeLite::timeout_at), but does not requrie the `future` to be `Send`.
-  /// Requires a `Future` to complete before the specified duration has elapsed.
-  ///
-  /// The behavior of this function may different in different runtime implementations.
-  #[cfg(feature = "time")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-  fn timeout_local_at<F>(deadline: Instant, future: F) -> Self::LocalTimeout<F>
-  where
-    F: Future,
-  {
-    <Self::LocalTimeout<F> as time::AsyncLocalTimeout<F>>::timeout_local_at(deadline, future)
-  }
+    /// Like [`delay_at`](RuntimeLite::delay_at), but does not require the `fut` to be `Send`.
+    /// Create a new timeout future that runs the `future` after the given deadline
+    /// The `Future` will never be polled until the deadline has reached.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn delay_local_at<F>(deadline: Instant, fut: F) -> Self::LocalDelay<F>
+    where
+      F: Future;
+
+    /// Requires a `Future` to complete before the specified duration has elapsed.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn timeout<F>(duration: Duration, future: F) -> Self::Timeout<F>
+    where
+      F: Future + Send;
+
+    /// Requires a `Future` to complete before the specified instant in time.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
+    where
+      F: Future + Send;
+
+    /// Like [`timeout`](RuntimeLite::timeout), but does not requrie the `future` to be `Send`.
+    /// Requires a `Future` to complete before the specified duration has elapsed.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn timeout_local<F>(duration: Duration, future: F) -> Self::LocalTimeout<F>
+    where
+      F: Future;
+
+    /// Like [`timeout_at`](RuntimeLite::timeout_at), but does not requrie the `future` to be `Send`.
+    /// Requires a `Future` to complete before the specified duration has elapsed.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn timeout_local_at<F>(deadline: Instant, future: F) -> Self::LocalTimeout<F>
+    where
+      F: Future;
+  );
 }
 
 /// Unit test for the [`RuntimeLite`]

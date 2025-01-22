@@ -1,33 +1,21 @@
 // TODO: remove this line when clippy fix the bug
 #![allow(clippy::needless_return)]
 
-#[cfg(feature = "time")]
-mod timeout;
-#[cfg(feature = "time")]
-pub use timeout::*;
+cfg_time!(
+  mod after;
+  mod delay;
+  mod interval;
+  mod sleep;
+  mod timeout;
 
-#[cfg(feature = "time")]
-mod sleep;
-#[cfg(feature = "time")]
-pub use sleep::*;
+  pub use after::*;
+  pub use delay::*;
+  pub use interval::*;
+  pub use sleep::*;
+  pub use timeout::*;
 
-#[cfg(feature = "time")]
-mod interval;
-#[cfg(feature = "time")]
-pub use interval::*;
-
-#[cfg(feature = "time")]
-mod delay;
-#[cfg(feature = "time")]
-pub use delay::*;
-
-#[cfg(feature = "time")]
-use std::time::{Duration, Instant};
-
-#[cfg(feature = "time")]
-mod after;
-#[cfg(feature = "time")]
-pub use after::*;
+  use std::time::{Duration, Instant};
+);
 
 use core::future::Future;
 
@@ -117,39 +105,31 @@ impl super::RuntimeLite for TokioRuntime {
   type LocalSpawner = TokioSpawner;
   type BlockingSpawner = TokioSpawner;
 
-  #[cfg(feature = "time")]
-  type AfterSpawner = TokioSpawner;
-  #[cfg(feature = "time")]
-  type LocalAfterSpawner = TokioSpawner;
+  cfg_time!(
+    type AfterSpawner = TokioSpawner;
+    type LocalAfterSpawner = TokioSpawner;
 
-  #[cfg(feature = "time")]
-  type Interval = TokioInterval;
-  #[cfg(feature = "time")]
-  type LocalInterval = TokioInterval;
-  #[cfg(feature = "time")]
-  type Sleep = TokioSleep;
-  #[cfg(feature = "time")]
-  type LocalSleep = TokioSleep;
-  #[cfg(feature = "time")]
-  type Delay<F>
-    = TokioDelay<F>
-  where
-    F: Future + Send;
-  #[cfg(feature = "time")]
-  type LocalDelay<F>
-    = TokioDelay<F>
-  where
-    F: Future;
-  #[cfg(feature = "time")]
-  type Timeout<F>
-    = TokioTimeout<F>
-  where
-    F: Future + Send;
-  #[cfg(feature = "time")]
-  type LocalTimeout<F>
-    = TokioTimeout<F>
-  where
-    F: Future;
+    type Interval = TokioInterval;
+    type LocalInterval = TokioInterval;
+    type Sleep = TokioSleep;
+    type LocalSleep = TokioSleep;
+    type Delay<F>
+      = TokioDelay<F>
+    where
+      F: Future + Send;
+    type LocalDelay<F>
+      = TokioDelay<F>
+    where
+      F: Future;
+    type Timeout<F>
+      = TokioTimeout<F>
+    where
+      F: Future + Send;
+    type LocalTimeout<F>
+      = TokioTimeout<F>
+    where
+      F: Future;
+  );
 
   fn new() -> Self {
     Self
@@ -159,103 +139,129 @@ impl super::RuntimeLite for TokioRuntime {
     ::tokio::runtime::Handle::current().block_on(f)
   }
 
-  #[cfg(feature = "time")]
-  fn interval(interval: Duration) -> Self::Interval {
-    use crate::time::AsyncIntervalExt;
-
-    TokioInterval::interval(interval)
-  }
-
-  #[cfg(feature = "time")]
-  fn interval_at(start: Instant, period: Duration) -> Self::Interval {
-    use crate::time::AsyncIntervalExt;
-
-    TokioInterval::interval_at(start, period)
-  }
-
-  #[cfg(feature = "time")]
-  fn interval_local(interval: Duration) -> Self::LocalInterval {
-    use crate::time::AsyncIntervalExt;
-
-    TokioInterval::interval(interval)
-  }
-
-  #[cfg(feature = "time")]
-  fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval {
-    use crate::time::AsyncIntervalExt;
-
-    TokioInterval::interval_at(start, period)
-  }
-
-  #[cfg(feature = "time")]
-  fn sleep(duration: Duration) -> Self::Sleep {
-    use crate::time::AsyncSleepExt;
-
-    TokioSleep::sleep(duration)
-  }
-
-  #[cfg(feature = "time")]
-  fn sleep_until(instant: Instant) -> Self::Sleep {
-    use crate::time::AsyncSleepExt;
-
-    TokioSleep::sleep_until(instant)
-  }
-
-  #[cfg(feature = "time")]
-  fn sleep_local(duration: Duration) -> Self::LocalSleep {
-    use crate::time::AsyncSleepExt;
-
-    TokioSleep::sleep(duration)
-  }
-
-  #[cfg(feature = "time")]
-  fn sleep_local_until(instant: Instant) -> Self::LocalSleep {
-    use crate::time::AsyncSleepExt;
-
-    TokioSleep::sleep_until(instant)
-  }
-
   async fn yield_now() {
     ::tokio::task::yield_now().await
   }
 
-  #[cfg(feature = "time")]
-  fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
-  where
-    F: Future + Send,
-  {
-    use crate::time::AsyncDelayExt;
+  cfg_time!(
+    fn interval(interval: Duration) -> Self::Interval {
+      use crate::time::AsyncIntervalExt;
 
-    <TokioDelay<F> as AsyncDelayExt<F>>::delay(duration, fut)
-  }
+      TokioInterval::interval(interval)
+    }
 
-  #[cfg(feature = "time")]
-  fn delay_local<F>(duration: Duration, fut: F) -> Self::LocalDelay<F>
-  where
-    F: Future,
-  {
-    use crate::time::AsyncLocalDelayExt;
+    fn interval_at(start: Instant, period: Duration) -> Self::Interval {
+      use crate::time::AsyncIntervalExt;
 
-    <TokioDelay<F> as AsyncLocalDelayExt<F>>::delay(duration, fut)
-  }
+      TokioInterval::interval_at(start, period)
+    }
 
-  #[cfg(feature = "time")]
-  fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
-  where
-    F: Future + Send,
-  {
-    use crate::time::AsyncDelayExt;
+    fn interval_local(interval: Duration) -> Self::LocalInterval {
+      use crate::time::AsyncIntervalExt;
 
-    <TokioDelay<F> as AsyncDelayExt<F>>::delay_at(deadline, fut)
-  }
+      TokioInterval::interval(interval)
+    }
 
-  #[cfg(feature = "time")]
-  fn delay_local_at<F>(deadline: Instant, fut: F) -> Self::LocalDelay<F>
-  where
-    F: Future,
-  {
-    use crate::time::AsyncLocalDelayExt;
+    fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval {
+      use crate::time::AsyncIntervalExt;
 
-    <TokioDelay<F> as AsyncLocalDelayExt<F>>::delay_at(deadline, fut)
-  }
+      TokioInterval::interval_at(start, period)
+    }
+
+    fn sleep(duration: Duration) -> Self::Sleep {
+      use crate::time::AsyncSleepExt;
+
+      TokioSleep::sleep(duration)
+    }
+
+    fn sleep_until(instant: Instant) -> Self::Sleep {
+      use crate::time::AsyncSleepExt;
+
+      TokioSleep::sleep_until(instant)
+    }
+
+    fn sleep_local(duration: Duration) -> Self::LocalSleep {
+      use crate::time::AsyncSleepExt;
+
+      TokioSleep::sleep(duration)
+    }
+
+    fn sleep_local_until(instant: Instant) -> Self::LocalSleep {
+      use crate::time::AsyncSleepExt;
+
+      TokioSleep::sleep_until(instant)
+    }
+
+    fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncDelayExt;
+
+      <TokioDelay<F> as AsyncDelayExt<F>>::delay(duration, fut)
+    }
+
+    fn delay_local<F>(duration: Duration, fut: F) -> Self::LocalDelay<F>
+    where
+      F: Future,
+    {
+      use crate::time::AsyncLocalDelayExt;
+
+      <TokioDelay<F> as AsyncLocalDelayExt<F>>::delay(duration, fut)
+    }
+
+    fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncDelayExt;
+
+      <TokioDelay<F> as AsyncDelayExt<F>>::delay_at(deadline, fut)
+    }
+
+    fn delay_local_at<F>(deadline: Instant, fut: F) -> Self::LocalDelay<F>
+    where
+      F: Future,
+    {
+      use crate::time::AsyncLocalDelayExt;
+
+      <TokioDelay<F> as AsyncLocalDelayExt<F>>::delay_at(deadline, fut)
+    }
+
+    fn timeout<F>(timeout: Duration, fut: F) -> Self::Timeout<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncTimeout;
+
+      <TokioTimeout<F> as AsyncTimeout<F>>::timeout(timeout, fut)
+    }
+
+    fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncTimeout;
+
+      <TokioTimeout<F> as AsyncTimeout<F>>::timeout_at(deadline, future)
+    }
+
+    fn timeout_local<F>(duration: Duration, future: F) -> Self::LocalTimeout<F>
+    where
+      F: Future,
+    {
+      use crate::time::AsyncLocalTimeout;
+
+      <TokioTimeout<F> as AsyncLocalTimeout<F>>::timeout_local(duration, future)
+    }
+
+    fn timeout_local_at<F>(deadline: Instant, future: F) -> Self::LocalTimeout<F>
+    where
+      F: Future,
+    {
+      use crate::time::AsyncLocalTimeout;
+
+      <TokioTimeout<F> as AsyncLocalTimeout<F>>::timeout_local_at(deadline, future)
+    }
+  );
 }
