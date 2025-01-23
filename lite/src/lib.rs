@@ -74,6 +74,9 @@ macro_rules! cfg_smol {
   }
 }
 
+#[macro_use]
+mod spawner;
+
 /// Concrete runtime implementations based on [`tokio`] runtime.
 ///
 /// [`tokio`]: https://docs.rs/tokio
@@ -108,7 +111,6 @@ pub mod wasm;
 #[cfg_attr(docsrs, doc(cfg(feature = "async-io")))]
 pub mod async_io;
 
-mod spawner;
 pub use spawner::*;
 
 /// Yielder hints the runtime to execution back

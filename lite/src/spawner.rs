@@ -2,6 +2,78 @@ use core::future::Future;
 
 use crate::Yielder;
 
+#[cfg(any(feature = "smol", feature = "async-std"))]
+macro_rules! join_handle {
+  ($handle:ty) => {
+    pin_project_lite::pin_project! {
+      /// An owned permission to join on a task (await its termination).
+      pub struct JoinHandle<T> {
+        #[pin]
+        handle: $handle,
+      }
+    }
+
+    impl<T> From<$handle> for JoinHandle<T> {
+      fn from(handle: $handle) -> Self {
+        Self { handle }
+      }
+    }
+
+    impl<T> $crate::Detach for JoinHandle<T> {
+      fn detach(self) {
+        self.handle.detach()
+      }
+    }
+
+    impl<T> core::future::Future for JoinHandle<T> {
+      type Output = core::result::Result<T, $crate::spawner::handle::JoinError>;
+
+      fn poll(
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+      ) -> core::task::Poll<Self::Output> {
+        let this = self.project();
+
+        match this.handle.poll(cx) {
+          core::task::Poll::Ready(v) => core::task::Poll::Ready(Ok(v)),
+          core::task::Poll::Pending => core::task::Poll::Pending,
+        }
+      }
+    }
+
+    impl<T> $crate::JoinHandle<T> for JoinHandle<T> {
+      type JoinError = $crate::spawner::handle::JoinError;
+    }
+  };
+}
+
+pub(crate) mod handle {
+  /// Task failed to execute to completion.
+  ///
+  /// This error will never be returned for `smol` and `async-std` runtime,
+  /// having it here is just for compatibility with other runtimes.
+  #[derive(Debug, Clone, PartialEq, Eq)]
+  pub struct JoinError(());
+
+  impl core::fmt::Display for JoinError {
+    #[cold]
+    #[inline(never)]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      write!(f, "task failed to execute to completion")
+    }
+  }
+
+  impl core::error::Error for JoinError {}
+
+  impl From<JoinError> for std::io::Error {
+    #[cold]
+    #[inline(never)]
+    fn from(_: JoinError) -> Self {
+      std::io::Error::new(std::io::ErrorKind::Other, "join error")
+    }
+  }
+}
+
 /// Detaches the task related to the join handle to let it keep running in the background.
 pub trait Detach: Sized {
   /// Detaches the task to let it keep running in the background.
@@ -59,10 +131,16 @@ pub trait AsyncLocalSpawner: Yielder + Copy + 'static {
   }
 }
 
+/// Joinhanlde trait
+pub trait JoinHandle<O>: Detach + Future<Output = Result<O, Self::JoinError>> + Unpin {
+  /// The error type for the join handle
+  type JoinError: Into<std::io::Error> + 'static;
+}
+
 /// A spawner trait for spawning blocking.
 pub trait AsyncBlockingSpawner: Yielder + Copy + 'static {
   /// The join handle type for blocking tasks
-  type JoinHandle<R>: Detach
+  type JoinHandle<R>: JoinHandle<R> + Send + 'static
   where
     R: Send + 'static;
 
@@ -78,7 +156,7 @@ pub trait AsyncBlockingSpawner: Yielder + Copy + 'static {
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    Self::spawn_blocking(f);
+    Self::spawn_blocking(f).detach();
   }
 }
 

@@ -114,9 +114,64 @@ impl AsyncLocalSpawner for WasmSpawner {
   }
 }
 
+/// j
+#[derive(Debug)]
+pub enum JoinError {
+  /// j
+  Panic(Box<dyn std::error::Error + Send + Sync + 'static>),
+}
+
+impl std::error::Error for JoinError {}
+
+impl std::fmt::Display for JoinError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      JoinError::Panic(e) => write!(f, "Thread panicked: {:?}", e),
+    }
+  }
+}
+
+impl From<JoinError> for std::io::Error {
+  fn from(e: JoinError) -> Self {
+    std::io::Error::new(std::io::ErrorKind::Other, e)
+  }
+}
+
+///n
+pub struct WasmBlockingJoinHandle<R> {
+  handle: std::thread::JoinHandle<R>,
+}
+
+impl<R> super::Detach for WasmBlockingJoinHandle<R> {
+  fn detach(self) {
+    self.handle.detach();
+  }
+}
+
+impl<R> Future for WasmBlockingJoinHandle<R> {
+  type Output = Result<R, JoinError>;
+
+  fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+    // if self.handle.is_finished() {
+    //   match unsafe { Pin::into_inner_unchecked(self) }.handle.join() {
+    //     Ok(result) => Poll::Ready(Ok(result)),
+    //     Err(e) => Poll::Ready(Err(JoinError::Panic(e))),
+    //   }
+    // } else {
+    //   cx.waker().wake_by_ref();
+    //   Poll::Pending
+    // }
+    todo!()
+  }
+}
+
+impl<R> super::JoinHandle<R> for WasmBlockingJoinHandle<R> {
+  type JoinError = JoinError;
+}
+
 impl AsyncBlockingSpawner for WasmSpawner {
   type JoinHandle<R>
-    = std::thread::JoinHandle<R>
+    = WasmBlockingJoinHandle<R>
   where
     R: Send + 'static;
 
@@ -125,7 +180,8 @@ impl AsyncBlockingSpawner for WasmSpawner {
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    std::thread::spawn(f)
+    let handle = std::thread::spawn(f);
+    WasmBlockingJoinHandle { handle }
   }
 }
 

@@ -8,6 +8,9 @@ pub use agnostic_io as io;
 
 mod to_socket_addrs;
 
+#[cfg(test)]
+mod tests;
+
 /// Agnostic async DNS provider.
 #[cfg(feature = "dns")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dns")))]
@@ -44,8 +47,8 @@ pub use udp::*;
 ///
 /// # DNS
 ///
-/// Implementations of `ToSocketAddrs<R: RuntimeLite>` for string types require a DNS lookup.
-pub trait ToSocketAddrs<R: RuntimeLite>: Send + Sync {
+/// Implementations of `ToSocketAddrs<R>` for string types require a DNS lookup.
+pub trait ToSocketAddrs<R>: Send + Sync {
   /// Returned iterator over socket addresses which this type may correspond to.
   type Iter: Iterator<Item = SocketAddr> + Send + 'static;
   /// The future type used to resolve addresses.
@@ -57,7 +60,9 @@ pub trait ToSocketAddrs<R: RuntimeLite>: Send + Sync {
   /// resolution performed.
   ///
   /// Note that this function may block a backend thread while resolution is performed.
-  fn to_socket_addrs(&self) -> Self::Future;
+  fn to_socket_addrs(&self) -> Self::Future
+  where
+    R: RuntimeLite;
 }
 
 /// An abstraction layer for the async runtime's network.
@@ -66,11 +71,11 @@ pub trait Net: Unpin + Send + Sync + 'static {
   type Runtime: RuntimeLite;
 
   /// The [`TcpListener`] implementation
-  type TcpListener: TcpListener<Stream = Self::TcpStream>;
+  type TcpListener: TcpListener<Stream = Self::TcpStream, Runtime = Self::Runtime>;
   /// The [`TcpStream`] implementation
-  type TcpStream: TcpStream;
+  type TcpStream: TcpStream<Runtime = Self::Runtime>;
   /// The [`UdpSocket`] implementation
-  type UdpSocket: UdpSocket;
+  type UdpSocket: UdpSocket<Runtime = Self::Runtime>;
 }
 
 #[cfg(all(unix, any(feature = "tokio", feature = "smol", feature = "async-std")))]

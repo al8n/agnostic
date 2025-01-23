@@ -2,10 +2,12 @@ use std::{
   future::Future,
   io,
   net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+  pin::Pin,
+  task::Poll,
   vec,
 };
 
-use agnostic_lite::{cfg_async_std, cfg_smol, cfg_tokio, AsyncBlockingSpawner};
+use agnostic_lite::AsyncBlockingSpawner;
 
 use super::{RuntimeLite, ToSocketAddrs};
 
@@ -206,88 +208,30 @@ where
   }
 }
 
-cfg_tokio!(
-  mod sealed_tokio {
-    use super::*;
-    use std::{
-      pin::Pin,
-      task::{Context, Poll},
-    };
+impl<R: agnostic_lite::JoinHandle<io::Result<sealed::OneOrMore>>> Future
+  for ToSocketAddrsFuture<R>
+{
+  type Output = io::Result<sealed::OneOrMore>;
 
-    impl Future for ToSocketAddrsFuture<tokio::task::JoinHandle<io::Result<sealed::OneOrMore>>> {
-      type Output = io::Result<sealed::OneOrMore>;
-
-      fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.get_mut() {
-          Self::Ready(ref mut i) => Poll::Ready(Ok(sealed::OneOrMore::One(i.take().into_iter()))),
-          Self::Blocking(ref mut i) => {
-            let res = Pin::new(i).poll(cx)?;
-            match res {
-              Poll::Ready(res) => match res {
-                Ok(res) => Poll::Ready(Ok(res)),
-                Err(e) => Poll::Ready(Err(e)),
-              },
-              Poll::Pending => Poll::Pending,
-            }
-          }
+  fn poll(
+    self: std::pin::Pin<&mut Self>,
+    cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Self::Output> {
+    match self.get_mut() {
+      Self::Ready(ref mut i) => Poll::Ready(Ok(sealed::OneOrMore::One(i.take().into_iter()))),
+      Self::Blocking(ref mut i) => {
+        let res = Pin::new(i).poll(cx).map_err(Into::into)?;
+        match res {
+          Poll::Ready(res) => match res {
+            Ok(res) => Poll::Ready(Ok(res)),
+            Err(e) => Poll::Ready(Err(e)),
+          },
+          Poll::Pending => Poll::Pending,
         }
       }
     }
   }
-);
-
-cfg_async_std!(
-  mod sealed_async_std {
-    use super::*;
-    use std::{
-      pin::Pin,
-      task::{Context, Poll},
-    };
-    impl Future for ToSocketAddrsFuture<async_std::task::JoinHandle<io::Result<sealed::OneOrMore>>> {
-      type Output = io::Result<sealed::OneOrMore>;
-
-      fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.get_mut() {
-          Self::Ready(ref mut i) => Poll::Ready(Ok(sealed::OneOrMore::One(i.take().into_iter()))),
-          Self::Blocking(ref mut i) => {
-            let res = Pin::new(i).poll(cx)?;
-            match res {
-              Poll::Ready(res) => Poll::Ready(Ok(res)),
-              Poll::Pending => Poll::Pending,
-            }
-          }
-        }
-      }
-    }
-  }
-);
-
-cfg_smol!(
-  mod sealed_smol {
-    use super::*;
-    use std::{
-      pin::Pin,
-      task::{Context, Poll},
-    };
-
-    impl Future for ToSocketAddrsFuture<smol::Task<io::Result<sealed::OneOrMore>>> {
-      type Output = io::Result<sealed::OneOrMore>;
-
-      fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.get_mut() {
-          Self::Ready(ref mut i) => Poll::Ready(Ok(sealed::OneOrMore::One(i.take().into_iter()))),
-          Self::Blocking(ref mut i) => {
-            let res = Pin::new(i).poll(cx)?;
-            match res {
-              Poll::Ready(res) => Poll::Ready(Ok(res)),
-              Poll::Pending => Poll::Pending,
-            }
-          }
-        }
-      }
-    }
-  }
-);
+}
 
 mod sealed {
   use super::*;

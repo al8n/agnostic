@@ -11,6 +11,8 @@ cfg_time!(
 
 use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, Yielder};
 
+pub use crate::spawner::handle::JoinError;
+
 impl<F> super::Detach for ::async_std::task::JoinHandle<F> {}
 
 /// A [`AsyncSpawner`] that uses the [`async-std`](async_std) runtime.
@@ -57,9 +59,11 @@ impl AsyncLocalSpawner for AsyncStdSpawner {
   }
 }
 
+join_handle!(::async_std::task::JoinHandle<T>);
+
 impl AsyncBlockingSpawner for AsyncStdSpawner {
   type JoinHandle<R>
-    = ::async_std::task::JoinHandle<R>
+    = JoinHandle<R>
   where
     R: Send + 'static;
 
@@ -68,7 +72,7 @@ impl AsyncBlockingSpawner for AsyncStdSpawner {
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    ::async_std::task::spawn_blocking(f)
+    ::async_std::task::spawn_blocking(f).into()
   }
 }
 

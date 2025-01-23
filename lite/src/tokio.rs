@@ -67,6 +67,10 @@ impl AsyncLocalSpawner for TokioSpawner {
 
 impl<T> super::Detach for ::tokio::task::JoinHandle<T> {}
 
+impl<T> super::JoinHandle<T> for ::tokio::task::JoinHandle<T> {
+  type JoinError = ::tokio::task::JoinError;
+}
+
 impl AsyncBlockingSpawner for TokioSpawner {
   type JoinHandle<R>
     = ::tokio::task::JoinHandle<R>

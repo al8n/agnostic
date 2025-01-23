@@ -7,9 +7,9 @@ use core::{
 use std::sync::Arc;
 
 use crate::{
-  spawner::{AfterHandle, LocalAfterHandle},
+  spawner::{AfterHandle, LocalAfterHandle, AfterHandleSignals, Canceled},
   time::AsyncSleep,
-  AfterHandleError, AfterHandleSignals, AsyncAfterSpawner, AsyncLocalAfterSpawner, Canceled,
+  AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner,
   Detach,
 };
 use atomic_time::AtomicOptionDuration;

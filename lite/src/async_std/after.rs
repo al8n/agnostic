@@ -18,9 +18,9 @@ use atomic_time::AtomicOptionDuration;
 use futures_util::{FutureExt, StreamExt};
 
 use crate::{
-  spawner::{AfterHandle, LocalAfterHandle},
+  spawner::{AfterHandle, AfterHandleSignals, Canceled, LocalAfterHandle},
   time::{AsyncLocalSleep, AsyncSleep},
-  AfterHandleError, AfterHandleSignals, AsyncAfterSpawner, AsyncLocalAfterSpawner, Canceled,
+  AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner,
   Detach,
 };
 

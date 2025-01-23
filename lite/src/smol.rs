@@ -9,6 +9,8 @@ cfg_time!(
 
 use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, Yielder};
 
+pub use crate::spawner::handle::JoinError;
+
 impl<T> super::Detach for ::smol::Task<T> {
   fn detach(self) {
     ::smol::Task::detach(self)
@@ -77,9 +79,11 @@ impl AsyncLocalSpawner for SmolSpawner {
   }
 }
 
+join_handle!(::smol::Task<T>);
+
 impl AsyncBlockingSpawner for SmolSpawner {
   type JoinHandle<R>
-    = ::smol::Task<R>
+    = JoinHandle<R>
   where
     R: Send + 'static;
 
@@ -88,7 +92,7 @@ impl AsyncBlockingSpawner for SmolSpawner {
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    ::smol::unblock(f)
+    ::smol::unblock(f).into()
   }
 
   fn spawn_blocking_detach<F, R>(f: F)

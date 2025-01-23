@@ -17,9 +17,9 @@ use smol::{
 };
 
 use crate::{
-  spawner::{AfterHandle, LocalAfterHandle},
+  spawner::{AfterHandle, LocalAfterHandle, AfterHandleSignals, Canceled},
   time::{AsyncLocalSleep, AsyncSleep},
-  AfterHandleError, AfterHandleSignals, AsyncAfterSpawner, AsyncLocalAfterSpawner, Canceled,
+  AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner,
   Detach,
 };
 
