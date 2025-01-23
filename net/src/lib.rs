@@ -73,11 +73,7 @@ pub trait Net: Unpin + Send + Sync + 'static {
   type UdpSocket: UdpSocket;
 }
 
-#[cfg(all(
-  unix,
-  feature = "net",
-  any(feature = "tokio", feature = "smol", feature = "async-std")
-))]
+#[cfg(all(unix, any(feature = "tokio", feature = "smol", feature = "async-std")))]
 #[inline]
 pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, size: usize) -> io::Result<()> {
   use socket2::Socket;
@@ -86,11 +82,7 @@ pub(crate) fn set_read_buffer(fd: std::os::fd::RawFd, size: usize) -> io::Result
   unsafe { Socket::from_raw_fd(fd) }.set_recv_buffer_size(size)
 }
 
-#[cfg(all(
-  unix,
-  feature = "net",
-  any(feature = "tokio", feature = "smol", feature = "async-std")
-))]
+#[cfg(all(unix, any(feature = "tokio", feature = "smol", feature = "async-std")))]
 #[inline]
 pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, size: usize) -> io::Result<()> {
   use socket2::Socket;
@@ -100,7 +92,6 @@ pub(crate) fn set_write_buffer(fd: std::os::fd::RawFd, size: usize) -> io::Resul
 
 #[cfg(all(
   windows,
-  feature = "net",
   any(feature = "tokio", feature = "smol", feature = "async-std")
 ))]
 #[inline]
@@ -113,7 +104,6 @@ pub(crate) fn set_read_buffer(fd: std::os::windows::io::RawSocket, size: usize) 
 
 #[cfg(all(
   windows,
-  feature = "net",
   any(feature = "tokio", feature = "smol", feature = "async-std")
 ))]
 #[inline]

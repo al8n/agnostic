@@ -13,7 +13,7 @@ description = "An async runtime agnostic version `std::net`."
 [features]
 default = []
 
-dns = ["net", "hickory-resolver", "resolv-conf", "hickory-proto"]
+dns = ["hickory-resolver", "resolv-conf", "hickory-proto"]
 dns-over-quic = [
   "dns",
   "hickory-resolver/dns-over-quic",
@@ -70,14 +70,6 @@ dnssec-ring = [
 dnssec = ["dns", "hickory-proto/dnssec", "hickory-resolver/dnssec"]
 
 
-net = [
-  "socket2",
-  "tokio?/net",
-  "tokio?/io-util",
-  "tokio?/io-std",
-  "async-std?/default",
-]
-
 # This feature must be used with net feature
 # by enable this feature, TcpStream will implement
 # both futures::AsyncRead/AsyncWrite and tokio::io::AsyncRead/AsyncWrite.
@@ -125,7 +117,7 @@ agnostic-io.workspace = true
 async-trait = "0.1"
 futures-util.workspace = true
 
-tokio = { version = "1", default-features = false, optional = true }
+tokio = { version = "1", default-features = false, optional = true, features = ["net", "io-std", "io-util"] }
 tokio-stream = { version = "0.1", default-features = false, optional = true, features = [
   "time",
 ] }
@@ -143,7 +135,7 @@ async-channel = { version = "2", optional = true }
 hickory-proto = { version = "0.24", default-features = false, optional = true }
 resolv-conf = { version = "0.7", default-features = false, optional = true }
 
-socket2 = { version = "0.5", optional = true }
+socket2 = "0.5"
 
 tracing = { version = "0.1", optional = true }
 

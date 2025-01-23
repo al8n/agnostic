@@ -19,7 +19,7 @@ smol = ["dep:smol", "async-process"]
 async-std = ["dep:async-std", "async-process"]
 
 [dependencies]
-agnostic-io = { workspace = true, default-features = false }
+agnostic-io.workspace = true
 futures-util.workspace = true
 paste = "1"
 

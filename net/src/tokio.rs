@@ -516,13 +516,13 @@ impl super::UdpSocket for TokioUdpSocket {
       Ok(())
     }
 
-    #[cfg(all(unix, feature = "socket2"))]
+    #[cfg(unix)]
     {
       use std::os::fd::AsRawFd;
       super::set_read_buffer(self.socket.as_raw_fd(), size)
     }
 
-    #[cfg(all(windows, feature = "socket2"))]
+    #[cfg(windows)]
     {
       use std::os::windows::io::AsRawSocket;
       super::set_read_buffer(self.socket.as_raw_socket(), size)
