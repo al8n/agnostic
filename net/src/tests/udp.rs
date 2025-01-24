@@ -3,15 +3,23 @@ use agnostic_lite::RuntimeLite;
 use crate::{Net, UdpSocket};
 
 use super::{next_test_ip4, next_test_ip6};
-use std::io::ErrorKind;
-use std::net::SocketAddr;
-use std::sync::mpsc::channel;
-use std::thread;
-use std::time::{Duration, Instant};
 
-fn each_ip(f: &mut dyn FnMut(SocketAddr, SocketAddr)) {
-  f(next_test_ip4(), next_test_ip4());
-  f(next_test_ip6(), next_test_ip6());
+use async_channel::unbounded;
+
+use std::{
+  future::Future,
+  io::ErrorKind,
+  net::SocketAddr,
+  thread,
+  time::{Duration, Instant},
+};
+
+async fn each_ip<F>(f: &mut dyn FnMut(SocketAddr, SocketAddr) -> F)
+where
+  F: Future,
+{
+  f(next_test_ip4(), next_test_ip4()).await;
+  f(next_test_ip6(), next_test_ip6()).await;
 }
 
 macro_rules! t {
@@ -30,181 +38,161 @@ async fn bind_error<N: Net>() {
   }
 }
 
-#[test]
-#[cfg_attr(target_os = "wasi", ignore)] // no threads
-fn socket_smoke_test_ip4() {
-  each_ip(&mut |server_ip, client_ip| {
-    let (tx1, rx1) = channel();
-    let (tx2, rx2) = channel();
+async fn socket_smoke_test_ip4<N: Net>() {
+  each_ip(&mut |server_ip, client_ip| async move {
+    let (tx1, rx1) = unbounded();
+    let (tx2, rx2) = unbounded();
 
-    let _t = thread::spawn(move || {
-      let client = t!(UdpSocket::bind(&client_ip));
-      rx1.recv().unwrap();
-      t!(client.send_to(&[99], &server_ip));
-      tx2.send(()).unwrap();
+    let _t = <N::Runtime as RuntimeLite>::spawn(async move {
+      let client = t!(<N::UdpSocket as UdpSocket>::bind(&client_ip).await);
+      rx1.recv().await.unwrap();
+      t!(client.send_to(&[99], &server_ip).await);
+      tx2.send(()).await.unwrap();
     });
 
-    let server = t!(UdpSocket::bind(&server_ip));
-    tx1.send(()).unwrap();
+    let server: N::UdpSocket = t!(<N::UdpSocket as UdpSocket>::bind(&server_ip).await);
+    tx1.send(()).await.unwrap();
     let mut buf = [0];
-    let (nread, src) = t!(server.recv_from(&mut buf));
+    let (nread, src) = t!(server.recv_from(&mut buf).await);
     assert_eq!(nread, 1);
     assert_eq!(buf[0], 99);
     assert_eq!(src, client_ip);
-    rx2.recv().unwrap();
+    rx2.recv().await.unwrap();
   })
+  .await
 }
 
-#[test]
-fn socket_name() {
-  each_ip(&mut |addr, _| {
-    let server = t!(UdpSocket::bind(&addr));
+async fn socket_name<N: Net>() {
+  each_ip(&mut |addr, _| async move {
+    let server = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
     assert_eq!(addr, t!(server.local_addr()));
   })
+  .await
 }
 
-#[test]
-fn socket_peer() {
-  each_ip(&mut |addr1, addr2| {
-    let server = t!(UdpSocket::bind(&addr1));
+async fn socket_peer<N: Net>() {
+  each_ip(&mut |addr1, addr2| async move {
+    let server = t!(<N::UdpSocket as UdpSocket>::bind(&addr1).await);
     assert_eq!(
       server.peer_addr().unwrap_err().kind(),
       ErrorKind::NotConnected
     );
-    t!(server.connect(&addr2));
+    t!(server.connect(&addr2).await);
     assert_eq!(addr2, t!(server.peer_addr()));
   })
+  .await
 }
 
-#[test]
-#[cfg_attr(target_os = "wasi", ignore)] // no threads
-fn udp_clone_smoke() {
-  each_ip(&mut |addr1, addr2| {
-    let sock1 = t!(UdpSocket::bind(&addr1));
-    let sock2 = t!(UdpSocket::bind(&addr2));
+async fn udp_clone_smoke<N: Net>() {
+  each_ip(&mut |addr1, addr2| async move {
+    let sock1 = t!(<N::UdpSocket as UdpSocket>::bind(&addr1).await);
+    let sock2 = t!(<N::UdpSocket as UdpSocket>::bind(&addr2).await);
 
-    let _t = thread::spawn(move || {
+    let _t = <N::Runtime as RuntimeLite>::spawn(async move {
       let mut buf = [0, 0];
-      assert_eq!(sock2.recv_from(&mut buf).unwrap(), (1, addr1));
+      assert_eq!(sock2.recv_from(&mut buf).await.unwrap(), (1, addr1));
       assert_eq!(buf[0], 1);
-      t!(sock2.send_to(&[2], &addr1));
+      t!(sock2.send_to(&[2], &addr1).await);
     });
 
     let sock3 = t!(sock1.try_clone());
 
-    let (tx1, rx1) = channel();
-    let (tx2, rx2) = channel();
-    let _t = thread::spawn(move || {
-      rx1.recv().unwrap();
-      t!(sock3.send_to(&[1], &addr2));
-      tx2.send(()).unwrap();
+    let (tx1, rx1) = unbounded();
+    let (tx2, rx2) = unbounded();
+    let _t = <N::Runtime as RuntimeLite>::spawn(async move {
+      rx1.recv().await.unwrap();
+      t!(sock3.send_to(&[1], &addr2).await);
+      tx2.send(()).await.unwrap();
     });
-    tx1.send(()).unwrap();
+    tx1.send(()).await.unwrap();
     let mut buf = [0, 0];
-    assert_eq!(sock1.recv_from(&mut buf).unwrap(), (1, addr2));
-    rx2.recv().unwrap();
+    assert_eq!(sock1.recv_from(&mut buf).await.unwrap(), (1, addr2));
+    rx2.recv().await.unwrap();
   })
+  .await
 }
 
-#[test]
-#[cfg_attr(target_os = "wasi", ignore)] // no threads
-fn udp_clone_two_read() {
-  each_ip(&mut |addr1, addr2| {
-    let sock1 = t!(UdpSocket::bind(&addr1));
-    let sock2 = t!(UdpSocket::bind(&addr2));
-    let (tx1, rx) = channel();
+async fn udp_clone_two_read<N: Net>() {
+  each_ip(&mut |addr1, addr2| async move {
+    let sock1 = t!(<N::UdpSocket as UdpSocket>::bind(&addr1).await);
+    let sock2 = t!(<N::UdpSocket as UdpSocket>::bind(&addr2).await);
+    let (tx1, rx) = unbounded();
     let tx2 = tx1.clone();
 
-    let _t = thread::spawn(move || {
-      t!(sock2.send_to(&[1], &addr1));
-      rx.recv().unwrap();
-      t!(sock2.send_to(&[2], &addr1));
-      rx.recv().unwrap();
+    let _t = <N::Runtime as RuntimeLite>::spawn(async move {
+      t!(sock2.send_to(&[1], &addr1).await);
+      rx.recv().await.unwrap();
+      t!(sock2.send_to(&[2], &addr1).await);
+      rx.recv().await.unwrap();
     });
 
     let sock3 = t!(sock1.try_clone());
 
-    let (done, rx) = channel();
-    let _t = thread::spawn(move || {
+    let (done, rx) = unbounded();
+    let _t = <N::Runtime as RuntimeLite>::spawn(async move {
       let mut buf = [0, 0];
-      t!(sock3.recv_from(&mut buf));
-      tx2.send(()).unwrap();
-      done.send(()).unwrap();
+      t!(sock3.recv_from(&mut buf).await);
+      tx2.send(()).await.unwrap();
+      done.send(()).await.unwrap();
     });
     let mut buf = [0, 0];
-    t!(sock1.recv_from(&mut buf));
-    tx1.send(()).unwrap();
+    t!(sock1.recv_from(&mut buf).await);
+    tx1.send(()).await.unwrap();
 
-    rx.recv().unwrap();
+    rx.recv().await.unwrap();
   })
+  .await
 }
 
-#[test]
-#[cfg_attr(target_os = "wasi", ignore)] // no threads
-fn udp_clone_two_write() {
-  each_ip(&mut |addr1, addr2| {
-    let sock1 = t!(UdpSocket::bind(&addr1));
-    let sock2 = t!(UdpSocket::bind(&addr2));
+async fn udp_clone_two_write<N: Net>() {
+  each_ip(&mut |addr1, addr2| async move {
+    let sock1 = t!(<N::UdpSocket as UdpSocket>::bind(&addr1).await);
+    let sock2 = t!(<N::UdpSocket as UdpSocket>::bind(&addr2).await);
 
-    let (tx, rx) = channel();
-    let (serv_tx, serv_rx) = channel();
+    let (tx, rx) = unbounded();
+    let (serv_tx, serv_rx) = unbounded();
 
-    let _t = thread::spawn(move || {
+    let _t = <N::Runtime as RuntimeLite>::spawn(async move {
       let mut buf = [0, 1];
-      rx.recv().unwrap();
-      t!(sock2.recv_from(&mut buf));
-      serv_tx.send(()).unwrap();
+      rx.recv().await.unwrap();
+      t!(sock2.recv_from(&mut buf).await);
+      serv_tx.send(()).await.unwrap();
     });
 
     let sock3 = t!(sock1.try_clone());
 
-    let (done, rx) = channel();
+    let (done, rx) = unbounded();
     let tx2 = tx.clone();
-    let _t = thread::spawn(move || {
-      if sock3.send_to(&[1], &addr2).is_ok() {
+    let _t = <N::Runtime as RuntimeLite>::spawn(async move {
+      if sock3.send_to(&[1], &addr2).await.is_ok() {
         let _ = tx2.send(());
       }
-      done.send(()).unwrap();
+      done.send(()).await.unwrap();
     });
-    if sock1.send_to(&[2], &addr2).is_ok() {
+    if sock1.send_to(&[2], &addr2).await.is_ok() {
       let _ = tx.send(());
     }
     drop(tx);
 
-    rx.recv().unwrap();
-    serv_rx.recv().unwrap();
+    rx.recv().await.unwrap();
+    serv_rx.recv().await.unwrap();
   })
-}
-
-#[test]
-fn debug() {
-  let name = if cfg!(windows) { "socket" } else { "fd" };
-  let socket_addr = next_test_ip4();
-
-  let udpsock = t!(UdpSocket::bind(&socket_addr));
-  let udpsock_inner = udpsock.0.socket().as_raw();
-  let compare = format!("UdpSocket {{ addr: {socket_addr:?}, {name}: {udpsock_inner:?} }}");
-  assert_eq!(format!("{udpsock:?}"), compare);
+  .await
 }
 
 // FIXME: re-enabled openbsd/netbsd tests once their socket timeout code
 //        no longer has rounding errors.
 // VxWorks ignores SO_SNDTIMEO.
-#[cfg_attr(
-  any(
-    target_os = "netbsd",
-    target_os = "openbsd",
-    target_os = "vxworks",
-    target_os = "nto"
-  ),
-  ignore
-)]
-#[cfg_attr(target_os = "wasi", ignore)] // timeout not supported
-#[test]
-fn timeouts() {
+#[cfg(not(any(
+  target_os = "netbsd",
+  target_os = "openbsd",
+  target_os = "vxworks",
+  target_os = "nto"
+)))]
+async fn timeouts<N: Net>() {
   let addr = next_test_ip4();
 
-  let stream = t!(UdpSocket::bind(&addr));
+  let stream = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
   let dur = Duration::new(15410, 0);
 
   assert_eq!(None, t!(stream.read_timeout()));
@@ -224,12 +212,10 @@ fn timeouts() {
   assert_eq!(None, t!(stream.write_timeout()));
 }
 
-#[test]
-#[cfg_attr(target_os = "wasi", ignore)] // timeout not supported
-fn test_read_timeout() {
+async fn read_timeout<N: Net>() {
   let addr = next_test_ip4();
 
-  let stream = t!(UdpSocket::bind(&addr));
+  let stream = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
   t!(stream.set_read_timeout(Some(Duration::from_millis(1000))));
 
   let mut buf = [0; 10];
@@ -238,6 +224,7 @@ fn test_read_timeout() {
   loop {
     let kind = stream
       .recv_from(&mut buf)
+      .await
       .err()
       .expect("expected error")
       .kind();
@@ -253,24 +240,23 @@ fn test_read_timeout() {
   assert!(start.elapsed() > Duration::from_millis(400));
 }
 
-#[test]
-#[cfg_attr(target_os = "wasi", ignore)] // timeout not supported
-fn test_read_with_timeout() {
+async fn read_with_timeout<N: Net>() {
   let addr = next_test_ip4();
 
-  let stream = t!(UdpSocket::bind(&addr));
+  let stream = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
   t!(stream.set_read_timeout(Some(Duration::from_millis(1000))));
 
-  t!(stream.send_to(b"hello world", &addr));
+  t!(stream.send_to(b"hello world", &addr).await);
 
   let mut buf = [0; 11];
-  t!(stream.recv_from(&mut buf));
+  t!(stream.recv_from(&mut buf).await);
   assert_eq!(b"hello world", &buf[..]);
 
   let start = Instant::now();
   loop {
     let kind = stream
       .recv_from(&mut buf)
+      .await
       .err()
       .expect("expected error")
       .kind();
@@ -288,11 +274,10 @@ fn test_read_with_timeout() {
 
 // Ensure the `set_read_timeout` and `set_write_timeout` calls return errors
 // when passed zero Durations
-#[test]
-fn test_timeout_zero_duration() {
+async fn timeout_zero_duration<N: Net>() {
   let addr = next_test_ip4();
 
-  let socket = t!(UdpSocket::bind(&addr));
+  let socket = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
 
   let result = socket.set_write_timeout(Some(Duration::new(0, 0)));
   let err = result.unwrap_err();
@@ -303,94 +288,196 @@ fn test_timeout_zero_duration() {
   assert_eq!(err.kind(), ErrorKind::InvalidInput);
 }
 
-#[test]
-fn connect_send_recv() {
+async fn connect_send_recv<N: Net>() {
   let addr = next_test_ip4();
 
-  let socket = t!(UdpSocket::bind(&addr));
-  t!(socket.connect(addr));
+  let socket = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
+  t!(socket.connect(addr).await);
 
-  t!(socket.send(b"hello world"));
+  t!(socket.send(b"hello world").await);
 
   let mut buf = [0; 11];
-  t!(socket.recv(&mut buf));
+  t!(socket.recv(&mut buf).await);
   assert_eq!(b"hello world", &buf[..]);
 }
 
-#[test]
-#[cfg_attr(target_os = "wasi", ignore)] // peek not supported
-fn connect_send_peek_recv() {
-  each_ip(&mut |addr, _| {
-    let socket = t!(UdpSocket::bind(&addr));
-    t!(socket.connect(addr));
+async fn connect_send_peek_recv<N: Net>() {
+  each_ip(&mut |addr, _| async move {
+    let socket = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
+    t!(socket.connect(addr).await);
 
-    t!(socket.send(b"hello world"));
+    t!(socket.send(b"hello world").await);
 
     for _ in 1..3 {
       let mut buf = [0; 11];
-      let size = t!(socket.peek(&mut buf));
+      let size = t!(socket.peek(&mut buf).await);
       assert_eq!(b"hello world", &buf[..]);
       assert_eq!(size, 11);
     }
 
     let mut buf = [0; 11];
-    let size = t!(socket.recv(&mut buf));
+    let size = t!(socket.recv(&mut buf).await);
     assert_eq!(b"hello world", &buf[..]);
     assert_eq!(size, 11);
   })
+  .await
 }
 
-#[test]
-#[cfg_attr(target_os = "wasi", ignore)] // peek_from not supported
-fn peek_from() {
-  each_ip(&mut |addr, _| {
-    let socket = t!(UdpSocket::bind(&addr));
-    t!(socket.send_to(b"hello world", &addr));
+async fn peek<N: Net>() {
+  each_ip(&mut |addr, _| async move {
+    let socket = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
+    t!(socket.send_to(b"hello world", &addr).await);
 
     for _ in 1..3 {
       let mut buf = [0; 11];
-      let (size, _) = t!(socket.peek_from(&mut buf));
+      let size = t!(socket.peek(&mut buf).await);
       assert_eq!(b"hello world", &buf[..]);
       assert_eq!(size, 11);
     }
 
     let mut buf = [0; 11];
-    let (size, _) = t!(socket.recv_from(&mut buf));
+    let size = t!(socket.recv(&mut buf).await);
     assert_eq!(b"hello world", &buf[..]);
     assert_eq!(size, 11);
   })
+  .await
 }
 
-#[test]
-fn ttl() {
+async fn peek_from<N: Net>() {
+  each_ip(&mut |addr, _| async move {
+    // TODO(al8n): remove this feature gate when async-net fixes https://github.com/smol-rs/async-net/issues/33
+    #[cfg(target_os = "macos")]
+    let should_run = {
+      let is_smol = <N::Runtime as RuntimeLite>::name() == "smol";
+      let is_ipv6 = addr.is_ipv6();
+      !(is_smol && is_ipv6)
+    };
+
+    #[cfg(not(target_os = "macos"))]
+    let should_run = true;
+
+    if should_run {
+      let socket = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
+      t!(socket.send_to(b"hello world", &addr).await);
+
+      for _ in 1..3 {
+        let mut buf = [0; 11];
+        let (size, _) = t!(socket.peek_from(&mut buf).await);
+        assert_eq!(b"hello world", &buf[..]);
+        assert_eq!(size, 11);
+      }
+
+      let mut buf = [0; 11];
+      let (size, _) = t!(socket.recv_from(&mut buf).await);
+      assert_eq!(b"hello world", &buf[..]);
+      assert_eq!(size, 11);
+    }
+  })
+  .await
+}
+
+async fn ttl<N: Net>() {
   let ttl = 100;
 
   let addr = next_test_ip4();
 
-  let stream = t!(UdpSocket::bind(&addr));
+  let stream = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
 
   t!(stream.set_ttl(ttl));
   assert_eq!(ttl, t!(stream.ttl()));
 }
 
-#[test]
-fn set_nonblocking() {
-  each_ip(&mut |addr, _| {
-    let socket = t!(UdpSocket::bind(&addr));
+macro_rules! test_suites {
+  ($runtime:ident) => {
+    paste::paste! {
+      #[test]
+      fn [<test_ $runtime _bind_error>]() {
+        run(bind_error::<[< $runtime:camel Net >]>());
+      }
 
-    t!(socket.set_nonblocking(true));
-    t!(socket.set_nonblocking(false));
+      #[test]
+      fn [<test_ $runtime _socket_smoke_test_ip4>]() {
+        run(socket_smoke_test_ip4::<[< $runtime:camel Net >]>());
+      }
 
-    t!(socket.connect(addr));
+      #[test]
+      fn [<test_ $runtime _socket_name>]() {
+        run(socket_name::<[< $runtime:camel Net >]>());
+      }
 
-    t!(socket.set_nonblocking(false));
-    t!(socket.set_nonblocking(true));
+      #[test]
+      fn [<test_ $runtime _socket_peer>]() {
+        run(socket_peer::<[< $runtime:camel Net >]>());
+      }
 
-    let mut buf = [0];
-    match socket.recv(&mut buf) {
-      Ok(_) => panic!("expected error"),
-      Err(ref e) if e.kind() == ErrorKind::WouldBlock => {}
-      Err(e) => panic!("unexpected error {e}"),
+      #[test]
+      fn [<test_ $runtime _udp_clone_smoke>]() {
+        run(udp_clone_smoke::<[< $runtime:camel Net >]>());
+      }
+
+      #[test]
+      fn [<test_ $runtime _udp_clone_two_read>]() {
+        run(udp_clone_two_read::<[< $runtime:camel Net >]>());
+      }
+
+      #[test]
+      fn [<test_ $runtime _udp_clone_two_write>]() {
+        run(udp_clone_two_write::<[< $runtime:camel Net >]>());
+      }
+
+      #[test]
+      fn [<test_ $runtime _timeouts>]() {
+        run(timeouts::<[< $runtime:camel Net >]>());
+      }
+
+      #[test]
+      fn [<test_ $runtime _read_timeout>]() {
+        run(read_timeout::<[< $runtime:camel Net >]>());
+      }
+
+      #[test]
+      fn [<test_ $runtime _read_with_timeout>]() {
+        run(read_with_timeout::<[< $runtime:camel Net >]>());
+      }
+
+      #[test]
+      fn [<test_ $runtime _timeout_zero_duration>]() {
+        run(timeout_zero_duration::<[< $runtime:camel Net >]>());
+      }
+
+      #[test]
+      fn [<test_ $runtime _connect_send_recv>]() {
+        run(connect_send_recv::<[< $runtime:camel Net >]>());
+      }
+
+      #[test]
+      fn [<test_ $runtime _connect_send_peek_recv>]() {
+        run(connect_send_peek_recv::<[< $runtime:camel Net >]>());
+      }
+
+      #[test]
+      fn [<test_ $runtime _peek>]() {
+        run(peek::<[< $runtime:camel Net >]>());
+      }
+
+      #[test]
+      fn [<test_ $runtime _peek_from>]() {
+        run(peek_from::<[< $runtime:camel Net >]>());
+      }
+
+      #[test]
+      fn [<test_ $runtime _ttl>]() {
+        run(ttl::<[< $runtime:camel Net >]>());
+      }
     }
-  })
+  };
 }
+
+// #[cfg(feature = "async-std")]
+// mod async_std;
+
+// #[cfg(feature = "smol")]
+// mod smol;
+
+// #[cfg(feature = "tokio")]
+// mod tokio;

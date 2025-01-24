@@ -3,15 +3,22 @@ use std::{
   io,
   net::{Ipv4Addr, Ipv6Addr, SocketAddr},
   task::{Context, Poll},
+  time::Duration,
 };
 
 use agnostic_lite::RuntimeLite;
 
-use super::ToSocketAddrs;
+use super::{As, ToSocketAddrs};
 
 /// The abstraction of a UDP socket.
 pub trait UdpSocket:
-  TryFrom<std::net::UdpSocket, Error = io::Error> + Unpin + Send + Sync + 'static
+  TryFrom<std::net::UdpSocket, Error = io::Error>
+  + TryFrom<socket2::Socket, Error = io::Error>
+  + As
+  + Unpin
+  + Send
+  + Sync
+  + 'static
 {
   /// The async runtime.
   type Runtime: RuntimeLite;
@@ -28,6 +35,16 @@ pub trait UdpSocket:
     &self,
     addr: A,
   ) -> impl Future<Output = io::Result<()>> + Send;
+
+  /// Returns the local address that this listener is bound to.
+  ///
+  /// This can be useful, for example, when binding to port `0` to figure out which port was actually bound.
+  fn local_addr(&self) -> io::Result<SocketAddr>;
+
+  /// Returns the peer address that this listener is connected to.
+  ///
+  /// This can be useful, for example, when connect to port `0` to figure out which port was actually connected.
+  fn peer_addr(&self) -> io::Result<SocketAddr>;
 
   /// Receives data from the socket. Returns the number of bytes read and the source address.
   fn recv(&self, buf: &mut [u8]) -> impl Future<Output = io::Result<usize>> + Send;
@@ -141,6 +158,50 @@ pub trait UdpSocket:
   /// This may not have any affect on IPv4 sockets.
   fn set_multicast_loop_v6(&self, on: bool) -> io::Result<()>;
 
+  /// Get value for the `SO_RCVTIMEO` option on this socket.
+  ///
+  /// If the returned timeout is `None`, then `read` and `recv` calls will
+  /// block indefinitely.
+  ///
+  /// ## Warning
+  /// - this value will have no effect when non-blocking mode is enabled.
+  fn read_timeout(&self) -> io::Result<Option<Duration>> {
+    super::read_timeout(self)
+  }
+
+  /// Set value for the `SO_RCVTIMEO` option on this socket.
+  ///
+  /// If `timeout` is `None`, then `read` and `recv` calls will block
+  /// indefinitely.
+  ///
+  /// ## Warning
+  /// - this value will have no effect when non-blocking mode is enabled.
+  fn set_read_timeout(&self, timeout: Option<Duration>) -> io::Result<()> {
+    super::set_read_timeout(self, timeout)
+  }
+
+  /// Get value for the `SO_SNDTIMEO` option on this socket.
+  ///
+  /// If the returned timeout is `None`, then `write` and `send` calls will
+  /// block indefinitely.
+  ///
+  /// ## Warning
+  /// - this value will have no effect when non-blocking mode is enabled.
+  fn write_timeout(&self) -> io::Result<Option<Duration>> {
+    super::write_timeout(self)
+  }
+
+  /// Set value for the `SO_SNDTIMEO` option on this socket.
+  ///
+  /// If `timeout` is `None`, then `write` and `send` calls will block
+  /// indefinitely.
+  ///
+  /// ## Warning
+  /// - this value will have no effect when non-blocking mode is enabled.
+  fn set_write_timeout(&self, duration: Option<Duration>) -> io::Result<()> {
+    super::set_write_timeout(self, duration)
+  }
+
   /// Sets the ttl of this UDP socket.
   fn set_ttl(&self, ttl: u32) -> io::Result<()>;
 
@@ -153,11 +214,47 @@ pub trait UdpSocket:
   /// Gets the broadcast flag of this UDP socket.
   fn broadcast(&self) -> io::Result<bool>;
 
-  /// Sets the read buffer size of this UDP socket.
-  fn set_read_buffer(&self, size: usize) -> io::Result<()>;
+  /// Creates a new independently owned handle to the underlying socket.
+  ///
+  /// The returned `UdpSocket` is a reference to the same socket that this
+  /// object references. Both handles will read and write the same port, and
+  /// options set on one socket will be propagated to the other.
+  fn try_clone(&self) -> io::Result<Self> {
+    super::duplicate(self).and_then(Self::try_from)
+  }
 
-  /// Sets the write buffer size of this UDP socket.
-  fn set_write_buffer(&self, size: usize) -> io::Result<()>;
+  /// Get the value of the `IPV6_V6ONLY` option for this socket.
+  fn only_v6(&self) -> io::Result<bool> {
+    super::only_v6(self)
+  }
+
+  /// Set value for the `SO_RCVBUF` option on this socket.
+  ///
+  /// Changes the size of the operating system’s receive buffer associated with the socket.
+  fn set_recv_buffer_size(&self, size: usize) -> io::Result<()> {
+    super::set_recv_buffer_size(self, size)
+  }
+
+  /// Get value for the `SO_RCVBUF` option on this socket.
+  ///
+  /// For more information about this option, see [`set_recv_buffer_size`](UdpSocket::set_recv_buffer_size).
+  fn recv_buffer_size(&self) -> io::Result<usize> {
+    super::recv_buffer_size(self)
+  }
+
+  /// Set value for the `SO_SNDBUF` option on this socket.
+  ///
+  /// Changes the size of the operating system’s send buffer associated with the socket.
+  fn set_send_buffer_size(&self, size: usize) -> io::Result<()> {
+    super::set_send_buffer_size(self, size)
+  }
+
+  /// Get the value of the `SO_SNDBUF` option on this socket.
+  ///
+  /// For more information about this option, see [`set_send_buffer_size`](UdpSocket::set_send_buffer_size).
+  fn send_buffer_size(&self) -> io::Result<usize> {
+    super::send_buffer_size(self)
+  }
 
   /// Attempts to receive a single datagram on the socket.
   ///
@@ -214,7 +311,4 @@ pub trait UdpSocket:
     buf: &[u8],
     target: SocketAddr,
   ) -> Poll<io::Result<usize>>;
-
-  /// Returns the local address of the UDP socket.
-  fn local_addr(&self) -> io::Result<SocketAddr>;
 }

@@ -587,8 +587,7 @@ where
   P: Process,
   ChildStdout<P::Stdout>: AsyncRead + Unpin,
 {
-  use std::process::Stdio;
-  use std::str::from_utf8;
+  use std::{process::Stdio, str::from_utf8};
 
   let mut ls_child = <P::Command as Command>::new("cat")
     .arg("Cargo.toml")

@@ -13,6 +13,34 @@ use super::ToSocketAddrs;
 mod tcp;
 mod udp;
 
+#[cfg(feature = "tokio")]
+fn tokio_run<F>(f: F)
+where
+  F: core::future::Future<Output = ()>,
+{
+  tokio::runtime::Builder::new_current_thread()
+    .enable_all()
+    .build()
+    .unwrap()
+    .block_on(f);
+}
+
+#[cfg(feature = "async-std")]
+fn async_std_run<F>(f: F)
+where
+  F: core::future::Future<Output = ()>,
+{
+  async_std::task::block_on(f);
+}
+
+#[cfg(feature = "smol")]
+fn smol_run<F>(f: F)
+where
+  F: core::future::Future<Output = ()>,
+{
+  smol::block_on(f);
+}
+
 static PORT: AtomicUsize = AtomicUsize::new(0);
 
 pub fn next_test_ip4() -> SocketAddr {

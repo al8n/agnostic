@@ -12,6 +12,37 @@ use super::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs}
 
 use agnostic_lite::async_std::AsyncStdRuntime;
 
+macro_rules! impl_as_fd_async_std {
+  ($name:ident.$field:ident) => {
+    #[cfg(unix)]
+    impl std::os::fd::AsFd for $name {
+      fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
+        use std::os::fd::{AsRawFd, BorrowedFd};
+        let raw_fd = self.$field.as_raw_fd();
+
+        // Safety:
+        // The resource pointed to by `fd` remains open for the duration of
+        // the returned `BorrowedFd`, and it must not have the value `-1`.
+        unsafe { BorrowedFd::borrow_raw(raw_fd) }
+      }
+    }
+
+    #[cfg(windows)]
+    impl std::os::windows::io::AsSocket for $name {
+      fn as_socket(&self) -> &std::os::windows::io::Socket {
+        use std::os::fd::{AsRawSocket, BorrowedFd};
+        use std::os::windows::io::{AsRawSocket, BorrowedSocket};
+        let raw_socket = self.$field.as_raw_socket();
+
+        // Safety:
+        // The resource pointed to by raw must remain open for the duration of the returned BorrowedSocket,
+        // and it must not have the value INVALID_SOCKET.
+        unsafe { BorrowedSocket::borrow_raw(raw_socket) }
+      }
+    }
+  };
+}
+
 /// Network abstractions for [`async-std`] runtime
 /// 
 /// [`async-std`]: https://docs.rs/async-std
@@ -34,6 +65,12 @@ pub struct AsyncStdTcpListener {
   ln: TcpListener,
 }
 
+impl From<TcpListener> for AsyncStdTcpListener {
+  fn from(ln: TcpListener) -> Self {
+    Self { ln }
+  }
+}
+
 impl TryFrom<std::net::TcpListener> for AsyncStdTcpListener {
   type Error = io::Error;
 
@@ -44,6 +81,17 @@ impl TryFrom<std::net::TcpListener> for AsyncStdTcpListener {
     })
   }
 }
+
+impl TryFrom<socket2::Socket> for AsyncStdTcpListener {
+  type Error = io::Error;
+
+  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
+    Self::try_from(std::net::TcpListener::from(socket))
+  }
+}
+
+impl_as_raw_fd!(AsyncStdTcpListener.ln);
+impl_as_fd_async_std!(AsyncStdTcpListener.ln);
 
 impl super::TcpListener for AsyncStdTcpListener {
   type Stream = AsyncStdTcpStream;
@@ -82,6 +130,14 @@ impl super::TcpListener for AsyncStdTcpListener {
   fn local_addr(&self) -> io::Result<SocketAddr> {
     self.ln.local_addr()
   }
+
+  fn set_ttl(&self, ttl: u32) -> io::Result<()> {
+    super::set_ttl(self, ttl)
+  }
+  
+  fn ttl(&self) -> io::Result<u32> {
+    super::ttl(self)
+  }
 }
 
 /// [`TcpStream`](super::TcpStream) implementation for [`async-std`] runtime
@@ -93,16 +149,33 @@ pub struct AsyncStdTcpStream {
   stream: TcpStream,
 }
 
+impl From<TcpStream> for AsyncStdTcpStream {
+  fn from(stream: TcpStream) -> Self {
+    Self { stream }
+  }
+}
+
 impl TryFrom<std::net::TcpStream> for AsyncStdTcpStream {
   type Error = io::Error;
 
   #[inline]
   fn try_from(stream: std::net::TcpStream) -> Result<Self, Self::Error> {
     Ok(Self {
-      stream: TcpStream::from(stream),
+      stream: TcpStream::from(stream)
     })
   }
 }
+
+impl TryFrom<socket2::Socket> for AsyncStdTcpStream {
+  type Error = io::Error;
+
+  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
+    Self::try_from(std::net::TcpStream::from(socket))
+  }
+}
+
+impl_as_raw_fd!(AsyncStdTcpStream.stream);
+impl_as_fd_async_std!(AsyncStdTcpStream.stream);
 
 impl futures_util::AsyncRead for AsyncStdTcpStream {
   fn poll_read(
@@ -411,25 +484,6 @@ impl super::TcpStream for AsyncStdTcpStream {
       Err(ReuniteError(read, write))
     }
   }
-
-  fn shutdown(&self, how: std::net::Shutdown) -> io::Result<()> {
-    #[cfg(unix)]
-    {
-      use std::os::fd::{AsRawFd, FromRawFd};
-      unsafe { socket2::Socket::from_raw_fd(self.stream.as_raw_fd()) }.shutdown(how)
-    }
-
-    #[cfg(windows)]
-    {
-      use std::os::windows::io::{AsRawSocket, FromRawSocket};
-      unsafe { socket2::Socket::from_raw_socket(self.stream.as_raw_socket()) }.shutdown(how)
-    }
-
-    #[cfg(not(any(unix, windows)))]
-    {
-      panic!("unsupported platform");
-    }
-  }
 }
 
 /// [`UdpSocket`](super::UdpSocket) implementation for [`async-std`] runtime
@@ -439,6 +493,12 @@ impl super::TcpStream for AsyncStdTcpStream {
 #[repr(transparent)]
 pub struct AsyncStdUdpSocket {
   socket: UdpSocket,
+}
+
+impl From<UdpSocket> for AsyncStdUdpSocket {
+  fn from(socket: UdpSocket) -> Self {
+    Self { socket }
+  }
 }
 
 impl TryFrom<std::net::UdpSocket> for AsyncStdUdpSocket {
@@ -451,6 +511,17 @@ impl TryFrom<std::net::UdpSocket> for AsyncStdUdpSocket {
     })
   }
 }
+
+impl TryFrom<socket2::Socket> for AsyncStdUdpSocket {
+  type Error = io::Error;
+
+  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
+    Self::try_from(std::net::UdpSocket::from(socket))
+  }
+}
+
+impl_as_raw_fd!(AsyncStdUdpSocket.socket);
+impl_as_fd_async_std!(AsyncStdUdpSocket.socket);
 
 impl super::UdpSocket for AsyncStdUdpSocket {
   type Runtime = AsyncStdRuntime;
@@ -497,6 +568,14 @@ impl super::UdpSocket for AsyncStdUdpSocket {
         .connect(&addrs.collect::<Vec<_>>().as_slice())
         .await
     }
+  }
+
+  fn local_addr(&self) -> io::Result<SocketAddr> {
+    self.socket.local_addr()
+  }
+
+  fn peer_addr(&self) -> io::Result<SocketAddr> {
+    self.socket.peer_addr()
   }
 
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
@@ -590,59 +669,15 @@ impl super::UdpSocket for AsyncStdUdpSocket {
   fn ttl(&self) -> io::Result<u32> {
     self.socket.ttl()
   }
-
+  
   fn set_broadcast(&self, broadcast: bool) -> io::Result<()> {
     self.socket.set_broadcast(broadcast)
   }
-
+  
   fn broadcast(&self) -> io::Result<bool> {
     self.socket.broadcast()
   }
-
-  fn set_read_buffer(&self, size: usize) -> io::Result<()> {
-    #[cfg(not(any(unix, windows)))]
-    {
-      panic!("unsupported platform");
-
-      let _ = size;
-      Ok(())
-    }
-
-    #[cfg(unix)]
-    {
-      use std::os::fd::AsRawFd;
-      super::set_read_buffer(self.socket.as_raw_fd(), size)
-    }
-
-    #[cfg(windows)]
-    {
-      use std::os::windows::io::AsRawSocket;
-      super::set_read_buffer(self.socket.as_raw_socket(), size)
-    }
-  }
-
-  fn set_write_buffer(&self, size: usize) -> io::Result<()> {
-    #[cfg(not(any(unix, windows)))]
-    {
-      panic!("unsupported platform");
-
-      let _ = size;
-    Ok(())
-    }
-
-    #[cfg(unix)]
-    {
-      use std::os::fd::AsRawFd;
-      super::set_write_buffer(self.socket.as_raw_fd(), size)
-    }
-
-    #[cfg(windows)]
-    {
-      use std::os::windows::io::AsRawSocket;
-      super::set_write_buffer(self.socket.as_raw_socket(), size)
-    }
-  }
-
+  
   fn poll_recv_from(
     &self,
     cx: &mut Context<'_>,
@@ -652,7 +687,7 @@ impl super::UdpSocket for AsyncStdUdpSocket {
     futures_util::pin_mut!(fut);
     fut.poll_unpin(cx)
   }
-
+  
   fn poll_send_to(
     &self,
     cx: &mut Context<'_>,
@@ -662,9 +697,5 @@ impl super::UdpSocket for AsyncStdUdpSocket {
     let fut = self.socket.send_to(buf, target);
     futures_util::pin_mut!(fut);
     fut.poll_unpin(cx)
-  }
-
-  fn local_addr(&self) -> io::Result<SocketAddr> {
-    self.socket.local_addr()
   }
 }

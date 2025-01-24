@@ -111,6 +111,26 @@ impl super::RuntimeLite for TokioRuntime {
   type LocalSpawner = TokioSpawner;
   type BlockingSpawner = TokioSpawner;
 
+  fn new() -> Self {
+    Self
+  }
+
+  fn name() -> &'static str {
+    "tokio"
+  }
+
+  fn fqname() -> &'static str {
+    "tokio"
+  }
+
+  fn block_on<F: Future>(f: F) -> F::Output {
+    ::tokio::runtime::Handle::current().block_on(f)
+  }
+
+  async fn yield_now() {
+    ::tokio::task::yield_now().await
+  }
+
   cfg_time!(
     type AfterSpawner = TokioSpawner;
     type LocalAfterSpawner = TokioSpawner;
@@ -136,18 +156,6 @@ impl super::RuntimeLite for TokioRuntime {
     where
       F: Future;
   );
-
-  fn new() -> Self {
-    Self
-  }
-
-  fn block_on<F: Future>(f: F) -> F::Output {
-    ::tokio::runtime::Handle::current().block_on(f)
-  }
-
-  async fn yield_now() {
-    ::tokio::task::yield_now().await
-  }
 
   cfg_time!(
     fn interval(interval: Duration) -> Self::Interval {

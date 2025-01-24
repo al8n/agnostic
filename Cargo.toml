@@ -14,7 +14,7 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 license = "MIT/Apache-2.0"
-rust-version = "1.75.0"
+rust-version = "1.81.0"
 repository = "https://github.com/al8n/agnostic"
 homepage = "https://github.com/al8n/agnostic"
 keywords = ["async", "runtime", "agnostic", "trait"]

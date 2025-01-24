@@ -102,11 +102,13 @@ tracing = ["dep:tracing"]
 hickory-resolver = { version = "0.24", default-features = false, optional = true, features = [
   "system-config",
 ] }
+libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 hickory-resolver = { version = "0.24", default-features = false, optional = true, features = [
   "system-config",
 ] }
+windows-sys = { version = "0.59", features = ["Win32_Networking_WinSock"] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 hickory-resolver = { version = "0.24", default-features = false, optional = true }
@@ -127,10 +129,9 @@ async-std = { workspace = true, optional = true, features = [
   "default",
 ] }
 async-io = { workspace = true, optional = true }
+paste = "1"
 pin-project-lite = { workspace = true, optional = true }
 smol = { workspace = true, default-features = false, optional = true }
-
-async-channel = { version = "2", optional = true }
 
 hickory-proto = { version = "0.24", default-features = false, optional = true }
 resolv-conf = { version = "0.7", default-features = false, optional = true }
@@ -140,4 +141,5 @@ socket2 = "0.5"
 tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
+async-channel = "2"
 tokio = { workspace = true, features = ["full"] }

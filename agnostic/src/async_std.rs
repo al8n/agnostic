@@ -1,6 +1,5 @@
 use super::*;
-pub use agnostic_lite::async_io::*;
-pub use agnostic_lite::async_std::*;
+pub use agnostic_lite::{async_io::*, async_std::*};
 
 /// Network abstractions for [`async-std`] runtime
 ///

@@ -269,6 +269,14 @@ impl super::RuntimeLite for WasmRuntime {
     Self
   }
 
+  fn name() -> &'static str {
+    "wasm-bindgen-futures"
+  }
+
+  fn fqname() -> &'static str {
+    "wasm-bindgen-futures"
+  }
+
   fn block_on<F: Future>(_f: F) -> F::Output {
     panic!("RuntimeLite::block_on is not supported on wasm")
   }

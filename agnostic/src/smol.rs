@@ -1,6 +1,5 @@
 use super::*;
-pub use agnostic_lite::async_io::*;
-pub use agnostic_lite::smol::*;
+pub use agnostic_lite::{async_io::*, smol::*};
 
 /// Network abstractions for [`smol`] runtime
 ///

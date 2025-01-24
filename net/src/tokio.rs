@@ -1,6 +1,6 @@
 use std::{
   io,
-  net::{Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr},
+  net::{Ipv4Addr, Ipv6Addr, SocketAddr},
   pin::Pin,
   task::{Context, Poll},
 };
@@ -31,14 +31,30 @@ pub struct TokioTcpListener {
   ln: TcpListener,
 }
 
+impl From<TcpListener> for TokioTcpListener {
+  fn from(ln: TcpListener) -> Self {
+    Self { ln }
+  }
+}
+
 impl TryFrom<std::net::TcpListener> for TokioTcpListener {
   type Error = io::Error;
 
   #[inline]
-  fn try_from(ln: std::net::TcpListener) -> Result<Self, Self::Error> {
-    TcpListener::from_std(ln).map(|ln| Self { ln })
+  fn try_from(stream: std::net::TcpListener) -> Result<Self, Self::Error> {
+    TcpListener::try_from(stream).map(Self::from)
   }
 }
+
+impl TryFrom<socket2::Socket> for TokioTcpListener {
+  type Error = io::Error;
+
+  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
+    Self::try_from(std::net::TcpListener::from(socket))
+  }
+}
+
+impl_as!(TokioTcpListener.ln);
 
 impl super::TcpListener for TokioTcpListener {
   type Stream = TokioTcpStream;
@@ -78,6 +94,14 @@ impl super::TcpListener for TokioTcpListener {
   fn local_addr(&self) -> io::Result<SocketAddr> {
     self.ln.local_addr()
   }
+  
+  fn set_ttl(&self, ttl: u32) -> io::Result<()> {
+    self.ln.set_ttl(ttl)
+  }
+  
+  fn ttl(&self) -> io::Result<u32> {
+    self.ln.ttl()
+  }
 }
 
 /// A [`TcpStream`](super::TcpStream) implementation for [`tokio`] runtime.
@@ -85,14 +109,30 @@ pub struct TokioTcpStream {
   stream: TcpStream,
 }
 
+impl From<TcpStream> for TokioTcpStream {
+  fn from(stream: TcpStream) -> Self {
+    Self { stream }
+  }
+}
+
 impl TryFrom<std::net::TcpStream> for TokioTcpStream {
   type Error = io::Error;
 
   #[inline]
   fn try_from(stream: std::net::TcpStream) -> Result<Self, Self::Error> {
-    TcpStream::from_std(stream).map(|stream| Self { stream })
+    TcpStream::from_std(stream).map(Self::from)
   }
 }
+
+impl TryFrom<socket2::Socket> for TokioTcpStream {
+  type Error = io::Error;
+
+  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
+    Self::try_from(std::net::TcpStream::from(socket))
+  }
+}
+
+impl_as!(TokioTcpStream.stream);
 
 impl futures_util::AsyncRead for TokioTcpStream {
   fn poll_read(
@@ -334,25 +374,6 @@ impl super::TcpStream for TokioTcpStream {
       .reunite(write.stream)
       .map(|stream| Self { stream })
   }
-
-  fn shutdown(&self, how: Shutdown) -> io::Result<()> {
-    #[cfg(unix)]
-    {
-      use std::os::fd::{AsRawFd, FromRawFd};
-      unsafe { socket2::Socket::from_raw_fd(self.stream.as_raw_fd()) }.shutdown(how)
-    }
-
-    #[cfg(windows)]
-    {
-      use std::os::windows::io::{AsRawSocket, FromRawSocket};
-      unsafe { socket2::Socket::from_raw_socket(self.stream.as_raw_socket()) }.shutdown(how)
-    }
-
-    #[cfg(not(any(unix, windows)))]
-    {
-      panic!("unsupported platform");
-    }
-  }
 }
 
 /// The [`UdpSocket`](super::UdpSocket) implementation for [`tokio`] runtime.
@@ -360,14 +381,30 @@ pub struct TokioUdpSocket {
   socket: UdpSocket,
 }
 
+impl From<UdpSocket> for TokioUdpSocket {
+  fn from(socket: UdpSocket) -> Self {
+    Self { socket }
+  }
+}
+
 impl TryFrom<std::net::UdpSocket> for TokioUdpSocket {
   type Error = io::Error;
 
   #[inline]
   fn try_from(socket: std::net::UdpSocket) -> Result<Self, Self::Error> {
-    UdpSocket::from_std(socket).map(|socket| Self { socket })
+    UdpSocket::from_std(socket).map(Self::from)
   }
 }
+
+impl TryFrom<socket2::Socket> for TokioUdpSocket {
+  type Error = io::Error;
+
+  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
+    Self::try_from(std::net::UdpSocket::from(socket))
+  }
+}
+
+impl_as!(TokioUdpSocket.socket);
 
 impl super::UdpSocket for TokioUdpSocket {
   type Runtime = TokioRuntime;
@@ -414,6 +451,14 @@ impl super::UdpSocket for TokioUdpSocket {
         "could not resolve to any address",
       )
     }))
+  }
+
+  fn local_addr(&self) -> io::Result<SocketAddr> {
+    self.socket.local_addr()
+  }
+
+  fn peer_addr(&self) -> io::Result<SocketAddr> {
+    self.socket.peer_addr()
   }
 
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
@@ -495,61 +540,19 @@ impl super::UdpSocket for TokioUdpSocket {
   fn set_ttl(&self, ttl: u32) -> io::Result<()> {
     self.socket.set_ttl(ttl)
   }
-
+  
   fn ttl(&self) -> io::Result<u32> {
     self.socket.ttl()
   }
-
+  
   fn set_broadcast(&self, broadcast: bool) -> io::Result<()> {
     self.socket.set_broadcast(broadcast)
   }
-
+  
   fn broadcast(&self) -> io::Result<bool> {
     self.socket.broadcast()
   }
-
-  fn set_read_buffer(&self, size: usize) -> io::Result<()> {
-    #[cfg(not(any(unix, windows)))]
-    {
-      panic!("unsupported platform");
-      let _ = size;
-      Ok(())
-    }
-
-    #[cfg(unix)]
-    {
-      use std::os::fd::AsRawFd;
-      super::set_read_buffer(self.socket.as_raw_fd(), size)
-    }
-
-    #[cfg(windows)]
-    {
-      use std::os::windows::io::AsRawSocket;
-      super::set_read_buffer(self.socket.as_raw_socket(), size)
-    }
-  }
-
-  fn set_write_buffer(&self, size: usize) -> io::Result<()> {
-    #[cfg(not(any(unix, windows)))]
-    {
-      panic!("unsupported platform");
-      let _ = size;
-      Ok(())
-    }
-
-    #[cfg(unix)]
-    {
-      use std::os::fd::AsRawFd;
-      super::set_write_buffer(self.socket.as_raw_fd(), size)
-    }
-
-    #[cfg(windows)]
-    {
-      use std::os::windows::io::AsRawSocket;
-      super::set_write_buffer(self.socket.as_raw_socket(), size)
-    }
-  }
-
+  
   fn poll_recv_from(
     &self,
     cx: &mut Context<'_>,
@@ -560,7 +563,7 @@ impl super::UdpSocket for TokioUdpSocket {
     let len = buf.filled().len();
     Poll::Ready(Ok((len, addr)))
   }
-
+  
   fn poll_send_to(
     &self,
     cx: &mut Context<'_>,
@@ -568,9 +571,5 @@ impl super::UdpSocket for TokioUdpSocket {
     target: SocketAddr,
   ) -> Poll<io::Result<usize>> {
     self.socket.poll_send_to(cx, buf, target)
-  }
-
-  fn local_addr(&self) -> io::Result<SocketAddr> {
-    self.socket.local_addr()
   }
 }

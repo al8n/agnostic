@@ -174,6 +174,16 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   /// Create a new instance of the runtime
   fn new() -> Self;
 
+  /// Returns the name of the runtime
+  ///
+  /// See also fully qualified name of the runtime
+  fn name() -> &'static str;
+
+  /// Returns the fully qualified name of the runtime
+  ///
+  /// See also [`name`](RuntimeLite::name) of the runtime
+  fn fqname() -> &'static str;
+
   /// Spawn a future onto the runtime
   fn spawn<F>(future: F) -> <Self::Spawner as AsyncSpawner>::JoinHandle<F::Output>
   where
@@ -392,8 +402,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
 #[cfg_attr(docsrs, doc(cfg(any(test, feature = "test"))))]
 pub mod tests {
   use core::sync::atomic::{AtomicUsize, Ordering};
-  use std::sync::Arc;
-  use std::time::Duration;
+  use std::{sync::Arc, time::Duration};
 
   use super::{AfterHandle, RuntimeLite};
 

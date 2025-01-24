@@ -151,6 +151,14 @@ impl super::RuntimeLite for SmolRuntime {
     Self
   }
 
+  fn name() -> &'static str {
+    "smol"
+  }
+
+  fn fqname() -> &'static str {
+    "smol"
+  }
+
   fn block_on<F: Future>(f: F) -> F::Output {
     ::smol::block_on(f)
   }

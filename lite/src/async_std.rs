@@ -121,6 +121,14 @@ impl super::RuntimeLite for AsyncStdRuntime {
     Self
   }
 
+  fn name() -> &'static str {
+    "async-std"
+  }
+
+  fn fqname() -> &'static str {
+    "async-std"
+  }
+
   fn block_on<F: Future>(f: F) -> F::Output {
     ::async_std::task::block_on(f)
   }

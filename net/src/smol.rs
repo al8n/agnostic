@@ -34,14 +34,30 @@ pub struct SmolTcpListener {
   ln: TcpListener,
 }
 
+impl From<TcpListener> for SmolTcpListener {
+  fn from(ln: TcpListener) -> Self {
+    Self { ln }
+  }
+}
+
 impl TryFrom<std::net::TcpListener> for SmolTcpListener {
   type Error = io::Error;
 
   #[inline]
-  fn try_from(ln: std::net::TcpListener) -> Result<Self, Self::Error> {
-    TcpListener::try_from(ln).map(|ln| Self { ln })
+  fn try_from(stream: std::net::TcpListener) -> Result<Self, Self::Error> {
+    TcpListener::try_from(stream).map(Self::from)
   }
 }
+
+impl TryFrom<socket2::Socket> for SmolTcpListener {
+  type Error = io::Error;
+
+  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
+    Self::try_from(std::net::TcpListener::from(socket))
+  }
+}
+
+impl_as!(SmolTcpListener.ln);
 
 impl super::TcpListener for SmolTcpListener {
   type Stream = SmolTcpStream;
@@ -80,6 +96,14 @@ impl super::TcpListener for SmolTcpListener {
   fn local_addr(&self) -> io::Result<SocketAddr> {
     self.ln.local_addr()
   }
+
+  fn set_ttl(&self, ttl: u32) -> io::Result<()> {
+    self.ln.set_ttl(ttl)
+  }
+  
+  fn ttl(&self) -> io::Result<u32> {
+    self.ln.ttl()
+  }
 }
 
 /// The [`TcpStream`](super::TcpStream) implementation for [`smol`] runtime
@@ -91,14 +115,30 @@ pub struct SmolTcpStream {
   stream: TcpStream,
 }
 
+impl From<TcpStream> for SmolTcpStream {
+  fn from(stream: TcpStream) -> Self {
+    Self { stream }
+  }
+}
+
 impl TryFrom<std::net::TcpStream> for SmolTcpStream {
   type Error = io::Error;
 
   #[inline]
   fn try_from(stream: std::net::TcpStream) -> Result<Self, Self::Error> {
-    TcpStream::try_from(stream).map(|stream| Self { stream })
+    TcpStream::try_from(stream).map(Self::from)
   }
 }
+
+impl TryFrom<socket2::Socket> for SmolTcpStream {
+  type Error = io::Error;
+
+  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
+    Self::try_from(std::net::TcpStream::from(socket))
+  }
+}
+
+impl_as!(SmolTcpStream.stream);
 
 impl futures_util::AsyncRead for SmolTcpStream {
   fn poll_read(
@@ -407,25 +447,6 @@ impl super::TcpStream for SmolTcpStream {
       Err(ReuniteError(read, write))
     }
   }
-
-  fn shutdown(&self, how: Shutdown) -> io::Result<()> {
-    #[cfg(unix)]
-    {
-      use std::os::fd::{AsRawFd, FromRawFd};
-      unsafe { socket2::Socket::from_raw_fd(self.stream.as_raw_fd()) }.shutdown(how)
-    }
-
-    #[cfg(windows)]
-    {
-      use std::os::windows::io::{AsRawSocket, FromRawSocket};
-      unsafe { socket2::Socket::from_raw_socket(self.stream.as_raw_socket()) }.shutdown(how)
-    }
-
-    #[cfg(not(any(unix, windows)))]
-    {
-      panic!("unsupported platform");
-    }
-  }
 }
 
 /// The [`UdpSocket`](super::UdpSocket) implementation for [`smol`] runtime
@@ -437,14 +458,31 @@ pub struct SmolUdpSocket {
   socket: UdpSocket,
 }
 
+impl From<UdpSocket> for SmolUdpSocket {
+  #[inline]
+  fn from(socket: UdpSocket) -> Self {
+    Self { socket }
+  }
+}
+
+impl TryFrom<socket2::Socket> for SmolUdpSocket {
+  type Error = io::Error;
+
+  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
+    Self::try_from(std::net::UdpSocket::from(socket))
+  }
+}
+
 impl TryFrom<std::net::UdpSocket> for SmolUdpSocket {
   type Error = io::Error;
 
   #[inline]
   fn try_from(socket: std::net::UdpSocket) -> Result<Self, Self::Error> {
-    UdpSocket::try_from(socket).map(|socket| Self { socket })
+    UdpSocket::try_from(socket).map(Self::from)
   }
 }
+
+impl_as!(SmolUdpSocket.socket);
 
 impl super::UdpSocket for SmolUdpSocket {
   type Runtime = SmolRuntime;
@@ -491,6 +529,14 @@ impl super::UdpSocket for SmolUdpSocket {
         .connect(&addrs.collect::<Vec<_>>().as_slice())
         .await
     }
+  }
+
+  fn local_addr(&self) -> io::Result<SocketAddr> {
+    self.socket.local_addr()
+  }
+
+  fn peer_addr(&self) -> io::Result<SocketAddr> {
+    self.socket.peer_addr()
   }
 
   async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
@@ -576,57 +622,15 @@ impl super::UdpSocket for SmolUdpSocket {
   fn ttl(&self) -> io::Result<u32> {
     self.socket.ttl()
   }
-
+  
   fn set_broadcast(&self, broadcast: bool) -> io::Result<()> {
     self.socket.set_broadcast(broadcast)
   }
-
+  
   fn broadcast(&self) -> io::Result<bool> {
     self.socket.broadcast()
   }
-
-  fn set_read_buffer(&self, size: usize) -> io::Result<()> {
-    #[cfg(not(any(unix, windows)))]
-    {
-      panic!("unsupported platform");
-      let _ = size;
-      Ok(())
-    }
-
-    #[cfg(unix)]
-    {
-      use std::os::fd::AsRawFd;
-      super::set_read_buffer(self.socket.as_raw_fd(), size)
-    }
-
-    #[cfg(windows)]
-    {
-      use std::os::windows::io::AsRawSocket;
-      super::set_read_buffer(self.socket.as_raw_socket(), size)
-    }
-  }
-
-  fn set_write_buffer(&self, size: usize) -> io::Result<()> {
-    #[cfg(not(any(unix, windows)))]
-    {
-      panic!("unsupported platform");
-      let _ = size;
-      Ok(())
-    }
-
-    #[cfg(unix)]
-    {
-      use std::os::fd::AsRawFd;
-      super::set_write_buffer(self.socket.as_raw_fd(), size)
-    }
-
-    #[cfg(windows)]
-    {
-      use std::os::windows::io::AsRawSocket;
-      super::set_write_buffer(self.socket.as_raw_socket(), size)
-    }
-  }
-
+  
   fn poll_recv_from(
     &self,
     cx: &mut Context<'_>,
@@ -636,7 +640,7 @@ impl super::UdpSocket for SmolUdpSocket {
     futures_util::pin_mut!(fut);
     fut.poll_unpin(cx)
   }
-
+  
   fn poll_send_to(
     &self,
     cx: &mut Context<'_>,
@@ -646,9 +650,5 @@ impl super::UdpSocket for SmolUdpSocket {
     let fut = self.socket.send_to(buf, target);
     futures_util::pin_mut!(fut);
     fut.poll_unpin(cx)
-  }
-
-  fn local_addr(&self) -> io::Result<SocketAddr> {
-    self.socket.local_addr()
   }
 }
