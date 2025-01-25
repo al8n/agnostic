@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use agnostic_lite::{cfg_async_std, cfg_smol, cfg_tokio, RuntimeLite};
 use futures_util::Future;
 
+#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
 macro_rules! impl_as_raw_fd {
   ($name:ident.$field:ident) => {
     #[cfg(unix)]
@@ -48,6 +49,7 @@ macro_rules! impl_as {
   };
 }
 
+#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
 macro_rules! call {
   ($this:ident.$field:ident.$method:ident($buf:ident)) => {{
     paste::paste! {

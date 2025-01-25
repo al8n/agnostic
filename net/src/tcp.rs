@@ -7,6 +7,7 @@ use super::{
   As, ToSocketAddrs,
 };
 
+#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
 macro_rules! tcp_listener_common_methods {
   ($ty:ident.$field:ident) => {
     async fn bind<A: $crate::ToSocketAddrs<Self::Runtime>>(addr: A) -> std::io::Result<Self>
@@ -45,6 +46,7 @@ macro_rules! tcp_listener_common_methods {
   };
 }
 
+#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
 macro_rules! tcp_stream_common_methods {
   ($runtime:literal::$field:ident) => {
     async fn connect<A: $crate::ToSocketAddrs<Self::Runtime>>(addr: A) -> ::std::io::Result<Self>
@@ -117,6 +119,7 @@ macro_rules! tcp_stream_common_methods {
   };
 }
 
+#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
 macro_rules! tcp_stream_owned_read_half_common_methods {
   ($field:ident) => {
     fn local_addr(&self) -> ::std::io::Result<::std::net::SocketAddr> {
@@ -133,6 +136,7 @@ macro_rules! tcp_stream_owned_read_half_common_methods {
   };
 }
 
+#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
 macro_rules! tcp_stream_owned_write_half_common_methods {
   ($field:ident) => {
     fn local_addr(&self) -> ::std::io::Result<::std::net::SocketAddr> {

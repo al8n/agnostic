@@ -2,7 +2,7 @@ use core::future::Future;
 
 use crate::Yielder;
 
-#[cfg(any(feature = "smol", feature = "async-std", feature = "wasm"))]
+#[cfg(any(feature = "smol", feature = "async-std"))]
 macro_rules! join_handle {
   ($handle:ty) => {
     pin_project_lite::pin_project! {
@@ -55,8 +55,6 @@ pub(crate) mod handle {
   }
 
   impl core::fmt::Display for JoinError {
-    #[cold]
-    #[inline(never)]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       write!(f, "task failed to execute to completion")
     }
@@ -64,9 +62,8 @@ pub(crate) mod handle {
 
   impl core::error::Error for JoinError {}
 
+  #[cfg(feature = "std")]
   impl From<JoinError> for std::io::Error {
-    #[cold]
-    #[inline(never)]
     fn from(_: JoinError) -> Self {
       std::io::Error::new(std::io::ErrorKind::Other, "join error")
     }
@@ -76,7 +73,12 @@ pub(crate) mod handle {
 /// Joinhanlde trait
 pub trait JoinHandle<O>: Future<Output = Result<O, Self::JoinError>> + Unpin {
   /// The error type for the join handle
+  #[cfg(feature = "std")]
   type JoinError: core::error::Error + Into<std::io::Error> + Send + Sync + 'static;
+
+  /// The error type for the join handle
+  #[cfg(not(feature = "std"))]
+  type JoinError: core::error::Error + Send + Sync + 'static;
 
   /// Detaches the task to let it keep running in the background.
   fn detach(self)
@@ -90,7 +92,11 @@ pub trait JoinHandle<O>: Future<Output = Result<O, Self::JoinError>> + Unpin {
 /// Joinhanlde trait
 pub trait LocalJoinHandle<O>: Future<Output = Result<O, Self::JoinError>> + Unpin {
   /// The error type for the join handle
+  #[cfg(feature = "std")]
   type JoinError: core::error::Error + Into<std::io::Error> + 'static;
+  /// The error type for the join handle
+  #[cfg(not(feature = "std"))]
+  type JoinError: core::error::Error + 'static;
 
   /// Detaches the task to let it keep running in the background.
   fn detach(self)
