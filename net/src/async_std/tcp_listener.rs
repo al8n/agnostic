@@ -43,16 +43,30 @@ impl_as_raw_fd!(TcpListener.ln);
 impl_as_fd_async_std!(TcpListener.ln);
 
 impl crate::TcpListener for TcpListener {
-  type Stream = TcpStream;
   type Runtime = AsyncStdRuntime;
+  type Stream = TcpStream;
+  type Incoming<'a> = Incoming<'a>;
 
-  tcp_listener_common_methods!(AsyncStdTcpListener.ln);
+  fn incoming(&self) -> Self::Incoming<'_> {
+    self.ln.incoming().into()
+  }
+
+  fn into_incoming(self) -> impl ::futures_util::stream::Stream<Item = ::std::io::Result<Self::Stream>> + ::core::marker::Send {
+    ::futures_util::stream::unfold(self, |listener| async move {
+      let res = listener.accept().await.map(|(stream, _)| stream);
+      ::core::option::Option::Some((res, listener))
+    })
+  }
 
   fn set_ttl(&self, ttl: u32) -> io::Result<()> {
     crate::set_ttl(self, ttl)
   }
-  
+
   fn ttl(&self) -> io::Result<u32> {
     crate::ttl(self)
   }
+  
+  tcp_listener_common_methods!(AsyncStdTcpListener.ln);
 }
+
+tcp_listener_incoming!(async_std::net::Incoming<'a> => TcpStream);

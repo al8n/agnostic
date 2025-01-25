@@ -14,14 +14,6 @@ use std::{
   time::{Duration, Instant},
 };
 
-async fn each_ip<F>(f: &mut dyn FnMut(SocketAddr, SocketAddr) -> F)
-where
-  F: Future,
-{
-  f(next_test_ip4(), next_test_ip4()).await;
-  f(next_test_ip6(), next_test_ip6()).await;
-}
-
 macro_rules! t {
   ($e:expr) => {
     match $e {
@@ -29,6 +21,14 @@ macro_rules! t {
       Err(e) => panic!("received error for `{}`: {}", stringify!($e), e),
     }
   };
+}
+
+async fn each_ip<F>(f: &mut dyn FnMut(SocketAddr, SocketAddr) -> F)
+where
+  F: Future,
+{
+  f(next_test_ip4(), next_test_ip4()).await;
+  f(next_test_ip6(), next_test_ip6()).await;
 }
 
 async fn bind_error<N: Net>() {

@@ -1,4 +1,4 @@
-use std::{future::Future, io, net::SocketAddr};
+use std::{future::Future, io, net::SocketAddr, time::Duration};
 
 use agnostic_lite::RuntimeLite;
 
@@ -72,6 +72,21 @@ macro_rules! tcp_stream_common_methods {
       }))
     }
 
+    async fn connect_timeout(
+      addr: &::std::net::SocketAddr,
+      timeout: ::std::time::Duration,
+    ) -> ::std::io::Result<Self>
+    where
+      Self: Sized
+    {
+      let res = <Self::Runtime as ::agnostic_lite::RuntimeLite>::timeout(timeout, Self::connect(addr)).await;
+  
+      match res {
+        ::core::result::Result::Ok(stream) => stream,
+        ::core::result::Result::Err(err) => Err(err.into()),
+      }
+    }
+
     async fn peek(&self, buf: &mut [u8]) -> ::std::io::Result<usize> {
       self.$field.peek(buf).await
     }
@@ -126,6 +141,47 @@ macro_rules! tcp_stream_owned_write_half_common_methods {
 
     fn peer_addr(&self) -> ::std::io::Result<::std::net::SocketAddr> {
       self.$field.peer_addr()
+    }
+  };
+}
+
+macro_rules! tcp_listener_incoming {
+  ($ty:ty => $stream:ty) => {
+    pin_project_lite::pin_project! {
+      /// A stream of incoming TCP connections.
+      ///
+      /// This stream is infinite, i.e awaiting the next connection will never result in [`None`]. It is
+      /// created by the [`TcpListener::incoming()`](crate::TcpListener::incoming) method.
+      pub struct Incoming<'a> {
+        #[pin]
+        inner: $ty,
+      }
+    }
+    
+    impl core::fmt::Debug for Incoming<'_> {
+      fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Incoming {{ ... }}")
+      }
+    }
+    
+    impl<'a> From<$ty> for Incoming<'a> {
+      fn from(inner: $ty) -> Self {
+        Self { inner }
+      }
+    }
+
+    impl<'a> From<Incoming<'a>> for $ty {
+      fn from(incoming: Incoming<'a>) -> Self {
+        incoming.inner
+      }
+    }
+
+    impl<'a> ::futures_util::stream::Stream for Incoming<'a> {
+      type Item = ::std::io::Result<$stream>;
+    
+      fn poll_next(self: ::std::pin::Pin<&mut Self>, cx: &mut ::std::task::Context<'_>) -> ::std::task::Poll<::core::option::Option<Self::Item>> {
+        self.project().inner.poll_next(cx).map(|stream| stream.map(|stream| stream.map(<$stream>::from)))
+      }
     }
   };
 }
@@ -189,6 +245,24 @@ pub trait TcpStream:
   /// Connects to the specified address.
   fn connect<A: ToSocketAddrs<Self::Runtime>>(
     addr: A,
+  ) -> impl Future<Output = io::Result<Self>> + Send
+  where
+    Self: Sized;
+
+  /// Opens a TCP connection to a remote host with a timeout.
+  ///
+  /// Unlike `connect`, `connect_timeout` takes a single [`SocketAddr`] since
+  /// timeout must be applied to individual addresses.
+  ///
+  /// It is an error to pass a zero `Duration` to this function.
+  ///
+  /// Unlike other methods on `TcpStream`, this does not correspond to a
+  /// single system call. It instead calls `connect` in nonblocking mode and
+  /// then uses an OS-specific mechanism to await the completion of the
+  /// connection request.
+  fn connect_timeout(
+    addr: &SocketAddr,
+    timeout: Duration,
   ) -> impl Future<Output = io::Result<Self>> + Send
   where
     Self: Sized;
@@ -282,6 +356,12 @@ pub trait TcpListener:
   /// Stream of incoming connections.
   type Stream: TcpStream<Runtime = Self::Runtime>;
 
+  /// A stream of incoming TCP connections.
+  ///
+  /// This stream is infinite, i.e awaiting the next connection will never result in [`None`]. It is
+  /// created by the [`TcpListener::incoming()`] method.
+  type Incoming<'a>: futures_util::stream::Stream<Item = io::Result<Self::Stream>> + Send + Sync + Unpin + 'a;
+
   /// Creates a new TcpListener, which will be bound to the specified address.
   ///
   /// The returned listener is ready for accepting connections.
@@ -308,6 +388,25 @@ pub trait TcpListener:
   /// This function will yield once a new TCP connection is established. When established,
   /// the corresponding [`TcpStream`] and the remote peer's address will be returned.
   fn accept(&self) -> impl Future<Output = io::Result<(Self::Stream, SocketAddr)>> + Send;
+
+  /// Returns a stream of incoming connections.
+  ///
+  /// Iterating over this stream is equivalent to calling [`accept()`][`TcpListener::accept()`]
+  /// in a loop. The stream of connections is infinite, i.e awaiting the next connection will
+  /// never result in [`None`].
+  /// 
+  /// See also [`TcpListener::into_incoming`].
+  fn incoming(&self) -> Self::Incoming<'_>;
+
+  /// Turn this into a stream over the connections being received on this
+  /// listener.
+  ///
+  /// The returned stream is infinite and will also not yield
+  /// the peer's [`SocketAddr`] structure. Iterating over it is equivalent to
+  /// calling [`TcpListener::accept`] in a loop.
+  /// 
+  /// See also [`TcpListener::incoming`].
+  fn into_incoming(self) -> impl futures_util::stream::Stream<Item = io::Result<Self::Stream>> + Send;
 
   /// Returns the local address that this listener is bound to.
   ///
