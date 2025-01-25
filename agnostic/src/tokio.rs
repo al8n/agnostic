@@ -28,7 +28,7 @@ pub mod quinn {
 
 impl Runtime for TokioRuntime {
   #[cfg(feature = "net")]
-  type Net = net::TokioNet;
+  type Net = net::Net;
 
   #[cfg(feature = "process")]
   type Process = process::TokioProcess;

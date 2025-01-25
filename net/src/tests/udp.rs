@@ -184,89 +184,6 @@ async fn udp_clone_two_write<N: Net>() {
   .await
 }
 
-async fn timeouts<N: Net>() {
-  let addr = next_test_ip4();
-
-  let stream = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
-  let dur = Duration::new(15410, 0);
-
-  assert_eq!(None, stream.recv_timeout());
-
-  stream.set_recv_timeout(Some(dur));
-  assert_eq!(Some(dur), stream.recv_timeout());
-
-  assert_eq!(None, stream.send_timeout());
-
-  stream.set_send_timeout(Some(dur));
-  assert_eq!(Some(dur), stream.send_timeout());
-
-  stream.set_recv_timeout(None);
-  assert_eq!(None, stream.recv_timeout());
-
-  stream.set_send_timeout(None);
-  assert_eq!(None, stream.send_timeout());
-}
-
-async fn recv_timeout<N: Net>() {
-  let addr = next_test_ip4();
-
-  let stream = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
-  stream.set_recv_timeout(Some(Duration::from_millis(1000)));
-
-  let mut buf = [0; 10];
-
-  let start = Instant::now();
-  loop {
-    let kind = stream
-      .recv_from(&mut buf)
-      .await
-      .err()
-      .expect("expected error")
-      .kind();
-    if kind != ErrorKind::Interrupted {
-      assert!(
-        kind == ErrorKind::WouldBlock || kind == ErrorKind::TimedOut,
-        "unexpected_error: {:?}",
-        kind
-      );
-      break;
-    }
-  }
-  assert!(start.elapsed() > Duration::from_millis(400));
-}
-
-async fn read_with_timeout<N: Net>() {
-  let addr = next_test_ip4();
-
-  let stream = t!(<N::UdpSocket as UdpSocket>::bind(&addr).await);
-  stream.set_recv_timeout(Some(Duration::from_millis(1000)));
-
-  t!(stream.send_to(b"hello world", &addr).await);
-
-  let mut buf = [0; 11];
-  t!(stream.recv_from(&mut buf).await);
-  assert_eq!(b"hello world", &buf[..]);
-
-  let start = Instant::now();
-  loop {
-    let kind = stream
-      .recv_from(&mut buf)
-      .await
-      .err()
-      .expect("expected error")
-      .kind();
-    if kind != ErrorKind::Interrupted {
-      assert!(
-        kind == ErrorKind::WouldBlock || kind == ErrorKind::TimedOut,
-        "unexpected_error: {:?}",
-        kind
-      );
-      break;
-    }
-  }
-  assert!(start.elapsed() > Duration::from_millis(400));
-}
-
 async fn connect_send_recv<N: Net>() {
   let addr = next_test_ip4();
 
@@ -401,21 +318,6 @@ macro_rules! test_suites {
       #[test]
       fn [<test_ $runtime _udp_clone_two_write>]() {
         run(udp_clone_two_write::<[< $runtime:camel Net >]>());
-      }
-
-      #[test]
-      fn [<test_ $runtime _timeouts>]() {
-        run(timeouts::<[< $runtime:camel Net >]>());
-      }
-
-      #[test]
-      fn [<test_ $runtime _recv_timeout>]() {
-        run(recv_timeout::<[< $runtime:camel Net >]>());
-      }
-
-      #[test]
-      fn [<test_ $runtime _read_with_timeout>]() {
-        run(read_with_timeout::<[< $runtime:camel Net >]>());
       }
 
       #[test]

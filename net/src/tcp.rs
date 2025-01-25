@@ -7,8 +7,131 @@ use super::{
   As, ToSocketAddrs,
 };
 
+macro_rules! tcp_listener_common_methods {
+  ($ty:ident.$field:ident) => {
+    async fn bind<A: $crate::ToSocketAddrs<Self::Runtime>>(addr: A) -> std::io::Result<Self>
+    where
+      Self: Sized,
+    {
+      let addrs = addr.to_socket_addrs().await?;
+
+      let mut last_err = core::option::Option::None;
+      for addr in addrs {
+        match $ty::bind(addr).await {
+          ::core::result::Result::Ok(ln) => return ::core::result::Result::Ok(Self { ln }),
+          ::core::result::Result::Err(e) => last_err = core::option::Option::Some(e),
+        }
+      }
+
+      ::core::result::Result::Err(last_err.unwrap_or_else(|| {
+        ::std::io::Error::new(
+          ::std::io::ErrorKind::InvalidInput,
+          "could not resolve to any address",
+        )
+      }))
+    }
+
+    async fn accept(&self) -> ::std::io::Result<(Self::Stream, ::std::net::SocketAddr)> {
+      self
+        .$field
+        .accept()
+        .await
+        .map(|(stream, addr)| (Self::Stream::from(stream), addr))
+    }
+
+    fn local_addr(&self) -> ::std::io::Result<::std::net::SocketAddr> {
+      self.$field.local_addr()
+    }
+  };
+}
+
+macro_rules! tcp_stream_common_methods {
+  ($runtime:literal::$field:ident) => {
+    async fn connect<A: $crate::ToSocketAddrs<Self::Runtime>>(addr: A) -> ::std::io::Result<Self>
+    where
+      Self: Sized,
+    {
+      let addrs = addr.to_socket_addrs().await?;
+
+      let mut last_err = ::core::option::Option::None;
+
+      for addr in addrs {
+        paste::paste! {
+          match ::[< $runtime:snake >]::net::TcpStream::connect(addr).await {
+            ::core::result::Result::Ok(stream) => return ::core::result::Result::Ok(Self::from(stream)),
+            ::core::result::Result::Err(e) => last_err = ::core::option::Option::Some(e),
+          }
+        }
+      }
+
+      ::core::result::Result::Err(last_err.unwrap_or_else(|| {
+        ::std::io::Error::new(
+          ::std::io::ErrorKind::InvalidInput,
+          "could not resolve to any address",
+        )
+      }))
+    }
+
+    async fn peek(&self, buf: &mut [u8]) -> ::std::io::Result<usize> {
+      self.$field.peek(buf).await
+    }
+
+    fn local_addr(&self) -> ::std::io::Result<::std::net::SocketAddr> {
+      self.$field.local_addr()
+    }
+
+    fn peer_addr(&self) -> ::std::io::Result<::std::net::SocketAddr> {
+      self.$field.peer_addr()
+    }
+
+    fn set_ttl(&self, ttl: u32) -> ::std::io::Result<()> {
+      self.$field.set_ttl(ttl)
+    }
+
+    fn ttl(&self) -> ::std::io::Result<u32> {
+      self.$field.ttl()
+    }
+
+    fn set_nodelay(&self, nodelay: bool) -> ::std::io::Result<()> {
+      self.$field.set_nodelay(nodelay)
+    }
+
+    fn nodelay(&self) -> ::std::io::Result<bool> {
+      self.$field.nodelay()
+    }
+  };
+}
+
+macro_rules! tcp_stream_owned_read_half_common_methods {
+  ($field:ident) => {
+    fn local_addr(&self) -> ::std::io::Result<::std::net::SocketAddr> {
+      self.$field.local_addr()
+    }
+
+    fn peer_addr(&self) -> ::std::io::Result<::std::net::SocketAddr> {
+      self.$field.peer_addr()
+    }
+
+    async fn peek(&mut self, buf: &mut [u8]) -> ::std::io::Result<usize> {
+      self.$field.peek(buf).await
+    }
+  };
+}
+
+macro_rules! tcp_stream_owned_write_half_common_methods {
+  ($field:ident) => {
+    fn local_addr(&self) -> ::std::io::Result<::std::net::SocketAddr> {
+      self.$field.local_addr()
+    }
+
+    fn peer_addr(&self) -> ::std::io::Result<::std::net::SocketAddr> {
+      self.$field.peer_addr()
+    }
+  };
+}
+
 /// The abstraction of a owned read half of a TcpStream.
-pub trait TcpStreamOwnedReadHalf: AsyncRead + Unpin + Send + Sync + 'static {
+pub trait OwnedReadHalf: AsyncRead + Unpin + Send + Sync + 'static {
   /// The async runtime.
   type Runtime: RuntimeLite;
 
@@ -29,7 +152,7 @@ pub trait TcpStreamOwnedReadHalf: AsyncRead + Unpin + Send + Sync + 'static {
 }
 
 /// The abstraction of a owned write half of a TcpStream.
-pub trait TcpStreamOwnedWriteHalf: AsyncWrite + Unpin + Send + Sync + 'static {
+pub trait OwnedWriteHalf: AsyncWrite + Unpin + Send + Sync + 'static {
   /// The async runtime.
   type Runtime: RuntimeLite;
 
@@ -57,9 +180,9 @@ pub trait TcpStream:
   /// The async runtime.
   type Runtime: RuntimeLite;
   /// The owned read half of the stream.
-  type OwnedReadHalf: TcpStreamOwnedReadHalf;
+  type OwnedReadHalf: OwnedReadHalf;
   /// The owned write half of the stream.
-  type OwnedWriteHalf: TcpStreamOwnedWriteHalf;
+  type OwnedWriteHalf: OwnedWriteHalf;
   /// Error indicating that two halves were not from the same socket, and thus could not be reunited.
   type ReuniteError: core::error::Error + Unpin + Send + Sync + 'static;
 

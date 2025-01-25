@@ -28,7 +28,7 @@ pub mod quinn {
 
 impl Runtime for SmolRuntime {
   #[cfg(feature = "net")]
-  type Net = net::SmolNet;
+  type Net = net::Net;
 
   #[cfg(feature = "process")]
   type Process = process::AsyncProcess;

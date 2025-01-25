@@ -3,7 +3,6 @@ use std::{
   io,
   net::{Ipv4Addr, Ipv6Addr, SocketAddr},
   task::{Context, Poll},
-  time::Duration,
 };
 
 use agnostic_lite::RuntimeLite;
@@ -65,15 +64,15 @@ macro_rules! udp_common_methods_impl {
     }
 
     async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-      timeout!(self.$field.recv(recv_timeout, buf))
+      call!(self.$field.recv(buf))
     }
 
     async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-      timeout!(self.$field.recv_from(recv_timeout, buf))
+      call!(self.$field.recv_from(buf))
     }
 
     async fn send(&self, buf: &[u8]) -> io::Result<usize> {
-      timeout!(self.$field.send(send_timeout, buf))
+      call!(self.$field.send(buf))
     }
 
     async fn send_to<A: $crate::ToSocketAddrs<Self::Runtime>>(
@@ -81,15 +80,15 @@ macro_rules! udp_common_methods_impl {
       buf: &[u8],
       target: A,
     ) -> io::Result<usize> {
-      timeout!(@send_to self.$field(buf, target))
+      call!(@send_to self.$field(buf, target))
     }
 
     async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
-      timeout!(self.$field.peek(recv_timeout, buf))
+      call!(self.$field.peek(buf))
     }
 
     async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-      timeout!(self.$field.peek_from(recv_timeout, buf))
+      call!(self.$field.peek_from(buf))
     }
 
     fn join_multicast_v4(&self, multiaddr: ::std::net::Ipv4Addr, interface: ::std::net::Ipv4Addr) -> io::Result<()> {
@@ -147,8 +146,6 @@ macro_rules! udp_common_methods_impl {
     fn broadcast(&self) -> io::Result<bool> {
       self.$field.broadcast()
     }
-
-    try_clone!($field(recv <=> send));
   };
 }
 
@@ -300,8 +297,6 @@ pub trait UdpSocket:
   /// This may not have any affect on IPv4 sockets.
   fn set_multicast_loop_v6(&self, on: bool) -> io::Result<()>;
 
-  timeout_methods!(recv <=> send);
-
   /// Sets the ttl of this UDP socket.
   fn set_ttl(&self, ttl: u32) -> io::Result<()>;
 
@@ -319,7 +314,9 @@ pub trait UdpSocket:
   /// The returned `UdpSocket` is a reference to the same socket that this
   /// object references. Both handles will read and write the same port, and
   /// options set on one socket will be propagated to the other.
-  fn try_clone(&self) -> io::Result<Self>;
+  fn try_clone(&self) -> ::std::io::Result<Self> {
+    super::duplicate(self).and_then(Self::try_from)
+  }
 
   /// Get the value of the `IPV6_V6ONLY` option for this socket.
   fn only_v6(&self) -> io::Result<bool> {

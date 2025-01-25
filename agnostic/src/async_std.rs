@@ -28,7 +28,7 @@ pub mod quinn {
 
 impl Runtime for AsyncStdRuntime {
   #[cfg(feature = "net")]
-  type Net = net::AsyncStdNet;
+  type Net = net::Net;
 
   #[cfg(feature = "process")]
   type Process = process::AsyncProcess;
