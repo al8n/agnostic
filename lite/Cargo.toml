@@ -60,7 +60,7 @@ wasm = { workspace = true, features = ["wasm-bindgen"], optional = true }
 wasm = { workspace = true, optional = true }
 
 [dependencies]
-atomic-time = { version = "0.1", optional = true }
+atomic-time = { workspace = true, optional = true }
 futures-util = { workspace = true, default-features = false }
 pin-project-lite.workspace = true
 pin-project = "1"

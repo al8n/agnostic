@@ -135,7 +135,6 @@ pub trait TcpStream:
     super::set_linger(self, duration)
   }
 
-
   /// Attempts to put the two halves of a TcpStream back together and recover the original socket. Succeeds only if the two halves originated from the same call to [`into_split`][TcpStream::into_split].
   fn reunite(
     read: Self::OwnedReadHalf,

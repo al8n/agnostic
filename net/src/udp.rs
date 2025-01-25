@@ -10,6 +10,148 @@ use agnostic_lite::RuntimeLite;
 
 use super::{As, ToSocketAddrs};
 
+macro_rules! udp_common_methods_impl {
+  ($ty:ident.$field:ident) => {
+    async fn bind<A: $crate::ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
+    where
+      Self: Sized,
+    {
+      let addrs = addr.to_socket_addrs().await?;
+
+      let mut last_err = None;
+      for addr in addrs {
+        match $ty::bind(addr).await {
+          Ok(socket) => return Ok(Self::from(socket)),
+          Err(e) => {
+            last_err = Some(e);
+          }
+        }
+      }
+
+      Err(last_err.unwrap_or_else(|| {
+        io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "could not resolve to any address",
+        )
+      }))
+    }
+
+    async fn connect<A: $crate::ToSocketAddrs<Self::Runtime>>(&self, addr: A) -> io::Result<()> {
+      let addrs = addr.to_socket_addrs().await?;
+
+      let mut last_err = None;
+
+      for addr in addrs {
+        match self.$field.connect(addr).await {
+          Ok(()) => return Ok(()),
+          Err(e) => last_err = Some(e),
+        }
+      }
+
+      Err(last_err.unwrap_or_else(|| {
+        io::Error::new(
+          io::ErrorKind::InvalidInput,
+          "could not resolve to any address",
+        )
+      }))
+    }
+
+    fn local_addr(&self) -> io::Result<SocketAddr> {
+      self.$field.local_addr()
+    }
+
+    fn peer_addr(&self) -> io::Result<SocketAddr> {
+      self.$field.peer_addr()
+    }
+
+    async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
+      timeout!(self.$field.recv(recv_timeout, buf))
+    }
+
+    async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+      timeout!(self.$field.recv_from(recv_timeout, buf))
+    }
+
+    async fn send(&self, buf: &[u8]) -> io::Result<usize> {
+      timeout!(self.$field.send(send_timeout, buf))
+    }
+
+    async fn send_to<A: $crate::ToSocketAddrs<Self::Runtime>>(
+      &self,
+      buf: &[u8],
+      target: A,
+    ) -> io::Result<usize> {
+      timeout!(@send_to self.$field(buf, target))
+    }
+
+    async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
+      timeout!(self.$field.peek(recv_timeout, buf))
+    }
+
+    async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+      timeout!(self.$field.peek_from(recv_timeout, buf))
+    }
+
+    fn join_multicast_v4(&self, multiaddr: ::std::net::Ipv4Addr, interface: ::std::net::Ipv4Addr) -> io::Result<()> {
+      self.$field.join_multicast_v4(multiaddr, interface)
+    }
+
+    fn join_multicast_v6(&self, multiaddr: &::std::net::Ipv6Addr, interface: u32) -> io::Result<()> {
+      self.$field.join_multicast_v6(multiaddr, interface)
+    }
+
+    fn leave_multicast_v4(&self, multiaddr: ::std::net::Ipv4Addr, interface: ::std::net::Ipv4Addr) -> io::Result<()> {
+      self.$field.leave_multicast_v4(multiaddr, interface)
+    }
+
+    fn leave_multicast_v6(&self, multiaddr: &::std::net::Ipv6Addr, interface: u32) -> io::Result<()> {
+      self.$field.leave_multicast_v6(multiaddr, interface)
+    }
+
+    fn multicast_loop_v4(&self) -> io::Result<bool> {
+      self.$field.multicast_loop_v4()
+    }
+
+    fn set_multicast_loop_v4(&self, on: bool) -> io::Result<()> {
+      self.$field.set_multicast_loop_v4(on)
+    }
+
+    fn multicast_ttl_v4(&self) -> io::Result<u32> {
+      self.$field.multicast_ttl_v4()
+    }
+
+    fn set_multicast_ttl_v4(&self, ttl: u32) -> io::Result<()> {
+      self.$field.set_multicast_ttl_v4(ttl)
+    }
+
+    fn multicast_loop_v6(&self) -> io::Result<bool> {
+      self.$field.multicast_loop_v6()
+    }
+
+    fn set_multicast_loop_v6(&self, on: bool) -> io::Result<()> {
+      self.$field.set_multicast_loop_v6(on)
+    }
+
+    fn set_ttl(&self, ttl: u32) -> io::Result<()> {
+      self.$field.set_ttl(ttl)
+    }
+
+    fn ttl(&self) -> io::Result<u32> {
+      self.$field.ttl()
+    }
+
+    fn set_broadcast(&self, broadcast: bool) -> io::Result<()> {
+      self.$field.set_broadcast(broadcast)
+    }
+
+    fn broadcast(&self) -> io::Result<bool> {
+      self.$field.broadcast()
+    }
+
+    try_clone!($field(recv <=> send));
+  };
+}
+
 /// The abstraction of a UDP socket.
 pub trait UdpSocket:
   TryFrom<std::net::UdpSocket, Error = io::Error>
@@ -158,49 +300,7 @@ pub trait UdpSocket:
   /// This may not have any affect on IPv4 sockets.
   fn set_multicast_loop_v6(&self, on: bool) -> io::Result<()>;
 
-  /// Get value for the `SO_RCVTIMEO` option on this socket.
-  ///
-  /// If the returned timeout is `None`, then `read` and `recv` calls will
-  /// block indefinitely.
-  ///
-  /// ## Warning
-  /// - this value will have no effect when non-blocking mode is enabled.
-  fn read_timeout(&self) -> io::Result<Option<Duration>> {
-    super::read_timeout(self)
-  }
-
-  /// Set value for the `SO_RCVTIMEO` option on this socket.
-  ///
-  /// If `timeout` is `None`, then `read` and `recv` calls will block
-  /// indefinitely.
-  ///
-  /// ## Warning
-  /// - this value will have no effect when non-blocking mode is enabled.
-  fn set_read_timeout(&self, timeout: Option<Duration>) -> io::Result<()> {
-    super::set_read_timeout(self, timeout)
-  }
-
-  /// Get value for the `SO_SNDTIMEO` option on this socket.
-  ///
-  /// If the returned timeout is `None`, then `write` and `send` calls will
-  /// block indefinitely.
-  ///
-  /// ## Warning
-  /// - this value will have no effect when non-blocking mode is enabled.
-  fn write_timeout(&self) -> io::Result<Option<Duration>> {
-    super::write_timeout(self)
-  }
-
-  /// Set value for the `SO_SNDTIMEO` option on this socket.
-  ///
-  /// If `timeout` is `None`, then `write` and `send` calls will block
-  /// indefinitely.
-  ///
-  /// ## Warning
-  /// - this value will have no effect when non-blocking mode is enabled.
-  fn set_write_timeout(&self, duration: Option<Duration>) -> io::Result<()> {
-    super::set_write_timeout(self, duration)
-  }
+  timeout_methods!(recv <=> send);
 
   /// Sets the ttl of this UDP socket.
   fn set_ttl(&self, ttl: u32) -> io::Result<()>;
@@ -219,9 +319,7 @@ pub trait UdpSocket:
   /// The returned `UdpSocket` is a reference to the same socket that this
   /// object references. Both handles will read and write the same port, and
   /// options set on one socket will be propagated to the other.
-  fn try_clone(&self) -> io::Result<Self> {
-    super::duplicate(self).and_then(Self::try_from)
-  }
+  fn try_clone(&self) -> io::Result<Self>;
 
   /// Get the value of the `IPV6_V6ONLY` option for this socket.
   fn only_v6(&self) -> io::Result<bool> {

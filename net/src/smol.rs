@@ -1,16 +1,18 @@
 use std::{
   io,
-  net::{Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr},
+  net::{Shutdown, SocketAddr},
   pin::Pin,
-  task::{Context, Poll},
+  task::{Context, Poll}, time::Duration,
 };
 
+use atomic_time::AtomicDuration;
 use futures_util::FutureExt;
 use smol::net::{TcpListener, TcpStream, UdpSocket};
+use triomphe::Arc;
 
 use super::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs};
 
-use agnostic_lite::smol::SmolRuntime;
+use agnostic_lite::{smol::SmolRuntime, RuntimeLite};
 
 /// The [`Net`] implementation for [`smol`] runtime
 /// 
@@ -453,15 +455,20 @@ impl super::TcpStream for SmolTcpStream {
 /// 
 /// [`smol`]: https://docs.rs/smol
 #[derive(Debug)]
-#[repr(transparent)]
 pub struct SmolUdpSocket {
   socket: UdpSocket,
+  recv_timeout: Arc<AtomicDuration>,
+  send_timeout: Arc<AtomicDuration>,
 }
 
 impl From<UdpSocket> for SmolUdpSocket {
   #[inline]
   fn from(socket: UdpSocket) -> Self {
-    Self { socket }
+    Self {
+      socket,
+      recv_timeout: Arc::new(AtomicDuration::new(Duration::ZERO)),
+      send_timeout: Arc::new(AtomicDuration::new(Duration::ZERO)),
+    }
   }
 }
 
@@ -487,158 +494,34 @@ impl_as!(SmolUdpSocket.socket);
 impl super::UdpSocket for SmolUdpSocket {
   type Runtime = SmolRuntime;
 
-  async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
-  where
-    Self: Sized,
-  {
-    let addrs = addr.to_socket_addrs().await?;
+  udp_common_methods_impl!(UdpSocket.socket);  
 
-    let mut last_err = None;
-    for addr in addrs {
-      match UdpSocket::bind(addr).await {
-        Ok(socket) => return Ok(Self { socket }),
-        Err(e) => {
-          last_err = Some(e);
-        }
-      }
-    }
-
-    Err(last_err.unwrap_or_else(|| {
-      io::Error::new(
-        io::ErrorKind::InvalidInput,
-        "could not resolve to any address",
-      )
-    }))
-  }
-
-  async fn connect<A: ToSocketAddrs<Self::Runtime>>(&self, addr: A) -> io::Result<()> {
-    let mut addrs = addr.to_socket_addrs().await?;
-
-    if addrs.size_hint().0 <= 1 {
-      if let Some(addr) = addrs.next() {
-        self.socket.connect(addr).await
-      } else {
-        Err(io::Error::new(
-          io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ))
-      }
-    } else {
-      self
-        .socket
-        .connect(&addrs.collect::<Vec<_>>().as_slice())
-        .await
-    }
-  }
-
-  fn local_addr(&self) -> io::Result<SocketAddr> {
-    self.socket.local_addr()
-  }
-
-  fn peer_addr(&self) -> io::Result<SocketAddr> {
-    self.socket.peer_addr()
-  }
-
-  async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-    self.socket.recv(buf).await
-  }
-
-  async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-    self.socket.recv_from(buf).await
-  }
-
-  async fn send(&self, buf: &[u8]) -> io::Result<usize> {
-    self.socket.send(buf).await
-  }
-
-  async fn send_to<A: ToSocketAddrs<Self::Runtime>>(
-    &self,
-    buf: &[u8],
-    target: A,
-  ) -> io::Result<usize> {
-    let mut addrs = target.to_socket_addrs().await?;
-    if let Some(addr) = addrs.next() {
-      self.socket.send_to(buf, addr).await
-    } else {
-      Err(io::Error::new(
-        io::ErrorKind::InvalidInput,
-        "invalid socket address",
-      ))
-    }
-  }
-
-  async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
-    self.socket.peek(buf).await
-  }
-
-  async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-    self.socket.peek_from(buf).await
-  }
-
-  fn join_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
-    self.socket.join_multicast_v4(multiaddr, interface)
-  }
-
-  fn join_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()> {
-    self.socket.join_multicast_v6(multiaddr, interface)
-  }
-
-  fn leave_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
-    self.socket.leave_multicast_v4(multiaddr, interface)
-  }
-
-  fn leave_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()> {
-    self.socket.leave_multicast_v6(multiaddr, interface)
-  }
-
-  fn multicast_loop_v4(&self) -> io::Result<bool> {
-    self.socket.multicast_loop_v4()
-  }
-
-  fn set_multicast_loop_v4(&self, on: bool) -> io::Result<()> {
-    self.socket.set_multicast_loop_v4(on)
-  }
-
-  fn multicast_ttl_v4(&self) -> io::Result<u32> {
-    self.socket.multicast_ttl_v4()
-  }
-
-  fn set_multicast_ttl_v4(&self, ttl: u32) -> io::Result<()> {
-    self.socket.set_multicast_ttl_v4(ttl)
-  }
-
-  fn multicast_loop_v6(&self) -> io::Result<bool> {
-    self.socket.multicast_loop_v6()
-  }
-
-  fn set_multicast_loop_v6(&self, on: bool) -> io::Result<()> {
-    self.socket.set_multicast_loop_v6(on)
-  }
-
-  fn set_ttl(&self, ttl: u32) -> io::Result<()> {
-    self.socket.set_ttl(ttl)
-  }
-
-  fn ttl(&self) -> io::Result<u32> {
-    self.socket.ttl()
-  }
-  
-  fn set_broadcast(&self, broadcast: bool) -> io::Result<()> {
-    self.socket.set_broadcast(broadcast)
-  }
-  
-  fn broadcast(&self) -> io::Result<bool> {
-    self.socket.broadcast()
-  }
+  timeout_methods_impl!(recv <=> send);
   
   fn poll_recv_from(
     &self,
     cx: &mut Context<'_>,
     buf: &mut [u8],
   ) -> Poll<io::Result<(usize, SocketAddr)>> {
-    let fut = self.socket.recv_from(buf);
-    futures_util::pin_mut!(fut);
-    fut.poll_unpin(cx)
+    match self.recv_timeout() {
+      Some(timeout) => {
+        let fut = self.socket.recv_from(buf);
+        let timeout = <Self::Runtime as RuntimeLite>::timeout(timeout, fut);
+        futures_util::pin_mut!(timeout);
+        timeout
+          .poll_unpin(cx)
+          .map(|res| match res {
+            Ok(Ok(res)) => Ok(res),
+            Ok(Err(e)) => Err(e),
+            Err(e) => Err(e.into()),
+          })
+      }
+      None => {
+        let fut = self.socket.recv_from(buf);
+        futures_util::pin_mut!(fut);
+        fut.poll_unpin(cx)
+      },
+    }
   }
   
   fn poll_send_to(
@@ -647,8 +530,24 @@ impl super::UdpSocket for SmolUdpSocket {
     buf: &[u8],
     target: SocketAddr,
   ) -> Poll<io::Result<usize>> {
-    let fut = self.socket.send_to(buf, target);
-    futures_util::pin_mut!(fut);
-    fut.poll_unpin(cx)
+    match self.send_timeout() {
+      Some(timeout) => {
+        let fut = self.socket.send_to(buf, target);
+        let timeout = <Self::Runtime as RuntimeLite>::timeout(timeout, fut);
+        futures_util::pin_mut!(timeout);
+        timeout
+          .poll_unpin(cx)
+          .map(|res| match res {
+            Ok(Ok(len)) => Ok(len),
+            Ok(Err(e)) => Err(e),
+            Err(e) => Err(e.into()),
+          })
+      }
+      None => {
+        let fut = self.socket.send_to(buf, target);
+        futures_util::pin_mut!(fut);
+        fut.poll_unpin(cx)
+      },
+    }
   }
 }

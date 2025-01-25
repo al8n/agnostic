@@ -46,6 +46,103 @@ macro_rules! impl_as {
   };
 }
 
+macro_rules! timeout_methods {
+  ($read:ident <=> $write:ident) => {
+    paste::paste! {
+      #[doc = "Gets the " $read " timeout of this socket."]
+      fn [< $read _timeout >](&self) -> Option<Duration>;
+
+      #[doc = "Set the " $read " timeout for this socket."]
+      fn [< set_ $read _timeout >](&self, timeout: Option<Duration>);
+
+      #[doc = "Gets the " $write " timeout of this socket."]
+      fn [< $write _timeout >](&self) -> Option<Duration>;
+
+      #[doc = "Set the " $write " timeout for this socket."]
+      fn [< set_ $write _timeout >](&self, duration: Option<Duration>);
+    }
+  };
+}
+
+macro_rules! timeout_methods_impl {
+  ($read:ident <=> $write:ident) => {
+    paste::paste! {
+      fn [< $read _timeout >](&self) -> ::core::option::Option<::std::time::Duration> {
+        let val = self.[< $read _timeout >].load(::std::sync::atomic::Ordering::Acquire);
+        if val == ::std::time::Duration::ZERO {
+          ::core::option::Option::None
+        } else {
+          ::core::option::Option::Some(val)
+        }
+      }
+
+      fn [< set_ $read _timeout >](&self, timeout: ::core::option::Option<::std::time::Duration>) {
+        self.[< $read _timeout >].store(timeout.unwrap_or(::std::time::Duration::ZERO), ::std::sync::atomic::Ordering::Release);
+      }
+
+      fn [< $write _timeout >](&self) -> ::core::option::Option<::std::time::Duration> {
+        let val = self.[< $write _timeout >].load(::std::sync::atomic::Ordering::Acquire);
+        if val == ::std::time::Duration::ZERO {
+          ::core::option::Option::None
+        } else {
+          ::core::option::Option::Some(val)
+        }
+      }
+
+      fn [< set_ $write _timeout >](&self, duration: ::core::option::Option<::std::time::Duration>) {
+        self.[< $write _timeout >].store(duration.unwrap_or(::std::time::Duration::ZERO), ::std::sync::atomic::Ordering::Release);
+      }
+    }
+  };
+}
+
+macro_rules! timeout {
+  ($this:ident.$field:ident.$method:ident($knd:ident, $buf:ident)) => {{
+    paste::paste! {
+      match $this.$knd() {
+        ::core::option::Option::Some(timeout) => {
+          let fut = $this.$field.$method($buf);
+          <Self::Runtime as ::agnostic_lite::RuntimeLite>::timeout(timeout, fut).await?
+        }
+        ::core::option::Option::None => $this.$field.$method($buf).await,
+      }
+    }
+  }};
+  (@send_to $this:ident.$field:ident($buf:ident, $target:ident)) => {{
+    paste::paste! {
+      let mut addrs = $crate::ToSocketAddrs::<Self::Runtime>::to_socket_addrs(&$target).await?;
+      if let ::core::option::Option::Some(addr) = addrs.next() {
+        match $this.send_timeout() {
+          ::core::option::Option::Some(timeout) => {
+            let fut = $this.$field.send_to($buf, addr);
+            <Self::Runtime as ::agnostic_lite::RuntimeLite>::timeout(timeout, fut).await?
+          }
+          ::core::option::Option::None => $this.$field.send_to($buf, addr).await,
+        }
+      } else {
+        return ::core::result::Result::Err(::std::io::Error::new(
+          ::std::io::ErrorKind::InvalidInput,
+          "invalid socket address",
+        ));
+      }
+    }
+  }};
+}
+
+macro_rules! try_clone {
+  ($field:ident($read:ident <=> $write:ident)) => {
+    paste::paste! {
+      fn try_clone(&self) -> ::std::io::Result<Self> {
+        $crate::duplicate(self).and_then(|sock| Self::try_from(sock).map(|mut sock| {
+          sock.[<$read _timeout>] = self.[<$read _timeout>].clone();
+          sock.[<$write _timeout>] = self.[<$write _timeout>].clone();
+          sock
+        }))
+      }
+    }
+  };
+}
+
 /// Traits, helpers, and type definitions for asynchronous I/O functionality.
 pub use agnostic_io as io;
 
@@ -53,6 +150,13 @@ mod to_socket_addrs;
 
 #[cfg(test)]
 mod tests;
+
+mod tcp;
+#[macro_use]
+mod udp;
+
+pub use tcp::*;
+pub use udp::*;
 
 /// Agnostic async DNS provider.
 #[cfg(feature = "dns")]
@@ -79,12 +183,6 @@ cfg_async_std!(
   /// [`async-std`]: https://docs.rs/async-std
   pub mod async_std;
 );
-
-mod tcp;
-mod udp;
-
-pub use tcp::*;
-pub use udp::*;
 
 #[doc(hidden)]
 #[cfg(unix)]
@@ -207,10 +305,6 @@ socket2_fn!(recv_buffer_size() -> usize);
 socket2_fn!(set_recv_buffer_size(size: usize) -> ());
 socket2_fn!(send_buffer_size() -> usize);
 socket2_fn!(set_send_buffer_size(size: usize) -> ());
-socket2_fn!(set_read_timeout(duration: Option<std::time::Duration>) -> ());
-socket2_fn!(set_write_timeout(duration: Option<std::time::Duration>) -> ());
-socket2_fn!(read_timeout() -> Option<std::time::Duration>);
-socket2_fn!(write_timeout() -> Option<std::time::Duration>);
 
 #[cfg(unix)]
 fn duplicate<T: As>(this: &T) -> std::io::Result<socket2::Socket> {

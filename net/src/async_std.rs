@@ -2,11 +2,13 @@ use std::{
   io,
   net::SocketAddr,
   pin::Pin,
-  task::{Context, Poll},
+  task::{Context, Poll}, time::Duration,
 };
 
 use ::async_std::net::{TcpListener, TcpStream, UdpSocket};
+use atomic_time::AtomicDuration;
 use futures_util::FutureExt;
+use triomphe::Arc;
 
 use super::{Net, TcpStreamOwnedReadHalf, TcpStreamOwnedWriteHalf, ToSocketAddrs};
 
@@ -490,14 +492,15 @@ impl super::TcpStream for AsyncStdTcpStream {
 /// 
 /// [`async-std`]: https://docs.rs/async-std
 #[derive(Debug)]
-#[repr(transparent)]
 pub struct AsyncStdUdpSocket {
   socket: UdpSocket,
+  recv_timeout: Arc<AtomicDuration>,
+  send_timeout: Arc<AtomicDuration>,
 }
 
 impl From<UdpSocket> for AsyncStdUdpSocket {
   fn from(socket: UdpSocket) -> Self {
-    Self { socket }
+    Self { socket, recv_timeout: Arc::new(AtomicDuration::new(Duration::ZERO)), send_timeout: Arc::new(AtomicDuration::new(Duration::ZERO)) }
   }
 }
 
@@ -506,9 +509,7 @@ impl TryFrom<std::net::UdpSocket> for AsyncStdUdpSocket {
 
   #[inline]
   fn try_from(socket: std::net::UdpSocket) -> Result<Self, Self::Error> {
-    Ok(Self {
-      socket: UdpSocket::from(socket),
-    })
+    Ok(Self::from(UdpSocket::from(socket)))
   }
 }
 
@@ -526,158 +527,10 @@ impl_as_fd_async_std!(AsyncStdUdpSocket.socket);
 impl super::UdpSocket for AsyncStdUdpSocket {
   type Runtime = AsyncStdRuntime;
 
-  async fn bind<A: ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>
-  where
-    Self: Sized,
-  {
-    let addrs = addr.to_socket_addrs().await?;
+  udp_common_methods_impl!(UdpSocket.socket);
 
-    let mut last_err = None;
-    for addr in addrs {
-      match UdpSocket::bind(addr).await {
-        Ok(socket) => return Ok(Self { socket }),
-        Err(e) => {
-          last_err = Some(e);
-        }
-      }
-    }
+  timeout_methods_impl!(recv <=> send);
 
-    Err(last_err.unwrap_or_else(|| {
-      io::Error::new(
-        io::ErrorKind::InvalidInput,
-        "could not resolve to any address",
-      )
-    }))
-  }
-
-  async fn connect<A: ToSocketAddrs<Self::Runtime>>(&self, addr: A) -> io::Result<()> {
-    let mut addrs = addr.to_socket_addrs().await?;
-
-    if addrs.size_hint().0 <= 1 {
-      if let Some(addr) = addrs.next() {
-        self.socket.connect(addr).await
-      } else {
-        Err(io::Error::new(
-          io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ))
-      }
-    } else {
-      self
-        .socket
-        .connect(&addrs.collect::<Vec<_>>().as_slice())
-        .await
-    }
-  }
-
-  fn local_addr(&self) -> io::Result<SocketAddr> {
-    self.socket.local_addr()
-  }
-
-  fn peer_addr(&self) -> io::Result<SocketAddr> {
-    self.socket.peer_addr()
-  }
-
-  async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-    self.socket.recv(buf).await
-  }
-
-  async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-    self.socket.recv_from(buf).await
-  }
-
-  async fn send(&self, buf: &[u8]) -> io::Result<usize> {
-    self.socket.send(buf).await
-  }
-
-  async fn send_to<A: ToSocketAddrs<Self::Runtime>>(
-    &self,
-    buf: &[u8],
-    target: A,
-  ) -> io::Result<usize> {
-    let mut addrs = target.to_socket_addrs().await?;
-    if let Some(addr) = addrs.next() {
-      self.socket.send_to(buf, addr).await
-    } else {
-      Err(io::Error::new(
-        io::ErrorKind::InvalidInput,
-        "invalid socket address",
-      ))
-    }
-  }
-
-  async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
-    self.socket.peek(buf).await
-  }
-
-  async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-    self.socket.peek_from(buf).await
-  }
-
-  fn join_multicast_v4(
-    &self,
-    multiaddr: std::net::Ipv4Addr,
-    interface: std::net::Ipv4Addr,
-  ) -> io::Result<()> {
-    self.socket.join_multicast_v4(multiaddr, interface)
-  }
-
-  fn join_multicast_v6(&self, multiaddr: &std::net::Ipv6Addr, interface: u32) -> io::Result<()> {
-    self.socket.join_multicast_v6(multiaddr, interface)
-  }
-
-  fn leave_multicast_v4(
-    &self,
-    multiaddr: std::net::Ipv4Addr,
-    interface: std::net::Ipv4Addr,
-  ) -> io::Result<()> {
-    self.socket.leave_multicast_v4(multiaddr, interface)
-  }
-
-  fn leave_multicast_v6(&self, multiaddr: &std::net::Ipv6Addr, interface: u32) -> io::Result<()> {
-    self.socket.leave_multicast_v6(multiaddr, interface)
-  }
-
-  fn multicast_loop_v4(&self) -> io::Result<bool> {
-    self.socket.multicast_loop_v4()
-  }
-
-  fn set_multicast_loop_v4(&self, on: bool) -> io::Result<()> {
-    self.socket.set_multicast_loop_v4(on)
-  }
-
-  fn multicast_ttl_v4(&self) -> io::Result<u32> {
-    self.socket.multicast_ttl_v4()
-  }
-
-  fn set_multicast_ttl_v4(&self, ttl: u32) -> io::Result<()> {
-    self.socket.set_multicast_ttl_v4(ttl)
-  }
-
-  fn multicast_loop_v6(&self) -> io::Result<bool> {
-    self.socket.multicast_loop_v6()
-  }
-
-  fn set_multicast_loop_v6(&self, on: bool) -> io::Result<()> {
-    self.socket.set_multicast_loop_v6(on)
-  }
-
-  fn set_ttl(&self, ttl: u32) -> io::Result<()> {
-    self.socket.set_ttl(ttl)
-  }
-
-  fn ttl(&self) -> io::Result<u32> {
-    self.socket.ttl()
-  }
-  
-  fn set_broadcast(&self, broadcast: bool) -> io::Result<()> {
-    self.socket.set_broadcast(broadcast)
-  }
-  
-  fn broadcast(&self) -> io::Result<bool> {
-    self.socket.broadcast()
-  }
-  
   fn poll_recv_from(
     &self,
     cx: &mut Context<'_>,
