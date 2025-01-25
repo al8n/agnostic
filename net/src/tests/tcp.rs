@@ -569,7 +569,7 @@ async fn close_readwrite_smoke<N: Net>() {
     let (tx, rx) = unbounded::<()>();
     let _t = <N::Runtime as RuntimeLite>::spawn(async move {
       let _s = t!(a.accept().await);
-      let _ = rx.recv();
+      let _ = rx.recv().await;
     });
 
     let mut b = [0];

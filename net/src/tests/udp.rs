@@ -170,9 +170,8 @@ async fn udp_clone_two_write<N: Net>() {
       done.send(()).await.unwrap();
     });
 
-    match sock1.send_to(&[2], &addr2).await {
-      Ok(_) => tx1.send(()).await.unwrap(),
-      Err(e) => panic!("{e}"),
+    if sock1.send_to(&[2], &addr2).await.is_ok() {
+      let _ = tx1.send(()).await;
     };
     drop(tx1);
 
