@@ -10,7 +10,6 @@ use crate::{
   spawner::{AfterHandle, LocalAfterHandle, AfterHandleSignals, Canceled},
   time::AsyncSleep,
   AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner,
-  Detach,
 };
 use atomic_time::AtomicOptionDuration;
 use tokio::{
@@ -194,13 +193,13 @@ impl<O: 'static> Future for TokioAfterHandle<O> {
   }
 }
 
-impl<O> Detach for TokioAfterHandle<O> where O: 'static {}
-
-impl<O> AfterHandle<O, JoinError> for TokioAfterHandle<O>
+impl<O> AfterHandle<O> for TokioAfterHandle<O>
 where
   O: Send + 'static,
 {
-  async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
+  type JoinError = AfterHandleError<JoinError>;
+
+  async fn cancel(self) -> Option<Result<O, Self::JoinError>> {
     if self.signals.is_finished() {
       return Some(
         self
@@ -236,11 +235,13 @@ where
   }
 }
 
-impl<O> LocalAfterHandle<O, JoinError> for TokioAfterHandle<O>
+impl<O> LocalAfterHandle<O> for TokioAfterHandle<O>
 where
   O: 'static,
 {
-  async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
+  type JoinError = AfterHandleError<JoinError>;
+
+  async fn cancel(self) -> Option<Result<O, Self::JoinError>> {
     if self.is_finished() {
       return Some(
         self
@@ -273,12 +274,10 @@ where
 }
 
 impl AsyncAfterSpawner for TokioSpawner {
-  type JoinError = JoinError;
-
-  type JoinHandle<F>
-    = TokioAfterHandle<F>
+  type JoinHandle<O>
+    = TokioAfterHandle<O>
   where
-    F: Send + 'static;
+    O: Send + 'static;
 
   fn spawn_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
   where
@@ -298,12 +297,10 @@ impl AsyncAfterSpawner for TokioSpawner {
 }
 
 impl AsyncLocalAfterSpawner for TokioSpawner {
-  type JoinError = JoinError;
-
-  type JoinHandle<F>
-    = TokioAfterHandle<F>
+  type JoinHandle<O>
+    = TokioAfterHandle<O>
   where
-    F: 'static;
+    O: 'static;
 
   fn spawn_local_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
   where

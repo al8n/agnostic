@@ -21,6 +21,7 @@ macro_rules! impl_as_raw_fd {
   };
 }
 
+#[cfg(any(feature = "tokio", feature = "smol"))]
 macro_rules! impl_as_fd {
   ($name:ident.$field:ident) => {
     #[cfg(unix)]
@@ -39,6 +40,7 @@ macro_rules! impl_as_fd {
   };
 }
 
+#[cfg(any(feature = "tokio", feature = "smol"))]
 macro_rules! impl_as {
   ($name:ident.$field:ident) => {
     impl_as_raw_fd!($name.$field);

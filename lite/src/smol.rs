@@ -11,12 +11,6 @@ use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, Yielder};
 
 pub use crate::spawner::handle::JoinError;
 
-impl<T> super::Detach for ::smol::Task<T> {
-  fn detach(self) {
-    ::smol::Task::detach(self)
-  }
-}
-
 /// A [`AsyncSpawner`] that uses the [`smol`] runtime.
 ///
 /// [`smol`]: https://docs.rs/smol
@@ -34,17 +28,17 @@ impl Yielder for SmolSpawner {
 }
 
 impl AsyncSpawner for SmolSpawner {
-  type JoinHandle<F>
-    = ::smol::Task<F>
+  type JoinHandle<O>
+    = JoinHandle<O>
   where
-    F: Send + 'static;
+    O: Send + 'static;
 
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static,
   {
-    ::smol::spawn(future)
+    ::smol::spawn(future).into()
   }
 
   fn spawn_detach<F>(future: F)
@@ -57,17 +51,17 @@ impl AsyncSpawner for SmolSpawner {
 }
 
 impl AsyncLocalSpawner for SmolSpawner {
-  type JoinHandle<F>
-    = ::smol::Task<F>
+  type JoinHandle<O>
+    = JoinHandle<O>
   where
-    F: 'static;
+    O: 'static;
 
   fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: 'static,
     F: Future + 'static,
   {
-    ::smol::LocalExecutor::new().spawn(future)
+    ::smol::LocalExecutor::new().spawn(future).into()
   }
 
   fn spawn_local_detach<F>(future: F)
@@ -80,6 +74,22 @@ impl AsyncLocalSpawner for SmolSpawner {
 }
 
 join_handle!(::smol::Task<T>);
+
+impl<T> super::JoinHandle<T> for JoinHandle<T> {
+  type JoinError = super::spawner::handle::JoinError;
+
+  fn detach(self) {
+    ::smol::Task::detach(self.handle)
+  }
+}
+
+impl<T> super::LocalJoinHandle<T> for JoinHandle<T> {
+  type JoinError = super::spawner::handle::JoinError;
+
+  fn detach(self) {
+    ::smol::Task::detach(self.handle)
+  }
+}
 
 impl AsyncBlockingSpawner for SmolSpawner {
   type JoinHandle<R>

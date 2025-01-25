@@ -2,7 +2,7 @@ use core::future::Future;
 
 use crate::Yielder;
 
-#[cfg(any(feature = "smol", feature = "async-std"))]
+#[cfg(any(feature = "smol", feature = "async-std", feature = "wasm"))]
 macro_rules! join_handle {
   ($handle:ty) => {
     pin_project_lite::pin_project! {
@@ -16,12 +16,6 @@ macro_rules! join_handle {
     impl<T> From<$handle> for JoinHandle<T> {
       fn from(handle: $handle) -> Self {
         Self { handle }
-      }
-    }
-
-    impl<T> $crate::Detach for JoinHandle<T> {
-      fn detach(self) {
-        self.handle.detach()
       }
     }
 
@@ -40,10 +34,6 @@ macro_rules! join_handle {
         }
       }
     }
-
-    impl<T> $crate::JoinHandle<T> for JoinHandle<T> {
-      type JoinError = $crate::spawner::handle::JoinError;
-    }
   };
 }
 
@@ -54,6 +44,15 @@ pub(crate) mod handle {
   /// having it here is just for compatibility with other runtimes.
   #[derive(Debug, Clone, PartialEq, Eq)]
   pub struct JoinError(());
+
+  impl JoinError {
+    /// Create a new `JoinError`.
+    #[inline]
+    #[cfg(feature = "wasm")]
+    pub(crate) const fn new() -> Self {
+      Self(())
+    }
+  }
 
   impl core::fmt::Display for JoinError {
     #[cold]
@@ -74,23 +73,40 @@ pub(crate) mod handle {
   }
 }
 
-/// Detaches the task related to the join handle to let it keep running in the background.
-pub trait Detach: Sized {
+/// Joinhanlde trait
+pub trait JoinHandle<O>: Future<Output = Result<O, Self::JoinError>> + Unpin {
+  /// The error type for the join handle
+  type JoinError: core::error::Error + Into<std::io::Error> + Send + Sync + 'static;
+
   /// Detaches the task to let it keep running in the background.
-  fn detach(self) {
+  fn detach(self)
+  where
+    Self: Sized,
+  {
     drop(self)
   }
 }
 
-#[cfg(any(feature = "std", test))]
-impl<T> Detach for std::thread::JoinHandle<T> {}
+/// Joinhanlde trait
+pub trait LocalJoinHandle<O>: Future<Output = Result<O, Self::JoinError>> + Unpin {
+  /// The error type for the join handle
+  type JoinError: core::error::Error + Into<std::io::Error> + 'static;
+
+  /// Detaches the task to let it keep running in the background.
+  fn detach(self)
+  where
+    Self: Sized,
+  {
+    drop(self)
+  }
+}
 
 /// A spawner trait for spawning futures.
 pub trait AsyncSpawner: Yielder + Copy + Send + Sync + 'static {
   /// The handle returned by the spawner when a future is spawned.
-  type JoinHandle<F>: Detach + Future + Send + Sync + 'static
+  type JoinHandle<O>: JoinHandle<O> + Send + Sync + 'static
   where
-    F: Send + 'static;
+    O: Send + 'static;
 
   /// Spawn a future.
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
@@ -111,9 +127,9 @@ pub trait AsyncSpawner: Yielder + Copy + Send + Sync + 'static {
 /// A spawner trait for spawning futures.
 pub trait AsyncLocalSpawner: Yielder + Copy + 'static {
   /// The handle returned by the spawner when a future is spawned.
-  type JoinHandle<F>: Detach + Future + 'static
+  type JoinHandle<O>: LocalJoinHandle<O> + 'static
   where
-    F: 'static;
+    O: 'static;
 
   /// Spawn a future.
   fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
@@ -129,12 +145,6 @@ pub trait AsyncLocalSpawner: Yielder + Copy + 'static {
   {
     core::mem::drop(Self::spawn_local(future));
   }
-}
-
-/// Joinhanlde trait
-pub trait JoinHandle<O>: Detach + Future<Output = Result<O, Self::JoinError>> + Unpin {
-  /// The error type for the join handle
-  type JoinError: Into<std::io::Error> + 'static;
 }
 
 /// A spawner trait for spawning blocking.
@@ -223,6 +233,16 @@ impl<E: core::fmt::Display> core::fmt::Display for AfterHandleError<E> {
 #[cfg(feature = "time")]
 impl<E: core::error::Error> core::error::Error for AfterHandleError<E> {}
 
+#[cfg(feature = "time")]
+impl<E: core::error::Error + Send + Sync + 'static> From<AfterHandleError<E>> for std::io::Error {
+  fn from(value: AfterHandleError<E>) -> Self {
+    match value {
+      AfterHandleError::Canceled => std::io::Error::new(std::io::ErrorKind::Other, "task canceled"),
+      AfterHandleError::Join(e) => std::io::Error::new(std::io::ErrorKind::Other, e),
+    }
+  }
+}
+
 #[cfg(all(
   feature = "time",
   any(
@@ -285,19 +305,30 @@ impl AfterHandleSignals {
 /// Drop the handle to detach the task.
 #[cfg(feature = "time")]
 #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-pub trait AfterHandle<F: Send + 'static, E: Send>:
-  Send + Sync + Detach + Future<Output = Result<F, AfterHandleError<E>>> + 'static
+pub trait AfterHandle<F: Send + 'static>:
+  Send + Sync + Future<Output = Result<F, Self::JoinError>> + 'static
 {
+  /// The join error type for the join handle
+  type JoinError: core::error::Error + Into<std::io::Error> + Send + Sync + 'static;
+
   /// Cancels the task related to this handle.
   ///
   /// Returns the task’s output if it was completed just before it got canceled, or `None` if it didn’t complete.
-  fn cancel(self) -> impl Future<Output = Option<Result<F, AfterHandleError<E>>>> + Send;
+  fn cancel(self) -> impl Future<Output = Option<Result<F, Self::JoinError>>> + Send;
 
   /// Resets the delay of the task related to this handle.
   fn reset(&self, duration: core::time::Duration);
 
   /// Aborts the task related to this handle.
   fn abort(self);
+
+  /// Detaches the task to let it keep running in the background.
+  fn detach(self)
+  where
+    Self: Sized,
+  {
+    drop(self)
+  }
 
   /// Returns `true` if the timer has expired.
   fn is_expired(&self) -> bool;
@@ -310,11 +341,8 @@ pub trait AfterHandle<F: Send + 'static, E: Send>:
 #[cfg(feature = "time")]
 #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
 pub trait AsyncAfterSpawner: Copy + Send + Sync + 'static {
-  /// The join error type for the join handle
-  type JoinError: core::fmt::Debug + core::fmt::Display + Send + 'static;
-
   /// The handle returned by the spawner when a future is spawned.
-  type JoinHandle<F>: AfterHandle<F, Self::JoinError>
+  type JoinHandle<F>: AfterHandle<F>
   where
     F: Send + 'static;
 
@@ -354,16 +382,27 @@ pub trait AsyncAfterSpawner: Copy + Send + Sync + 'static {
 /// Drop the handle to detach the task.
 #[cfg(feature = "time")]
 #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
-pub trait LocalAfterHandle<F: 'static, E>:
-  Detach + Future<Output = Result<F, AfterHandleError<E>>> + 'static
+pub trait LocalAfterHandle<F: 'static>:
+  Future<Output = Result<F, Self::JoinError>> + 'static
 {
+  /// The join error type for the join handle
+  type JoinError: core::error::Error + Into<std::io::Error> + 'static;
+
   /// Cancels the task related to this handle.
   ///
   /// Returns the task’s output if it was completed just before it got canceled, or `None` if it didn’t complete.
-  fn cancel(self) -> impl Future<Output = Option<Result<F, AfterHandleError<E>>>>;
+  fn cancel(self) -> impl Future<Output = Option<Result<F, Self::JoinError>>>;
 
   /// Resets the delay of the task related to this handle.
   fn reset(&self, duration: core::time::Duration);
+
+  /// Detaches the task to let it keep running in the background.
+  fn detach(self)
+  where
+    Self: Sized,
+  {
+    drop(self)
+  }
 
   /// Aborts the task related to this handle.
   fn abort(self);
@@ -379,12 +418,10 @@ pub trait LocalAfterHandle<F: 'static, E>:
 #[cfg(feature = "time")]
 #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
 pub trait AsyncLocalAfterSpawner: Copy + 'static {
-  /// The join error type for the join handle
-  type JoinError: core::fmt::Debug + core::fmt::Display + 'static;
   /// The handle returned by the spawner when a future is spawned.
-  type JoinHandle<F>: LocalAfterHandle<F, Self::JoinError>
+  type JoinHandle<O>: LocalAfterHandle<O>
   where
-    F: 'static;
+    O: 'static;
 
   /// Spawn a future onto the runtime and run the given future after the given duration
   fn spawn_local_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>

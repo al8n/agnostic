@@ -1,5 +1,4 @@
 use core::{
-  convert::Infallible,
   pin::Pin,
   sync::atomic::Ordering,
   task::{Context, Poll},
@@ -7,12 +6,9 @@ use core::{
 
 use std::sync::Arc;
 
-use async_std::{
-  channel::{
-    mpsc::{unbounded, UnboundedSender},
-    oneshot::{channel, Sender},
-  },
-  task::JoinHandle,
+use async_std::channel::{
+  mpsc::{unbounded, UnboundedSender},
+  oneshot::{channel, Sender},
 };
 use atomic_time::AtomicOptionDuration;
 use futures_util::{FutureExt, StreamExt};
@@ -21,7 +17,6 @@ use crate::{
   spawner::{AfterHandle, AfterHandleSignals, Canceled, LocalAfterHandle},
   time::{AsyncLocalSleep, AsyncSleep},
   AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner,
-  Detach,
 };
 
 use super::{super::RuntimeLite, *};
@@ -196,13 +191,13 @@ where
 }
 
 impl<O: 'static> Future for AsyncStdAfterHandle<O> {
-  type Output = Result<O, AfterHandleError<Infallible>>;
+  type Output = Result<O, AfterHandleError<JoinError>>;
 
   fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
     let this = self.project();
     match this.handle.poll(cx) {
       Poll::Ready(v) => match v {
-        Ok(v) => Poll::Ready(Ok(v)),
+        Ok(v) => Poll::Ready(v.map_err(|_| AfterHandleError::Canceled)),
         Err(_) => Poll::Ready(Err(AfterHandleError::Canceled)),
       },
       Poll::Pending => Poll::Pending,
@@ -210,15 +205,16 @@ impl<O: 'static> Future for AsyncStdAfterHandle<O> {
   }
 }
 
-impl<O> Detach for AsyncStdAfterHandle<O> where O: 'static {}
-
-impl<O> AfterHandle<O, Infallible> for AsyncStdAfterHandle<O>
+impl<O> AfterHandle<O> for AsyncStdAfterHandle<O>
 where
   O: Send + 'static,
 {
-  async fn cancel(self) -> Option<Result<O, AfterHandleError<Infallible>>> {
+  type JoinError = AfterHandleError<JoinError>;
+
+  async fn cancel(self) -> Option<Result<O, Self::JoinError>> {
     if AfterHandle::is_finished(&self) {
-      return Some(self.handle.await.map_err(|_| AfterHandleError::Canceled));
+      return Some(self.handle.await.map_err(AfterHandleError::Join)
+      .and_then(|v| v.map_err(|_| AfterHandleError::Canceled)));
     }
 
     let _ = self.tx.send(());
@@ -246,13 +242,16 @@ where
   }
 }
 
-impl<O> LocalAfterHandle<O, Infallible> for AsyncStdAfterHandle<O>
+impl<O> LocalAfterHandle<O> for AsyncStdAfterHandle<O>
 where
   O: 'static,
 {
-  async fn cancel(self) -> Option<Result<O, AfterHandleError<Infallible>>> {
+  type JoinError = AfterHandleError<JoinError>;
+
+  async fn cancel(self) -> Option<Result<O, Self::JoinError>> {
     if LocalAfterHandle::is_finished(&self) {
-      return Some(self.handle.await.map_err(|_| AfterHandleError::Canceled));
+      return Some(self.handle.await.map_err(AfterHandleError::Join)
+      .and_then(|v| v.map_err(|_| AfterHandleError::Canceled)));
     }
 
     let _ = self.tx.send(());
@@ -281,8 +280,6 @@ where
 }
 
 impl AsyncAfterSpawner for AsyncStdSpawner {
-  type JoinError = Infallible;
-
   type JoinHandle<F>
     = AsyncStdAfterHandle<F>
   where
@@ -306,7 +303,6 @@ impl AsyncAfterSpawner for AsyncStdSpawner {
 }
 
 impl AsyncLocalAfterSpawner for AsyncStdSpawner {
-  type JoinError = Infallible;
   type JoinHandle<F>
     = AsyncStdAfterHandle<F>
   where

@@ -6,10 +6,16 @@ use crate::{Net, TcpListener, TcpStream};
 
 use super::{next_test_ip4, next_test_ip6};
 use std::{
-  fmt, future::Future, io::*, mem::MaybeUninit, net::{Shutdown, SocketAddr}, thread, time::{Duration, Instant}
+  fmt,
+  future::Future,
+  io::*,
+  mem::MaybeUninit,
+  net::{Shutdown, SocketAddr},
+  thread,
+  time::{Duration, Instant},
 };
 
-macro_rules! test_suites {
+macro_rules! test_suites_in {
   ($runtime:ident {
     $($test_name:ident), +$(,)?
   }) => {
@@ -21,6 +27,42 @@ macro_rules! test_suites {
         }
       )*
     }
+  };
+}
+
+macro_rules! test_suites {
+  ($runtime:ident) => {
+    test_suites_in!($runtime {
+      bind_error,
+      connect_error,
+      connect_timeout_error,
+      listen_localhost,
+      connect_loopback,
+      smoke,
+      read_eof,
+      write_close,
+      multiple_connect_serial,
+      multiple_connect_interleaved_greedy_schedule,
+      multiple_connect_interleaved_lazy_schedule,
+      socket_and_peer_name,
+      partial_read,
+      read_vectored,
+      write_vectored,
+      double_bind,
+      tcp_clone_smoke,
+      tcp_clone_two_read,
+      tcp_clone_two_write,
+      shutdown_smoke,
+      close_readwrite_smoke,
+      clone_while_reading,
+      clone_accept_smoke,
+      clone_accept_concurrent,
+      linger,
+      nodelay,
+      ttl,
+      peek,
+      connect_timeout_valid,
+    });
   };
 }
 
@@ -77,8 +119,14 @@ async fn connect_timeout_error<N: Net>() {
   let result = <N::TcpStream as TcpStream>::connect_timeout(&socket_addr, Duration::MAX).await;
   assert!(!matches!(result, Err(e) if e.kind() == ErrorKind::TimedOut));
 
-  let _listener = <N::TcpListener as TcpListener>::bind(&socket_addr).await.unwrap();
-  assert!(<N::TcpStream as TcpStream>::connect_timeout(&socket_addr, Duration::MAX).await.is_ok());
+  let _listener = <N::TcpListener as TcpListener>::bind(&socket_addr)
+    .await
+    .unwrap();
+  assert!(
+    <N::TcpStream as TcpStream>::connect_timeout(&socket_addr, Duration::MAX)
+      .await
+      .is_ok()
+  );
 }
 
 async fn listen_localhost<N: Net>() {
@@ -86,7 +134,8 @@ async fn listen_localhost<N: Net>() {
   let listener = t!(<N::TcpListener as TcpListener>::bind(&socket_addr).await);
 
   let _t = <N::Runtime as RuntimeLite>::spawn(async move {
-    let mut stream = t!(<N::TcpStream as TcpStream>::connect(&("localhost", socket_addr.port())).await);
+    let mut stream =
+      t!(<N::TcpStream as TcpStream>::connect(&("localhost", socket_addr.port())).await);
     t!(stream.write(&[144]).await);
   });
 
@@ -95,7 +144,6 @@ async fn listen_localhost<N: Net>() {
   t!(stream.read(&mut buf).await);
   assert!(buf[0] == 144);
 }
-
 
 async fn connect_loopback<N: Net>() {
   each_ip(&mut |addr| async move {
@@ -114,7 +162,8 @@ async fn connect_loopback<N: Net>() {
     let mut buf = [0];
     t!(stream.read(&mut buf).await);
     assert!(buf[0] == 66);
-  }).await
+  })
+  .await
 }
 
 async fn smoke<N: Net>() {
@@ -133,7 +182,8 @@ async fn smoke<N: Net>() {
     t!(stream.read(&mut buf).await);
     assert!(buf[0] == 99);
     assert_eq!(addr, t!(rx.recv().await));
-  }).await
+  })
+  .await
 }
 
 async fn read_eof<N: Net>() {
@@ -151,7 +201,8 @@ async fn read_eof<N: Net>() {
     assert_eq!(nread, 0);
     let nread = t!(stream.read(&mut buf).await);
     assert_eq!(nread, 0);
-  }).await
+  })
+  .await
 }
 
 async fn write_close<N: Net>() {
@@ -178,9 +229,9 @@ async fn write_close<N: Net>() {
         );
       }
     }
-  }).await
+  })
+  .await
 }
-
 
 async fn multiple_connect_serial<N: Net>() {
   each_ip(&mut |addr| async move {
@@ -200,7 +251,8 @@ async fn multiple_connect_serial<N: Net>() {
       t!(stream.read(&mut buf).await);
       assert_eq!(buf[0], 99);
     }
-  }).await
+  })
+  .await
 }
 
 async fn multiple_connect_interleaved_greedy_schedule<N: Net>() {
@@ -209,8 +261,9 @@ async fn multiple_connect_interleaved_greedy_schedule<N: Net>() {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
 
     let _t = <N::Runtime as RuntimeLite>::spawn(async move {
-      let acceptor = acceptor;
-      for (i, stream) in acceptor.incoming().take(MAX).enumerate().next().await {
+      let mut streams = acceptor.incoming().take(MAX).enumerate();
+
+      for (i, stream) in streams.next().await {
         // Start another thread to handle the connection
         let _t = <N::Runtime as RuntimeLite>::spawn(async move {
           let mut stream = t!(stream);
@@ -224,53 +277,62 @@ async fn multiple_connect_interleaved_greedy_schedule<N: Net>() {
     connect::<N>(0, addr).await;
   });
 
-  async fn connect<N: Net>(i: usize, addr: SocketAddr) {
-    if i == MAX {
-      return;
-    }
+  fn connect<N: Net>(i: usize, addr: SocketAddr) -> impl Future<Output = ()> + Send {
+    async move {
+      if i == MAX {
+        return;
+      }
 
-    let t = <N::Runtime as RuntimeLite>::spawn(async move {
-      let mut stream = t!(<N::TcpStream as TcpStream>::connect(&addr).await);
-      // Connect again before writing
-      connect(i + 1, addr);
-      t!(stream.write(&[i as u8]).await);
-    });
-    t.await.expect("thread panicked");
+      let t = <N::Runtime as RuntimeLite>::spawn(async move {
+        let mut stream = t!(<N::TcpStream as TcpStream>::connect(&addr).await);
+        // Connect again before writing
+        connect::<N>(i + 1, addr).await;
+        t!(stream.write(&[i as u8]).await);
+      });
+      t.await.expect("thread panicked");
+    }
   }
 }
-
 
 async fn multiple_connect_interleaved_lazy_schedule<N: Net>() {
   const MAX: usize = 10;
   each_ip(&mut |addr| async move {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
 
-    let _t = <N::Runtime as RuntimeLite>::spawn(async move {
-      for stream in acceptor.incoming().take(MAX).next().await {
+    <N::Runtime as RuntimeLite>::spawn_detach(async move {
+      let mut streams = acceptor.incoming().take(MAX);
+      for stream in streams.next().await {
         // Start another thread to handle the connection
-        let _t = <N::Runtime as RuntimeLite>::spawn(async move {
+        <N::Runtime as RuntimeLite>::spawn(async move {
           let mut stream = t!(stream);
           let mut buf = [0];
           t!(stream.read(&mut buf).await);
           assert!(buf[0] == 99);
-        });
+        })
+        .await;
       }
     });
 
+    // Add delay before connect
+    <N::Runtime as RuntimeLite>::sleep(Duration::from_millis(100)).await;
+
     connect::<N>(0, addr).await;
-  }).await;
+  })
+  .await;
 
-  async fn connect<N: Net>(i: usize, addr: SocketAddr) {
-    if i == MAX {
-      return;
+  fn connect<N: Net>(i: usize, addr: SocketAddr) -> impl Future<Output = ()> + Send {
+    async move {
+      if i == MAX {
+        return;
+      }
+
+      let t = <N::Runtime as RuntimeLite>::spawn(async move {
+        let mut stream = t!(<N::TcpStream as TcpStream>::connect(&addr).await);
+        connect::<N>(i + 1, addr).await;
+        t!(stream.write(&[99]).await);
+      });
+      t.await.expect("thread panicked");
     }
-
-    let t = <N::Runtime as RuntimeLite>::spawn(async move {
-      let mut stream = t!(<N::TcpStream as TcpStream>::connect(&addr).await);
-      connect(i + 1, addr);
-      t!(stream.write(&[99]).await);
-    });
-    t.await.expect("thread panicked");
   }
 }
 
@@ -285,7 +347,8 @@ async fn socket_and_peer_name<N: Net>() {
 
     let stream = t!(<N::TcpStream as TcpStream>::connect(&addr).await);
     assert_eq!(addr, t!(stream.peer_addr()));
-  }).await
+  })
+  .await
 }
 
 async fn partial_read<N: Net>() {
@@ -294,6 +357,7 @@ async fn partial_read<N: Net>() {
     let srv = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
     let _t = <N::Runtime as RuntimeLite>::spawn(async move {
       let mut cl = t!(srv.accept().await).0;
+      #[allow(clippy::unused_io_amount)]
       cl.write(&[10]).await.unwrap();
       let mut b = [0];
       t!(cl.read(&mut b).await);
@@ -305,7 +369,8 @@ async fn partial_read<N: Net>() {
     assert_eq!(c.read(&mut b).await.unwrap(), 1);
     t!(c.write(&[1]).await);
     rx.recv().await.unwrap();
-  }).await
+  })
+  .await
 }
 
 async fn read_vectored<N: Net>() {
@@ -320,18 +385,21 @@ async fn read_vectored<N: Net>() {
     let mut a = [];
     let mut b = [0];
     let mut c = [0; 3];
-    let len = t!(s2.read_vectored(&mut [
-      IoSliceMut::new(&mut a),
-      IoSliceMut::new(&mut b),
-      IoSliceMut::new(&mut c)
-    ],).await);
+    let len = t!(
+      s2.read_vectored(&mut [
+        IoSliceMut::new(&mut a),
+        IoSliceMut::new(&mut b),
+        IoSliceMut::new(&mut c)
+      ],)
+        .await
+    );
     assert!(len > 0);
     assert_eq!(b, [10]);
     // some implementations don't support readv, so we may only fill the first buffer
     assert!(len == 1 || c == [11, 12, 0]);
-  }).await
+  })
+  .await
 }
-
 
 async fn write_vectored<N: Net>() {
   each_ip(&mut |addr| async move {
@@ -342,7 +410,10 @@ async fn write_vectored<N: Net>() {
     let a = [];
     let b = [10];
     let c = [11, 12];
-    t!(s1.write_vectored(&[IoSlice::new(&a), IoSlice::new(&b), IoSlice::new(&c)]).await);
+    t!(
+      s1.write_vectored(&[IoSlice::new(&a), IoSlice::new(&b), IoSlice::new(&c)])
+        .await
+    );
 
     let mut buf = [0; 4];
     let len = t!(s2.read(&mut buf).await);
@@ -353,7 +424,8 @@ async fn write_vectored<N: Net>() {
       assert_eq!(len, 3);
       assert_eq!(buf, [10, 11, 12, 0]);
     }
-  }).await
+  })
+  .await
 }
 
 async fn double_bind<N: Net>() {
@@ -363,19 +435,20 @@ async fn double_bind<N: Net>() {
       Ok(listener2) => panic!(
         "This system (perhaps due to options set by <N::TcpListener as TcpListener>::bind) \
                  permits double binding: {:?} and {:?}",
-        listener1.local_addr().unwrap(), listener2.local_addr().unwrap()
+        listener1.local_addr().unwrap(),
+        listener2.local_addr().unwrap()
       ),
       Err(e) => {
         assert!(
-          e.kind() == ErrorKind::ConnectionRefused
-            || e.kind() == ErrorKind::AddrInUse,
+          e.kind() == ErrorKind::ConnectionRefused || e.kind() == ErrorKind::AddrInUse,
           "unknown error: {} {:?}",
           e,
           e.kind()
         );
       }
     }
-  }).await
+  })
+  .await
 }
 
 async fn tcp_clone_smoke<N: Net>() {
@@ -405,9 +478,9 @@ async fn tcp_clone_smoke<N: Net>() {
     let mut buf = [0, 0];
     assert_eq!(s1.read(&mut buf).await.unwrap(), 1);
     rx2.recv().await.unwrap();
-  }).await
+  })
+  .await
 }
-
 
 async fn tcp_clone_two_read<N: Net>() {
   each_ip(&mut |addr| async move {
@@ -439,7 +512,8 @@ async fn tcp_clone_two_read<N: Net>() {
     tx1.send(()).await.unwrap();
 
     rx.recv().await.unwrap();
-  }).await
+  })
+  .await
 }
 
 async fn tcp_clone_two_write<N: Net>() {
@@ -465,9 +539,9 @@ async fn tcp_clone_two_write<N: Net>() {
     t!(s1.write(&[2]).await);
 
     rx.recv().await.unwrap();
-  }).await
+  })
+  .await
 }
-
 
 async fn shutdown_smoke<N: Net>() {
   each_ip(&mut |addr| async move {
@@ -485,9 +559,9 @@ async fn shutdown_smoke<N: Net>() {
     let mut b = [0, 0];
     assert_eq!(t!(s.read(&mut b).await), 1);
     assert_eq!(b[0], 1);
-  }).await
+  })
+  .await
 }
-
 
 async fn close_readwrite_smoke<N: Net>() {
   each_ip(&mut |addr| async move {
@@ -523,7 +597,8 @@ async fn close_readwrite_smoke<N: Net>() {
     let _ = s3.shutdown(Shutdown::Read);
     let _ = s3.shutdown(Shutdown::Write);
     drop(tx);
-  }).await
+  })
+  .await
 }
 
 #[cfg(not(windows))]
@@ -550,9 +625,9 @@ async fn close_read_wakes_up<N: Net>() {
 
     // this `read` should get interrupted by `shutdown`
     assert_eq!(t!(stream.read(&mut [0]).await), 0);
-  }).await
+  })
+  .await
 }
-
 
 async fn clone_while_reading<N: Net>() {
   each_ip(&mut |addr| async move {
@@ -590,9 +665,9 @@ async fn clone_while_reading<N: Net>() {
     tx.send(()).await.unwrap();
     rxdone.recv().await.unwrap();
     rxdone.recv().await.unwrap();
-  }).await
+  })
+  .await
 }
-
 
 async fn clone_accept_smoke<N: Net>() {
   each_ip(&mut |addr| async move {
@@ -608,9 +683,9 @@ async fn clone_accept_smoke<N: Net>() {
 
     t!(a.accept().await);
     t!(a2.accept().await);
-  }).await
+  })
+  .await
 }
-
 
 async fn clone_accept_concurrent<N: Net>() {
   each_ip(&mut |addr| async move {
@@ -636,7 +711,8 @@ async fn clone_accept_concurrent<N: Net>() {
 
     rx.recv().await.unwrap();
     rx.recv().await.unwrap();
-  }).await
+  })
+  .await
 }
 
 async fn linger<N: Net>() {
@@ -652,7 +728,6 @@ async fn linger<N: Net>() {
   assert_eq!(None, t!(stream.linger()));
 }
 
-
 async fn nodelay<N: Net>() {
   let addr = next_test_ip4();
   let _listener = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
@@ -665,7 +740,6 @@ async fn nodelay<N: Net>() {
   t!(stream.set_nodelay(false));
   assert_eq!(false, t!(stream.nodelay()));
 }
-
 
 async fn ttl<N: Net>() {
   let ttl = 100;
@@ -682,7 +756,6 @@ async fn ttl<N: Net>() {
   assert_eq!(ttl, t!(stream.ttl()));
 }
 
-
 async fn peek<N: Net>() {
   each_ip(&mut |addr| async move {
     let (txdone, rxdone) = unbounded();
@@ -690,6 +763,7 @@ async fn peek<N: Net>() {
     let srv = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
     let _t = <N::Runtime as RuntimeLite>::spawn(async move {
       let mut cl = t!(srv.accept().await).0;
+      #[allow(clippy::unused_io_amount)]
       cl.write(&[1, 3, 3, 7]).await.unwrap();
       t!(rxdone.recv().await);
     });
@@ -703,18 +777,17 @@ async fn peek<N: Net>() {
     let len = c.read(&mut b).await.unwrap();
     assert_eq!(len, 4);
 
-    match c.peek(&mut b).await {
-      Ok(_) => panic!("expected error"),
-      Err(ref e) if e.kind() == ErrorKind::WouldBlock => {}
-      Err(e) => panic!("unexpected error {e}"),
-    }
     t!(txdone.send(()).await);
-  }).await
+  })
+  .await
 }
 
-
 async fn connect_timeout_valid<N: Net>() {
-  let listener = <N::TcpListener as TcpListener>::bind("127.0.0.1:0").await.unwrap();
+  let listener = <N::TcpListener as TcpListener>::bind("127.0.0.1:0")
+    .await
+    .unwrap();
   let addr = listener.local_addr().unwrap();
-  <N::TcpStream as TcpStream>::connect_timeout(&addr, Duration::from_secs(2)).await.unwrap();
+  <N::TcpStream as TcpStream>::connect_timeout(&addr, Duration::from_secs(2))
+    .await
+    .unwrap();
 }

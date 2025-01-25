@@ -1,7 +1,10 @@
 #![allow(warnings)] // not used on emscripten
 
 use std::{
-  env, future::Future, net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6}, sync::atomic::{AtomicUsize, Ordering}
+  env,
+  future::Future,
+  net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+  sync::atomic::{AtomicUsize, Ordering},
 };
 
 use agnostic_lite::RuntimeLite;

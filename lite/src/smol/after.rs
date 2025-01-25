@@ -20,7 +20,6 @@ use crate::{
   spawner::{AfterHandle, LocalAfterHandle, AfterHandleSignals, Canceled},
   time::{AsyncLocalSleep, AsyncSleep},
   AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner,
-  Detach,
 };
 
 use super::{super::RuntimeLite, *};
@@ -227,13 +226,13 @@ impl<O: 'static> Future for SmolAfterHandle<O> {
   }
 }
 
-impl<O> Detach for SmolAfterHandle<O> where O: 'static {}
-
-impl<O> AfterHandle<O, JoinError> for SmolAfterHandle<O>
+impl<O> AfterHandle<O> for SmolAfterHandle<O>
 where
   O: Send + 'static,
 {
-  async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
+  type JoinError = AfterHandleError<JoinError>;
+
+  async fn cancel(self) -> Option<Result<O, Self::JoinError>> {
     if AfterHandle::is_finished(&self) {
       return Some(
         self
@@ -269,11 +268,13 @@ where
   }
 }
 
-impl<O> LocalAfterHandle<O, JoinError> for SmolAfterHandle<O>
+impl<O> LocalAfterHandle<O> for SmolAfterHandle<O>
 where
   O: 'static,
 {
-  async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
+  type JoinError = AfterHandleError<JoinError>;
+
+  async fn cancel(self) -> Option<Result<O, Self::JoinError>> {
     if LocalAfterHandle::is_finished(&self) {
       return Some(
         self
@@ -310,8 +311,6 @@ where
 }
 
 impl AsyncAfterSpawner for SmolSpawner {
-  type JoinError = JoinError;
-
   type JoinHandle<F>
     = SmolAfterHandle<F>
   where
@@ -335,7 +334,6 @@ impl AsyncAfterSpawner for SmolSpawner {
 }
 
 impl AsyncLocalAfterSpawner for SmolSpawner {
-  type JoinError = JoinError;
   type JoinHandle<F>
     = SmolAfterHandle<F>
   where

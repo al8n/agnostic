@@ -80,7 +80,7 @@ macro_rules! tcp_stream_common_methods {
       Self: Sized
     {
       let res = <Self::Runtime as ::agnostic_lite::RuntimeLite>::timeout(timeout, Self::connect(addr)).await;
-  
+
       match res {
         ::core::result::Result::Ok(stream) => stream,
         ::core::result::Result::Err(err) => Err(err.into()),
@@ -145,6 +145,7 @@ macro_rules! tcp_stream_owned_write_half_common_methods {
   };
 }
 
+#[cfg(any(feature = "async-std", feature = "smol"))]
 macro_rules! tcp_listener_incoming {
   ($ty:ty => $stream:ty) => {
     pin_project_lite::pin_project! {
@@ -157,13 +158,13 @@ macro_rules! tcp_listener_incoming {
         inner: $ty,
       }
     }
-    
+
     impl core::fmt::Debug for Incoming<'_> {
       fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Incoming {{ ... }}")
       }
     }
-    
+
     impl<'a> From<$ty> for Incoming<'a> {
       fn from(inner: $ty) -> Self {
         Self { inner }
@@ -178,9 +179,16 @@ macro_rules! tcp_listener_incoming {
 
     impl<'a> ::futures_util::stream::Stream for Incoming<'a> {
       type Item = ::std::io::Result<$stream>;
-    
-      fn poll_next(self: ::std::pin::Pin<&mut Self>, cx: &mut ::std::task::Context<'_>) -> ::std::task::Poll<::core::option::Option<Self::Item>> {
-        self.project().inner.poll_next(cx).map(|stream| stream.map(|stream| stream.map(<$stream>::from)))
+
+      fn poll_next(
+        self: ::std::pin::Pin<&mut Self>,
+        cx: &mut ::std::task::Context<'_>,
+      ) -> ::std::task::Poll<::core::option::Option<Self::Item>> {
+        self
+          .project()
+          .inner
+          .poll_next(cx)
+          .map(|stream| stream.map(|stream| stream.map(<$stream>::from)))
       }
     }
   };
@@ -360,7 +368,11 @@ pub trait TcpListener:
   ///
   /// This stream is infinite, i.e awaiting the next connection will never result in [`None`]. It is
   /// created by the [`TcpListener::incoming()`] method.
-  type Incoming<'a>: futures_util::stream::Stream<Item = io::Result<Self::Stream>> + Send + Sync + Unpin + 'a;
+  type Incoming<'a>: futures_util::stream::Stream<Item = io::Result<Self::Stream>>
+    + Send
+    + Sync
+    + Unpin
+    + 'a;
 
   /// Creates a new TcpListener, which will be bound to the specified address.
   ///
@@ -394,7 +406,7 @@ pub trait TcpListener:
   /// Iterating over this stream is equivalent to calling [`accept()`][`TcpListener::accept()`]
   /// in a loop. The stream of connections is infinite, i.e awaiting the next connection will
   /// never result in [`None`].
-  /// 
+  ///
   /// See also [`TcpListener::into_incoming`].
   fn incoming(&self) -> Self::Incoming<'_>;
 
@@ -404,9 +416,11 @@ pub trait TcpListener:
   /// The returned stream is infinite and will also not yield
   /// the peer's [`SocketAddr`] structure. Iterating over it is equivalent to
   /// calling [`TcpListener::accept`] in a loop.
-  /// 
+  ///
   /// See also [`TcpListener::incoming`].
-  fn into_incoming(self) -> impl futures_util::stream::Stream<Item = io::Result<Self::Stream>> + Send;
+  fn into_incoming(
+    self,
+  ) -> impl futures_util::stream::Stream<Item = io::Result<Self::Stream>> + Send;
 
   /// Returns the local address that this listener is bound to.
   ///

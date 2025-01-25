@@ -13,8 +13,6 @@ use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, Yielder};
 
 pub use crate::spawner::handle::JoinError;
 
-impl<F> super::Detach for ::async_std::task::JoinHandle<F> {}
-
 /// A [`AsyncSpawner`] that uses the [`async-std`](async_std) runtime.
 #[derive(Debug, Clone, Copy)]
 pub struct AsyncStdSpawner;
@@ -30,36 +28,44 @@ impl Yielder for AsyncStdSpawner {
 }
 
 impl AsyncSpawner for AsyncStdSpawner {
-  type JoinHandle<F>
-    = ::async_std::task::JoinHandle<F>
+  type JoinHandle<O>
+    = JoinHandle<O>
   where
-    F: Send + 'static;
+    O: Send + 'static;
 
   fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static,
   {
-    ::async_std::task::spawn(future)
+    ::async_std::task::spawn(future).into()
   }
 }
 
 impl AsyncLocalSpawner for AsyncStdSpawner {
-  type JoinHandle<F>
-    = ::async_std::task::JoinHandle<F>
+  type JoinHandle<O>
+    = JoinHandle<O>
   where
-    F: 'static;
+    O: 'static;
 
   fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: 'static,
     F: Future + 'static,
   {
-    ::async_std::task::spawn_local(future)
+    ::async_std::task::spawn_local(future).into()
   }
 }
 
 join_handle!(::async_std::task::JoinHandle<T>);
+
+impl<T> super::JoinHandle<T> for JoinHandle<T> {
+  type JoinError = super::spawner::handle::JoinError;
+}
+
+impl<T> super::LocalJoinHandle<T> for JoinHandle<T> {
+  type JoinError = super::spawner::handle::JoinError;
+}
 
 impl AsyncBlockingSpawner for AsyncStdSpawner {
   type JoinHandle<R>

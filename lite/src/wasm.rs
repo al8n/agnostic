@@ -22,28 +22,29 @@ use core::{
 
 use wasm::channel::*;
 
+use super::handle::JoinError;
 use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, Yielder};
 
-impl<T> super::Detach for WasmJoinHandle<T> {}
-
 /// The join handle returned by [`WasmSpawner`].
-pub struct WasmJoinHandle<F> {
+pub struct JoinHandle<F> {
   pub(crate) stop_tx: oneshot::Sender<bool>,
   pub(crate) rx: oneshot::Receiver<F>,
 }
 
-impl<F> Future for WasmJoinHandle<F> {
-  type Output = Result<F, oneshot::Canceled>;
+impl<F> Future for JoinHandle<F> {
+  type Output = Result<F, JoinError>;
 
   fn poll(
     mut self: core::pin::Pin<&mut Self>,
     cx: &mut core::task::Context<'_>,
   ) -> core::task::Poll<Self::Output> {
-    core::pin::Pin::new(&mut self.rx).poll(cx)
+    core::pin::Pin::new(&mut self.rx)
+      .poll(cx)
+      .map(|res| res.map_err(|_| JoinError::new()))
   }
 }
 
-impl<F> WasmJoinHandle<F> {
+impl<F> JoinHandle<F> {
   /// Detach the future from the spawner.
   #[inline]
   pub fn detach(self) {
@@ -57,13 +58,29 @@ impl<F> WasmJoinHandle<F> {
   }
 }
 
+impl<O> super::JoinHandle<O> for JoinHandle<O> {
+  type JoinError = JoinError;
+
+  fn detach(self) {
+    Self::detach(self)
+  }
+}
+
+impl<O> super::LocalJoinHandle<O> for JoinHandle<O> {
+  type JoinError = JoinError;
+
+  fn detach(self) {
+    Self::detach(self)
+  }
+}
+
 /// A [`AsyncSpawner`] that uses the [`wasm-bindgen-futures`](wasm_bindgen_futures) runtime.
 #[derive(Debug, Clone, Copy)]
 pub struct WasmSpawner;
 
 impl AsyncSpawner for WasmSpawner {
   type JoinHandle<F>
-    = WasmJoinHandle<F>
+    = JoinHandle<F>
   where
     F: Send + 'static;
 
@@ -78,7 +95,7 @@ impl AsyncSpawner for WasmSpawner {
 
 impl AsyncLocalSpawner for WasmSpawner {
   type JoinHandle<F>
-    = WasmJoinHandle<F>
+    = JoinHandle<F>
   where
     F: 'static;
 
@@ -110,78 +127,22 @@ impl AsyncLocalSpawner for WasmSpawner {
         }
       }
     });
-    WasmJoinHandle { stop_tx, rx }
+    JoinHandle { stop_tx, rx }
   }
-}
-
-/// j
-#[derive(Debug)]
-pub enum JoinError {
-  /// j
-  Panic(Box<dyn std::error::Error + Send + Sync + 'static>),
-}
-
-impl std::error::Error for JoinError {}
-
-impl std::fmt::Display for JoinError {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    match self {
-      JoinError::Panic(e) => write!(f, "Thread panicked: {:?}", e),
-    }
-  }
-}
-
-impl From<JoinError> for std::io::Error {
-  fn from(e: JoinError) -> Self {
-    std::io::Error::new(std::io::ErrorKind::Other, e)
-  }
-}
-
-///n
-pub struct WasmBlockingJoinHandle<R> {
-  handle: std::thread::JoinHandle<R>,
-}
-
-impl<R> super::Detach for WasmBlockingJoinHandle<R> {
-  fn detach(self) {
-    self.handle.detach();
-  }
-}
-
-impl<R> Future for WasmBlockingJoinHandle<R> {
-  type Output = Result<R, JoinError>;
-
-  fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-    // if self.handle.is_finished() {
-    //   match unsafe { Pin::into_inner_unchecked(self) }.handle.join() {
-    //     Ok(result) => Poll::Ready(Ok(result)),
-    //     Err(e) => Poll::Ready(Err(JoinError::Panic(e))),
-    //   }
-    // } else {
-    //   cx.waker().wake_by_ref();
-    //   Poll::Pending
-    // }
-    todo!()
-  }
-}
-
-impl<R> super::JoinHandle<R> for WasmBlockingJoinHandle<R> {
-  type JoinError = JoinError;
 }
 
 impl AsyncBlockingSpawner for WasmSpawner {
   type JoinHandle<R>
-    = WasmBlockingJoinHandle<R>
+    = JoinHandle<R>
   where
     R: Send + 'static;
 
-  fn spawn_blocking<F, R>(f: F) -> Self::JoinHandle<R>
+  fn spawn_blocking<F, R>(_: F) -> Self::JoinHandle<R>
   where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
   {
-    let handle = std::thread::spawn(f);
-    WasmBlockingJoinHandle { handle }
+    panic!("wasm-bindgen-futures does not support blocking tasks")
   }
 }
 

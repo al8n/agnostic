@@ -4,14 +4,13 @@ use atomic_time::AtomicOptionDuration;
 use futures_util::{FutureExt, StreamExt};
 use wasm::channel::{
   mpsc::{unbounded, UnboundedSender},
-  oneshot::{channel, Canceled as JoinError, Sender},
+  oneshot::{channel, Sender},
 };
 
 use crate::{
-  spawner::{AfterHandle, LocalAfterHandle},
+  spawner::{AfterHandle, LocalAfterHandle, handle::JoinError},
   time::{AsyncLocalSleep, AsyncSleep},
   AfterHandleError, AfterHandleSignals, AsyncAfterSpawner, AsyncLocalAfterSpawner, Canceled,
-  Detach,
 };
 
 use super::{super::RuntimeLite, *};
@@ -178,7 +177,7 @@ where
   O: 'static,
 {
   #[pin]
-  handle: WasmJoinHandle<Result<O, Canceled>>,
+  handle: JoinHandle<Result<O, Canceled>>,
   signals: Arc<AfterHandleSignals>,
   abort_tx: Sender<()>,
   resetter: Resetter,
@@ -200,13 +199,13 @@ impl<O: 'static> Future for WasmAfterHandle<O> {
   }
 }
 
-impl<O> Detach for WasmAfterHandle<O> where O: 'static {}
-
-impl<O> AfterHandle<O, JoinError> for WasmAfterHandle<O>
+impl<O> AfterHandle<O> for WasmAfterHandle<O>
 where
   O: Send + 'static,
 {
-  async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
+  type JoinError = AfterHandleError<JoinError>;
+
+  async fn cancel(self) -> Option<Result<O, Self::JoinError>> {
     if AfterHandle::is_finished(&self) {
       return Some(
         self
@@ -242,11 +241,13 @@ where
   }
 }
 
-impl<O> LocalAfterHandle<O, JoinError> for WasmAfterHandle<O>
+impl<O> LocalAfterHandle<O> for WasmAfterHandle<O>
 where
   O: 'static,
 {
-  async fn cancel(self) -> Option<Result<O, AfterHandleError<JoinError>>> {
+  type JoinError = AfterHandleError<JoinError>;
+
+  async fn cancel(self) -> Option<Result<O, Self::JoinError>> {
     if LocalAfterHandle::is_finished(&self) {
       return Some(
         self
@@ -283,8 +284,6 @@ where
 }
 
 impl AsyncAfterSpawner for WasmSpawner {
-  type JoinError = JoinError;
-
   type JoinHandle<F>
     = WasmAfterHandle<F>
   where
@@ -308,7 +307,6 @@ impl AsyncAfterSpawner for WasmSpawner {
 }
 
 impl AsyncLocalAfterSpawner for WasmSpawner {
-  type JoinError = JoinError;
   type JoinHandle<F>
     = WasmAfterHandle<F>
   where
