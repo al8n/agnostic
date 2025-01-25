@@ -48,6 +48,12 @@ jobs:
         rust: [nightly, beta, stable]
     steps:
       - uses: actions/checkout@v4
+      - name: Install OpenSSL (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          vcpkg install openssl:x64-windows-static-md
       - name: Install Rust
         # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
         run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
@@ -67,6 +73,18 @@ jobs:
       - name: Install Rust
         # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
         run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
+      - name: Install Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25c
+
+      - name: Install OpenSSL for Android
+        run: |
+          wget https://github.com/KDAB/android_openssl/archive/refs/heads/master.zip
+          unzip master.zip
+          echo "OPENSSL_DIR=$PWD/android_openssl-master/ssl/${{ matrix.target }}" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$OPENSSL_DIR/lib/pkgconfig" >> $GITHUB_ENV
+          echo "PKG_CONFIG_SYSROOT_DIR=$OPENSSL_DIR" >> $GITHUB_ENV
       - name: Install cross-compilation tools
         uses: taiki-e/setup-cross-toolchain-action@v1
         with:
