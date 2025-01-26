@@ -3,29 +3,31 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
-use std::net::SocketAddr;
-
 use agnostic_lite::{cfg_async_std, cfg_smol, cfg_tokio, RuntimeLite};
 use futures_util::Future;
+use std::net::SocketAddr;
 
+pub use agnostic_lite as runtime;
+
+/// Operating system specific types and traits.
 #[cfg_attr(windows, path = "windows.rs")]
 #[cfg_attr(unix, path = "unix.rs")]
 #[cfg_attr(not(any(unix, windows)), path = "unknown.rs")]
-mod os;
+pub mod os;
 
 #[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
 macro_rules! impl_as_raw_fd {
   ($name:ident.$field:ident) => {
     #[cfg(unix)]
-    impl std::os::fd::AsRawFd for $name {
-      fn as_raw_fd(&self) -> std::os::fd::RawFd {
+    impl $crate::os::AsRawFd for $name {
+      fn as_raw_fd(&self) -> $crate::os::RawFd {
         self.$field.as_raw_fd()
       }
     }
 
     #[cfg(windows)]
-    impl std::os::windows::io::AsRawSocket for $name {
-      fn as_raw_socket(&self) -> std::os::windows::io::RawSocket {
+    impl $crate::os::AsRawSocket for $name {
+      fn as_raw_socket(&self) -> $crate::os::RawSocket {
         self.$field.as_raw_socket()
       }
     }
@@ -36,15 +38,15 @@ macro_rules! impl_as_raw_fd {
 macro_rules! impl_as_fd {
   ($name:ident.$field:ident) => {
     #[cfg(unix)]
-    impl std::os::fd::AsFd for $name {
-      fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
+    impl $crate::os::AsFd for $name {
+      fn as_fd(&self) -> $crate::os::BorrowedFd<'_> {
         self.$field.as_fd()
       }
     }
 
     #[cfg(windows)]
-    impl std::os::windows::io::AsSocket for $name {
-      fn as_socket(&self) -> std::os::windows::io::BorrowedSocket<'_> {
+    impl $crate::os::AsSocket for $name {
+      fn as_socket(&self) -> $crate::os::BorrowedSocket<'_> {
         self.$field.as_socket()
       }
     }
@@ -101,11 +103,6 @@ pub use udp::*;
 #[macro_use]
 mod async_io;
 
-/// Agnostic async DNS provider.
-#[cfg(feature = "dns")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns")))]
-pub mod dns;
-
 cfg_tokio!(
   /// Network abstractions for [`tokio`] runtime
   ///
@@ -129,33 +126,33 @@ cfg_async_std!(
 
 #[doc(hidden)]
 #[cfg(unix)]
-pub trait Fd: std::os::fd::AsFd + std::os::fd::AsRawFd {
-  fn __as(&self) -> std::os::fd::BorrowedFd<'_> {
+pub trait Fd: os::AsFd + os::AsRawFd {
+  fn __as(&self) -> os::BorrowedFd<'_> {
     self.as_fd()
   }
 
-  fn __as_raw(&self) -> std::os::fd::RawFd {
+  fn __as_raw(&self) -> os::RawFd {
     self.as_raw_fd()
   }
 }
 
 #[cfg(unix)]
-impl<T> Fd for T where T: std::os::fd::AsFd + std::os::fd::AsRawFd {}
+impl<T> Fd for T where T: os::AsFd + os::AsRawFd {}
 
 #[doc(hidden)]
 #[cfg(windows)]
-pub trait Fd: std::os::windows::io::AsRawSocket + std::os::windows::io::AsSocket {
-  fn __as(&self) -> std::os::windows::io::BorrowedSocket<'_> {
+pub trait Fd: os::AsRawSocket + os::AsSocket {
+  fn __as(&self) -> os::BorrowedSocket<'_> {
     self.as_socket()
   }
 
-  fn __as_raw(&self) -> std::os::windows::io::RawSocket {
+  fn __as_raw(&self) -> os::RawSocket {
     self.as_raw_socket()
   }
 }
 
 #[cfg(windows)]
-impl<T> Fd for T where T: std::os::windows::io::AsRawSocket + std::os::windows::io::AsSocket {}
+impl<T> Fd for T where T: os::AsRawSocket + os::AsSocket {}
 
 #[cfg(not(any(unix, windows)))]
 pub trait Fd {}
@@ -196,50 +193,4 @@ pub trait Net: Unpin + Send + Sync + 'static {
   type TcpStream: TcpStream<Runtime = Self::Runtime>;
   /// The [`UdpSocket`] implementation
   type UdpSocket: UdpSocket<Runtime = Self::Runtime>;
-}
-
-#[cfg(windows)]
-fn duplicate<T, O>(this: &T) -> std::io::Result<O>
-where
-  T: Fd,
-  O: std::os::windows::io::FromRawSocket,
-{
-  use std::mem::zeroed;
-  use windows_sys::Win32::Networking::WinSock::{
-    WSADuplicateSocketW, WSAGetLastError, WSASocketW, INVALID_SOCKET, SOCKET_ERROR,
-    WSAPROTOCOL_INFOW,
-  };
-
-  let mut info: WSAPROTOCOL_INFOW = unsafe { zeroed() };
-  if unsafe { WSADuplicateSocketW(this.__as_raw() as _, std::process::id(), &mut info) }
-    == SOCKET_ERROR
-  {
-    return Err(std::io::Error::from_raw_os_error(unsafe {
-      WSAGetLastError()
-    }));
-  }
-
-  let socket = unsafe {
-    WSASocketW(
-      info.iAddressFamily,
-      info.iSocketType,
-      info.iProtocol,
-      &info as *const _ as _,
-      0,
-      0,
-    )
-  };
-
-  if socket == INVALID_SOCKET {
-    return Err(std::io::Error::from_raw_os_error(unsafe {
-      WSAGetLastError()
-    }));
-  }
-
-  Ok(unsafe { O::from_raw_socket(socket as u64) })
-}
-
-#[cfg(not(any(unix, windows)))]
-fn duplicate<T: As, O>(_this: &T) -> std::io::Result<O> {
-  panic!("unsupported platform")
 }

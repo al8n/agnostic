@@ -26,3 +26,7 @@ unknown_fn!(recv_buffer_size() -> usize);
 unknown_fn!(set_recv_buffer_size(size: usize) -> ());
 unknown_fn!(send_buffer_size() -> usize);
 unknown_fn!(set_send_buffer_size(size: usize) -> ());
+
+fn duplicate<T: As, O>(_this: &T) -> std::io::Result<O> {
+  panic!("unsupported platform")
+}

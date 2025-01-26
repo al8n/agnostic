@@ -3,6 +3,7 @@ members = [
   "agnostic",
   "process",
   "net",
+  "dns",
   "lite",
   "io",
   "smol",
@@ -28,6 +29,7 @@ futures-io = { version = "0.3", default-features = false }
 futures-channel = "0.3"
 pin-project-lite = "0.2"
 
+agnostic-dns = { path = "./dns", version = "0.1" }
 agnostic-io = { path = "./io", version = "0.1" }
 agnostic-lite = { path = "./lite", version = "0.4" }
 agnostic-net = { path = "./net", version = "0.1" }

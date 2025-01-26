@@ -19,7 +19,6 @@ on:
       - '**.md'
       - '**.txt'
       - 'art'
-  workflow_dispatch:
 
 jobs:
   loc:
@@ -37,6 +36,8 @@ jobs:
             path: net
           - name: agnostic-io
             path: io
+          - name: agnostic-dns
+            path: dns
     steps:
       - uses: actions/checkout@v4
 
@@ -74,7 +75,7 @@ jobs:
       
       - name: Count lines of code in subcrates
         run: |
-          for crate in agnostic lite process net io; do
+          for crate in agnostic lite process net io dns; do
             cd $crate
             tokeit
             cd ..

@@ -1,4 +1,4 @@
-use super::Fd;
+pub use rustix::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, RawFd};
 
 macro_rules! rustix_fn {
   ($fn:ident($name:ident(
@@ -7,7 +7,7 @@ macro_rules! rustix_fn {
     #[inline]
     pub(super) fn $name<T>(this: &T, $($field_name: $field_ty,)*) -> ::std::io::Result<$return_ty>
     where
-      T: $crate::Fd,
+      T: AsFd,
     {
       ::rustix::net::sockopt::$fn(this, $($field_name,)*)
         .map_err(|e| ::std::io::Error::from_raw_os_error(e.raw_os_error()))
@@ -30,7 +30,7 @@ rustix_fn!(get_socket_linger(linger() -> Option<std::time::Duration>));
 
 pub(super) fn shutdown<T>(this: &T, how: std::net::Shutdown) -> std::io::Result<()>
 where
-  T: Fd,
+  T: AsFd,
 {
   rustix::net::shutdown(
     this,
@@ -45,11 +45,9 @@ where
 
 pub(super) fn duplicate<T, O>(this: &T) -> std::io::Result<O>
 where
-  T: Fd,
-  O: std::os::fd::FromRawFd,
+  T: AsFd,
+  O: FromRawFd,
 {
-  use std::os::fd::IntoRawFd;
-
   rustix::io::dup(this)
     .map(|fd| unsafe { O::from_raw_fd(fd.into_raw_fd()) })
     .map_err(|e| std::io::Error::from_raw_os_error(e.raw_os_error()))

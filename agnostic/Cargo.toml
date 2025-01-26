@@ -29,12 +29,14 @@ tokio-io = ["agnostic-io/tokio"]
 tokio = [
   "agnostic-lite/tokio",
   "agnostic-net?/tokio",
+  "agnostic-dns?/tokio",
   "agnostic-process?/tokio",
   "quinn?/runtime-tokio",
 ]
 async-std = [
   "agnostic-lite/async-std",
   "agnostic-net?/async-std",
+  "agnostic-dns?/async-std",
   "agnostic-process?/async-std",
   "quinn?/runtime-async-std",
 ]
@@ -42,65 +44,65 @@ smol = [
   "agnostic-lite/smol",
   "agnostic-process?/smol",
   "agnostic-net?/smol",
+  "agnostic-dns?/smol",
   "quinn?/runtime-smol",
 ]
 
-tracing = ["dep:tracing"]
+tracing = ["agnostic-dns/tracing"]
 
 ## DNS related features
-dns = ["net", "agnostic-net/dns"]
+dns = ["agnostic-dns"]
 dns-over-quic = [
   "dns",
-  "agnostic-net/dns-over-quic",
+  "agnostic-dns/dns-over-quic",
 ]
 dns-over-h3 = [
   "dns",
-  "agnostic-net/dns-over-h3",
+  "agnostic-dns/dns-over-h3",
 ]
 dns-over-https-rustls = [
   "dns",
-  "agnostic-net/dns-over-https-rustls",
+  "agnostic-dns/dns-over-https-rustls",
 ]
 dns-over-rustls = [
   "dns",
-  "agnostic-net/dns-over-rustls",
+  "agnostic-dns/dns-over-rustls",
 ]
 dns-over-openssl = [
   "dns",
-  "agnostic-net/dns-over-openssl",
+  "agnostic-dns/dns-over-openssl",
 ]
 dns-over-native-tls = [
   "dns",
-  "agnostic-net/dns-over-native-tls",
+  "agnostic-dns/dns-over-native-tls",
 ]
 dns-webpki-roots = [
   "dns",
-  "agnostic-net/dns-webpki-roots",
+  "agnostic-dns/dns-webpki-roots",
 ]
 dns-native-certs = [
   "dns",
-  "agnostic-net/dns-native-certs",
+  "agnostic-dns/dns-native-certs",
 ]
 dnssec-openssl = [
   "dns",
-  "agnostic-net/dnssec-openssl",
+  "agnostic-dns/dnssec-openssl",
 ]
 dnssec-ring = [
   "dnssec",
-  "agnostic-net/dnssec-ring",
+  "agnostic-dns/dnssec-ring",
 ]
-dnssec = ["dns", "agnostic-net/dnssec"]
+dnssec = ["dns", "agnostic-dns/dnssec"]
 
 [dependencies]
 agnostic-lite = { workspace = true, features = ["time"] }
+agnostic-dns = { workspace = true, optional = true }
 agnostic-net = { workspace = true, optional = true }
 agnostic-process = { workspace = true, optional = true }
 agnostic-io.workspace = true
 
 quinn = { version = "0.11", optional = true, default-features = false }
 quinn-udp = { version = "0.5", optional = true, default-features = false }
-
-tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

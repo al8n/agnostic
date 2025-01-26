@@ -13,63 +13,6 @@ description = "An async runtime agnostic version `std::net`."
 [features]
 default = []
 
-dns = ["hickory-resolver", "resolv-conf", "hickory-proto"]
-dns-over-quic = [
-  "dns",
-  "hickory-resolver/dns-over-quic",
-  "hickory-proto/dns-over-quic",
-  "dns-over-rustls",
-]
-dns-over-h3 = [
-  "dns",
-  "hickory-resolver/dns-over-h3",
-  "dns-over-rustls",
-  "hickory-proto/dns-over-h3",
-]
-dns-over-https-rustls = [
-  "dns",
-  "hickory-resolver/dns-over-https-rustls",
-  "hickory-proto/dns-over-https-rustls",
-  "dns-over-rustls",
-]
-dns-over-rustls = [
-  "dns",
-  "hickory-resolver/dns-over-rustls",
-  "hickory-proto/dns-over-rustls",
-]
-dns-over-openssl = [
-  "dns",
-  "hickory-resolver/dns-over-openssl",
-  "hickory-proto/dns-over-openssl",
-]
-dns-over-native-tls = [
-  "dns",
-  "hickory-resolver/dns-over-native-tls",
-  "hickory-proto/dns-over-native-tls",
-]
-dns-webpki-roots = [
-  "dns",
-  "hickory-proto/webpki-roots",
-  "hickory-resolver/webpki-roots",
-]
-dns-native-certs = [
-  "dns",
-  "hickory-proto/native-certs",
-  "hickory-resolver/native-certs",
-]
-dnssec-openssl = [
-  "dns",
-  "hickory-proto/dnssec-openssl",
-  "hickory-resolver/dnssec-openssl",
-]
-dnssec-ring = [
-  "dnssec",
-  "hickory-proto/dnssec-ring",
-  "hickory-resolver/dnssec-ring",
-]
-dnssec = ["dns", "hickory-proto/dnssec", "hickory-resolver/dnssec"]
-
-
 # This feature must be used with net feature
 # by enable this feature, TcpStream will implement
 # both futures::AsyncRead/AsyncWrite and tokio::io::AsyncRead/AsyncWrite.
@@ -96,23 +39,12 @@ async-std = [
 ]
 smol = ["dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
 
-tracing = ["dep:tracing"]
-
 [target.'cfg(unix)'.dependencies]
-hickory-resolver = { version = "0.24", default-features = false, optional = true, features = [
-  "system-config",
-] }
-rustix = { version = "0.38", default-features = false, features = ["net"] }
+rustix = { version = "0.38", features = ["net"] }
 
 [target.'cfg(windows)'.dependencies]
-hickory-resolver = { version = "0.24", default-features = false, optional = true, features = [
-  "system-config",
-] }
 windows-sys = { version = "0.59", features = ["Win32_Networking_WinSock"] }
 socket2 = "0.5"
-
-[target.'cfg(target_family = "wasm")'.dependencies]
-hickory-resolver = { version = "0.24", default-features = false, optional = true }
 
 [dependencies]
 agnostic-lite = { workspace = true, features = ["time"] }
@@ -134,9 +66,6 @@ async-io = { workspace = true, optional = true }
 paste = "1"
 pin-project-lite = { workspace = true, optional = true }
 smol = { workspace = true, default-features = false, optional = true }
-
-hickory-proto = { version = "0.24", default-features = false, optional = true }
-resolv-conf = { version = "0.7", default-features = false, optional = true }
 
 tracing = { version = "0.1", optional = true }
 

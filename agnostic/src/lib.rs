@@ -39,6 +39,11 @@ pub mod smol;
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
 pub mod net;
 
+/// Agnostic async DNS provider.
+#[cfg(feature = "dns")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns")))]
+pub use agnostic_dns as dns;
+
 /// Quinn related traits
 #[cfg(feature = "quinn")]
 #[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
