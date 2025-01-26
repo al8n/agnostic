@@ -59,25 +59,6 @@ pub fn next_test_ip6() -> SocketAddr {
   ))
 }
 
-pub fn sa4(a: Ipv4Addr, p: u16) -> SocketAddr {
-  SocketAddr::V4(SocketAddrV4::new(a, p))
-}
-
-pub fn sa6(a: Ipv6Addr, p: u16) -> SocketAddr {
-  SocketAddr::V6(SocketAddrV6::new(a, p, 0, 0))
-}
-
-pub async fn tsa<R, A>(a: A) -> Result<Vec<SocketAddr>, String>
-where
-  R: RuntimeLite,
-  A: ToSocketAddrs<R>,
-{
-  match a.to_socket_addrs().await {
-    Ok(a) => Ok(a.collect()),
-    Err(e) => Err(e.to_string()),
-  }
-}
-
 // The bots run multiple builds at the same time, and these builds
 // all want to use ports. This function figures out which workspace
 // it is running in and assigns a port range based on it.
