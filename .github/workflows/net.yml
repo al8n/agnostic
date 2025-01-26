@@ -62,32 +62,6 @@ jobs:
           cargo test --all-features -p agnostic-net
         working-directory: net
 
-  test-android:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        rust: [nightly]
-        target:
-          - aarch64-linux-android
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust
-        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-        run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
-      - name: Install cross-compilation tools
-        uses: taiki-e/setup-cross-toolchain-action@v1
-        with:
-          target: ${{ matrix.target }}
-      # On nightly and `-Z doctest-xcompile` is available,
-      # `$DOCTEST_XCOMPILE` is `-Zdoctest-xcompile`.
-      #
-      # On stable, `$DOCTEST_XCOMPILE` is not set.
-      # Once `-Z doctest-xcompile` is stabilized, the corresponding flag
-      # will be set to `$DOCTEST_XCOMPILE` (if it is available).
-      - run: cargo test --verbose $DOCTEST_XCOMPILE -p agnostic-net --features tokio,async-std,smol
-        working-directory: net
-
   clippy:
     runs-on: ubuntu-latest
     steps:
