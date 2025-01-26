@@ -8,6 +8,16 @@ use super::{
 };
 
 #[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
+macro_rules! resolve_address_error {
+  () => {{
+    ::std::io::Error::new(
+      ::std::io::ErrorKind::InvalidInput,
+      "could not resolve to any address",
+    )
+  }};
+}
+
+#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
 macro_rules! tcp_listener_common_methods {
   ($ty:ident.$field:ident) => {
     async fn bind<A: $crate::ToSocketAddrs<Self::Runtime>>(addr: A) -> std::io::Result<Self>
@@ -24,12 +34,7 @@ macro_rules! tcp_listener_common_methods {
         }
       }
 
-      ::core::result::Result::Err(last_err.unwrap_or_else(|| {
-        ::std::io::Error::new(
-          ::std::io::ErrorKind::InvalidInput,
-          "could not resolve to any address",
-        )
-      }))
+      ::core::result::Result::Err(last_err.unwrap_or_else(|| resolve_address_error!()))
     }
 
     async fn accept(&self) -> ::std::io::Result<(Self::Stream, ::std::net::SocketAddr)> {
@@ -66,12 +71,7 @@ macro_rules! tcp_stream_common_methods {
         }
       }
 
-      ::core::result::Result::Err(last_err.unwrap_or_else(|| {
-        ::std::io::Error::new(
-          ::std::io::ErrorKind::InvalidInput,
-          "could not resolve to any address",
-        )
-      }))
+      ::core::result::Result::Err(last_err.unwrap_or_else(|| resolve_address_error!()))
     }
 
     async fn connect_timeout(

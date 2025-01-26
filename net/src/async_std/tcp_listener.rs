@@ -25,9 +25,7 @@ impl TryFrom<std::net::TcpListener> for TcpListener {
 
   #[inline]
   fn try_from(ln: std::net::TcpListener) -> Result<Self, Self::Error> {
-    Ok(Self {
-      ln: AsyncStdTcpListener::from(ln),
-    })
+    Ok(Self::from(AsyncStdTcpListener::from(ln)))
   }
 }
 

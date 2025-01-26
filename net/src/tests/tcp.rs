@@ -17,10 +17,14 @@ use std::{
 
 macro_rules! test_suites_in {
   ($runtime:ident {
-    $($test_name:ident), +$(,)?
+    $(
+      $(#[$meta:meta])*
+      $test_name:ident
+    ), +$(,)?
   }) => {
     paste::paste! {
       $(
+        $(#[$meta])*
         #[test]
         fn [<test_ $runtime _ $test_name>]() {
           run($test_name::<[<$runtime:camel Net>]>());
@@ -39,6 +43,8 @@ macro_rules! test_suites {
       listen_localhost,
       connect_loopback,
       smoke,
+      #[cfg(feature = "tokio")]
+      tokio_smoke,
       read_eof,
       write_close,
       multiple_connect_serial,
@@ -53,6 +59,8 @@ macro_rules! test_suites {
       tcp_clone_two_read,
       tcp_clone_two_write,
       shutdown_smoke,
+      #[cfg(not(windows))]
+      close_read_wakes_up,
       close_readwrite_smoke,
       clone_while_reading,
       clone_accept_smoke,
@@ -62,6 +70,10 @@ macro_rules! test_suites {
       ttl,
       peek,
       connect_timeout_valid,
+      reunite,
+      into_split,
+      #[cfg(feature = "tokio")]
+      tokio_into_split,
     });
   };
 }
@@ -174,12 +186,37 @@ async fn smoke<N: Net>() {
     let _t = <N::Runtime as RuntimeLite>::spawn(async move {
       let mut stream = t!(<N::TcpStream as TcpStream>::connect(&addr).await);
       t!(stream.write(&[99]).await);
+      t!(stream.flush().await);
       tx.send(t!(stream.local_addr())).await.unwrap();
+      t!(stream.close().await);
     });
 
     let (mut stream, addr) = t!(acceptor.accept().await);
     let mut buf = [0];
     t!(stream.read(&mut buf).await);
+    assert!(buf[0] == 99);
+    assert_eq!(addr, t!(rx.recv().await));
+  })
+  .await
+}
+
+#[cfg(feature = "tokio")]
+async fn tokio_smoke<N: Net>() {
+  each_ip(&mut |addr| async move {
+    let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
+
+    let (tx, rx) = unbounded();
+    let _t = <N::Runtime as RuntimeLite>::spawn(async move {
+      let mut stream = t!(<N::TcpStream as TcpStream>::connect(&addr).await);
+      t!(::tokio::io::AsyncWriteExt::write(&mut stream, &[99]).await);
+      t!(::tokio::io::AsyncWriteExt::flush(&mut stream).await);
+      tx.send(t!(stream.local_addr())).await.unwrap();
+      t!(::tokio::io::AsyncWriteExt::shutdown(&mut stream).await);
+    });
+
+    let (mut stream, addr) = t!(acceptor.accept().await);
+    let mut buf = [0];
+    t!(::tokio::io::AsyncReadExt::read(&mut stream, &mut buf).await);
     assert!(buf[0] == 99);
     assert_eq!(addr, t!(rx.recv().await));
   })
@@ -245,7 +282,10 @@ async fn multiple_connect_serial<N: Net>() {
       }
     });
 
-    for stream in acceptor.incoming().take(max).next().await {
+    let incoming = acceptor.incoming().take(max);
+    futures_util::pin_mut!(incoming);
+
+    for stream in incoming.next().await {
       let mut stream = t!(stream);
       let mut buf = [0];
       t!(stream.read(&mut buf).await);
@@ -757,6 +797,8 @@ async fn ttl<N: Net>() {
 }
 
 async fn peek<N: Net>() {
+  use crate::tcp::OwnedReadHalf;
+
   each_ip(&mut |addr| async move {
     let (txdone, rxdone) = unbounded();
 
@@ -773,6 +815,10 @@ async fn peek<N: Net>() {
     for _ in 1..3 {
       let len = c.peek(&mut b).await.unwrap();
       assert_eq!(len, 4);
+      let (mut r, w) = c.into_split();
+      let len = r.peek(&mut b).await.unwrap();
+      assert_eq!(len, 4);
+      c = t!(<N::TcpStream as TcpStream>::reunite(r, w));
     }
     let len = c.read(&mut b).await.unwrap();
     assert_eq!(len, 4);
@@ -790,4 +836,104 @@ async fn connect_timeout_valid<N: Net>() {
   <N::TcpStream as TcpStream>::connect_timeout(&addr, Duration::from_secs(2))
     .await
     .unwrap();
+}
+
+async fn reunite<N: Net>() {
+  let listener = <N::TcpListener as TcpListener>::bind("127.0.0.1:0")
+    .await
+    .unwrap();
+  let addr = listener.local_addr().unwrap();
+  let stream = <N::TcpStream as TcpStream>::connect(&addr).await.unwrap();
+  let (r, w) = stream.into_split();
+  let stream1 = t!(<N::TcpStream as TcpStream>::reunite(r, w));
+
+  let stream2 = <N::TcpStream as TcpStream>::connect(&addr).await.unwrap();
+  let (r, _w) = stream1.into_split();
+  let (_r, w) = stream2.into_split();
+
+  assert!(<N::TcpStream as TcpStream>::reunite(r, w).is_err());
+}
+
+async fn into_split<N: Net>() {
+  each_ip(&mut |addr| async move {
+    let listener = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
+
+    let (tx, rx) = unbounded();
+    let _t = <N::Runtime as RuntimeLite>::spawn(async move {
+      let (mut stream, _) = t!(listener.accept().await);
+      let mut buf = [0];
+      t!(stream.read(&mut buf).await);
+      tx.send(()).await.unwrap();
+    });
+
+    let mut stream = t!(<N::TcpStream as TcpStream>::connect(&addr).await);
+    t!(stream.write(&[0]).await);
+    stream.flush().await.unwrap();
+    rx.recv().await.unwrap();
+
+    let (a, b) = stream.into_split();
+    let a = <N::Runtime as RuntimeLite>::spawn(async move {
+      let mut a = a;
+      let mut buf = [0];
+      t!(a.read(&mut buf).await);
+    });
+    let b = <N::Runtime as RuntimeLite>::spawn(async move {
+      let mut b = b;
+      t!(b.write(&[1]).await);
+      b.flush().await.unwrap();
+      let _ = b.close().await;
+    });
+
+    futures_util::future::join_all([a, b]).await;
+  })
+  .await
+}
+
+#[cfg(feature = "tokio")]
+async fn tokio_into_split<N: Net>() {
+  use crate::tcp::{OwnedReadHalf, OwnedWriteHalf};
+
+  each_ip(&mut |addr| async move {
+    let listener = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
+
+    let (tx, rx) = unbounded();
+    let _t = <N::Runtime as RuntimeLite>::spawn(async move {
+      let (mut stream, _) = t!(listener.accept().await);
+      let mut buf = [0];
+      t!(stream.read(&mut buf).await);
+      tx.send(()).await.unwrap();
+    });
+
+    let mut stream = t!(<N::TcpStream as TcpStream>::connect(&addr).await);
+    t!(stream.write(&[0]).await);
+    stream.flush().await.unwrap();
+    rx.recv().await.unwrap();
+
+    let (a, b) = stream.into_split();
+    let a = <N::Runtime as RuntimeLite>::spawn(async move {
+      println!(
+        "local_addr {} peer_addr {}",
+        a.local_addr().unwrap(),
+        a.peer_addr().unwrap()
+      );
+      let mut a = a;
+      let mut buf = [0];
+      t!(::tokio::io::AsyncReadExt::read(&mut a, &mut buf).await);
+    });
+    let b = <N::Runtime as RuntimeLite>::spawn(async move {
+      println!(
+        "local_addr {} peer_addr {}",
+        b.local_addr().unwrap(),
+        b.peer_addr().unwrap()
+      );
+      let mut b = b;
+      t!(::tokio::io::AsyncWriteExt::write(&mut b, &[1]).await);
+      ::tokio::io::AsyncWriteExt::flush(&mut b).await.unwrap();
+      let _ = ::tokio::io::AsyncWriteExt::shutdown(&mut b).await;
+      b.forget();
+    });
+
+    futures_util::future::join_all([a, b]).await;
+  })
+  .await
 }

@@ -7,7 +7,6 @@ macro_rules! owned_halves {
       #[derive(Debug)]
       pub struct OwnedReadHalf {
         pub(super) stream: ::[< $runtime:snake >]::net::TcpStream,
-        pub(super) id: usize,
       }
 
       #[doc = "The [`OwnedWriteHalf`](crate::OwnedWriteHalf) implementation for [`" $runtime "`] runtime"]
@@ -17,7 +16,6 @@ macro_rules! owned_halves {
       pub struct OwnedWriteHalf {
         pub(super) stream: ::[< $runtime:snake >]::net::TcpStream,
         pub(super) shutdown_on_drop: bool,
-        pub(super) id: usize,
       }
 
       impl Drop for OwnedWriteHalf {
@@ -245,17 +243,18 @@ macro_rules! tcp_stream {
 
         tcp_stream_common_methods!($runtime::stream);
 
+        fn shutdown(&self, how: ::std::net::Shutdown) -> ::std::io::Result<()> {
+          self.stream.shutdown(how)
+        }
+
         fn into_split(self) -> (Self::OwnedReadHalf, Self::OwnedWriteHalf) {
-          let id = &self.stream as *const _ as usize;
           (
             Self::OwnedReadHalf {
               stream: self.stream.clone(),
-              id,
             },
             Self::OwnedWriteHalf {
               stream: self.stream,
               shutdown_on_drop: true,
-              id,
             },
           )
         }
@@ -267,14 +266,26 @@ macro_rules! tcp_stream {
         where
           Self: Sized,
         {
-          if read.id == write.id {
-            write.shutdown_on_drop = false;
-            ::core::result::Result::Ok(Self {
-              stream: read.stream,
-            })
-          } else {
-            ::core::result::Result::Err(ReuniteError(read, write))
+          macro_rules! reunite_error {
+            () => {
+              ::core::result::Result::Err(ReuniteError(read, write))
+            };
           }
+
+          match (read.stream.local_addr(), write.stream.local_addr()) {
+            (Ok(local_addr_read), Ok(local_addr_write)) if local_addr_read == local_addr_write => {}
+            _ => return reunite_error!(),
+          }
+
+          match (read.stream.peer_addr(), write.stream.peer_addr()) {
+            (Ok(peer_addr_read), Ok(peer_addr_write)) if peer_addr_read == peer_addr_write => {}
+            _ => return reunite_error!(),
+          }
+
+          write.shutdown_on_drop = false;
+          ::core::result::Result::Ok(Self {
+            stream: read.stream,
+          })
         }
       }
     }
