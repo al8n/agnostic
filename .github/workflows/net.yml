@@ -85,12 +85,17 @@ jobs:
           git clone https://github.com/openssl/openssl.git
           cd openssl
           git checkout OpenSSL_1_1_1-stable
-          export ANDROID_NDK_HOME=${{ env.ANDROID_NDK_ROOT }}
-          export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
-          ./Configure android-arm64 -D__ANDROID_API__=21
+          
+          # Set up Android NDK paths
+          export ANDROID_NDK_ROOT=${{ env.ANDROID_NDK_ROOT }}
+          export ANDROID_NDK_HOME=$ANDROID_NDK_ROOT
+          export PATH=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+          
+          # Configure and build
+          ./Configure android-arm64 -D__ANDROID_API__=21 --prefix=$PWD/install
           make -j$(nproc)
-          echo "OPENSSL_DIR=$PWD" >> $GITHUB_ENV
-          cd ..
+          make install
+          echo "OPENSSL_DIR=$PWD/install" >> $GITHUB_ENV
 
       - name: Install cross-compilation tools
         uses: taiki-e/setup-cross-toolchain-action@v1

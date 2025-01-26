@@ -135,7 +135,7 @@ impl<T> As for T where T: std::os::fd::AsFd + std::os::fd::AsRawFd {}
 #[doc(hidden)]
 #[cfg(windows)]
 pub trait As: std::os::windows::io::AsRawSocket + std::os::windows::io::AsSocket {
-  fn __as(&self) -> &std::os::windows::io::Socket {
+  fn __as(&self) -> &std::os::windows::io::BorrowedSocket<'_> {
     self.as_socket()
   }
 
@@ -254,7 +254,7 @@ fn duplicate<T: As>(this: &T) -> std::io::Result<socket2::Socket> {
 
 #[cfg(windows)]
 fn duplicate<T: As>(this: &T) -> std::io::Result<socket2::Socket> {
-  use std::mem::zeroed;
+  use std::{mem::zeroed, os::windows::io::FromRawSocket};
   use windows_sys::Win32::Networking::WinSock::{
     WSADuplicateSocketW, WSAGetLastError, WSASocket, INVALID_SOCKET, SOCKET_ERROR,
     WSAPROTOCOL_INFOW,
