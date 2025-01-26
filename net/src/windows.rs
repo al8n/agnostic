@@ -1,3 +1,10 @@
+use std::mem::zeroed;
+
+use socket2::SockRef;
+use windows_sys::Win32::Networking::WinSock::{
+  WSADuplicateSocketW, WSAGetLastError, WSASocketW, INVALID_SOCKET, SOCKET_ERROR, WSAPROTOCOL_INFOW,
+};
+
 pub use std::os::windows::io::{
   AsRawSocket, AsSocket, BorrowedSocket, FromRawSocket, IntoRawSocket, RawSocket,
 };
@@ -10,10 +17,8 @@ macro_rules! socket2_fn {
     #[inline]
     pub(super) fn $name<T>(this: &T, $($field_name: $field_ty,)*) -> std::io::Result<$return_ty>
     where
-      T: ::std::os::windows::io::AsSocket,
+      T: AsSocket,
     {
-      use socket2::SockRef;
-
       SockRef::from(this).$name($($field_name,)*)
     }
   };
@@ -35,17 +40,11 @@ socket2_fn!(set_send_buffer_size(size: usize) -> ());
 
 pub(super) fn duplicate<T, O>(this: &T) -> std::io::Result<O>
 where
-  T: Fd,
-  O: std::os::windows::io::FromRawSocket,
+  T: AsSocket,
+  O: FromRawSocket,
 {
-  use std::mem::zeroed;
-  use windows_sys::Win32::Networking::WinSock::{
-    WSADuplicateSocketW, WSAGetLastError, WSASocketW, INVALID_SOCKET, SOCKET_ERROR,
-    WSAPROTOCOL_INFOW,
-  };
-
   let mut info: WSAPROTOCOL_INFOW = unsafe { zeroed() };
-  if unsafe { WSADuplicateSocketW(this.__as_raw() as _, std::process::id(), &mut info) }
+  if unsafe { WSADuplicateSocketW(this.as_socket() as _, std::process::id(), &mut info) }
     == SOCKET_ERROR
   {
     return Err(std::io::Error::from_raw_os_error(unsafe {
