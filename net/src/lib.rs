@@ -279,7 +279,7 @@ fn duplicate<T: As>(this: &T) -> std::io::Result<socket2::Socket> {
       info.iAddressFamily,
       info.iSocketType,
       info.iProtocol,
-      Some(&info),
+      &info as *const _ as _,
       0,
       0,
     )
@@ -291,7 +291,7 @@ fn duplicate<T: As>(this: &T) -> std::io::Result<socket2::Socket> {
     }));
   }
 
-  Ok(unsafe { socket2::Socket::from_raw_socket(socket) })
+  Ok(unsafe { socket2::Socket::from_raw_socket(socket as u64) })
 }
 
 #[cfg(not(any(unix, windows)))]
