@@ -860,10 +860,12 @@ async fn into_split<N: Net>() {
 
     let (tx, rx) = unbounded();
     let _t = <N::Runtime as RuntimeLite>::spawn(async move {
-      let (mut stream, _) = t!(listener.accept().await);
-      let mut buf = [0];
-      t!(stream.read(&mut buf).await);
-      tx.send(()).await.unwrap();
+      loop {
+        let (mut stream, _) = t!(listener.accept().await);
+        let mut buf = [0];
+        t!(stream.read(&mut buf).await);
+        tx.send(()).await.unwrap();
+      }
     });
 
     let mut stream = t!(<N::TcpStream as TcpStream>::connect(&addr).await);
@@ -898,10 +900,12 @@ async fn tokio_into_split<N: Net>() {
 
     let (tx, rx) = unbounded();
     let _t = <N::Runtime as RuntimeLite>::spawn(async move {
-      let (mut stream, _) = t!(listener.accept().await);
-      let mut buf = [0];
-      t!(stream.read(&mut buf).await);
-      tx.send(()).await.unwrap();
+      loop {
+        let (mut stream, _) = t!(listener.accept().await);
+        let mut buf = [0];
+        t!(stream.read(&mut buf).await);
+        tx.send(()).await.unwrap();
+      }
     });
 
     let mut stream = t!(<N::TcpStream as TcpStream>::connect(&addr).await);
