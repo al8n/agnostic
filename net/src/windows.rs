@@ -44,7 +44,7 @@ where
   O: FromRawSocket,
 {
   let mut info: WSAPROTOCOL_INFOW = unsafe { zeroed() };
-  if unsafe { WSADuplicateSocketW(this.as_socket() as _, std::process::id(), &mut info) }
+  if unsafe { WSADuplicateSocketW(this.as_raw_socket() as _, std::process::id(), &mut info) }
     == SOCKET_ERROR
   {
     return Err(std::io::Error::from_raw_os_error(unsafe {
