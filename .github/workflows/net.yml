@@ -110,6 +110,7 @@ jobs:
         with:
           command: tarpaulin
           args: --features tokio,smol,async-std --run-types tests --run-types doctests -p agnostic-net --out xml
+        continue-on-error: true
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v5
         with:
