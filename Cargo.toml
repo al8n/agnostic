@@ -1,7 +1,11 @@
 [workspace]
 members = [
   "agnostic",
-  "lite",
+  "agnostic-process",
+  "agnostic-net",
+  "agnostic-dns",
+  "agnostic-lite",
+  "agnostic-io",
   "smol",
   "async-std",
   "wasm",
@@ -11,24 +15,32 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 license = "MIT/Apache-2.0"
-rust-version = "1.75.0"
+rust-version = "1.81.0"
 repository = "https://github.com/al8n/agnostic"
 homepage = "https://github.com/al8n/agnostic"
 keywords = ["async", "runtime", "agnostic", "trait"]
 
 [workspace.dependencies]
+atomic-time = "0.1"
 async-io = "2"
 
 futures-util = { version = "0.3", default-features = false }
+futures-io = { version = "0.3", default-features = false }
 futures-channel = "0.3"
 pin-project-lite = "0.2"
-agnostic-lite = { path = "./lite", version = "0.3" }
+
+agnostic-dns = { path = "./agnostic-dns", version = "0.1" }
+agnostic-io = { path = "./agnostic-io", version = "0.1" }
+agnostic-lite = { path = "./agnostic-lite", version = "0.4" }
+agnostic-net = { path = "./agnostic-net", version = "0.1" }
+agnostic-process = { path = "./agnostic-process", version = "0.1" }
 
 # runtimes
 smol = { package = "feature-extension-for-smol", version = "^0.2.1", path = "smol", default-features = false }
 async-std = { package = "feature-extension-for-async-std", version = "^0.2.1", path = "async-std", default-features = false }
 wasm = { package = "feature-extension-for-wasm-bindgen-futures", version = "^0.2.1", path = "wasm" }
 tokio = { version = "1", default-features = false }
+tokio-util = { version = "0.7", default-features = false }
 
 [workspace.metadata.docs.rs]
 all-features = true

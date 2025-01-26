@@ -1,0 +1,82 @@
+[package]
+name = "agnostic-lite"
+version = "0.4.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+
+description = "`agnostic-lite` is WASM friendly and light version of `agnostic`, for users who want to write async runtime-agnostic crate."
+documentation = "https://docs.rs/agnostic-lite"
+readme = "README.md"
+categories = ["asynchronous", "no-std"]
+
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["std"]
+std = []
+time = [
+  "std",
+  "atomic-time",
+  "paste",
+  "tokio?/time",
+  "tokio?/macros",
+  "tokio?/sync",
+  "wasm?/time",
+  "wasm?/channel",
+  "smol?/time",
+  "smol?/channel",
+  "async-std?/time",
+  "async-std?/channel",
+]
+
+tokio = ["dep:tokio"]
+
+async-io = ["dep:async-io", "time"]
+smol = ["dep:smol", "async-io"]
+async-std = ["dep:async-std", "async-io"]
+
+wasm = [
+  "std",
+  "dep:wasm",
+  "wasm/channel",
+  "futures-util/async-await-macro",
+  "futures-util/async-await",
+  "futures-util/std",
+]
+
+test = ["time"]
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+wasm = { workspace = true, features = ["wasm-bindgen"], optional = true }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+wasm = { workspace = true, optional = true }
+
+[dependencies]
+atomic-time = { workspace = true, optional = true }
+futures-util = { workspace = true, default-features = false }
+pin-project-lite.workspace = true
+pin-project = "1"
+
+tokio = { workspace = true, optional = true, default-features = false, features = [
+  "rt",
+] }
+
+async-io = { workspace = true, optional = true }
+async-std = { workspace = true, optional = true, features = ["default", "unstable"] }
+smol = { workspace = true, optional = true }
+paste = { version = "1", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[dev-dependencies]
+futures = { version = "0.3", features = ["executor"] }
+tokio = { workspace = true, features = ["full"] }

@@ -1,0 +1,74 @@
+[package]
+name = "agnostic-net"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories = ["asynchronous", "network-programming"]
+description = "An async runtime agnostic version `std::net`."
+
+[features]
+default = []
+
+# This feature must be used with net feature
+# by enable this feature, TcpStream will implement
+# both futures::AsyncRead/AsyncWrite and tokio::io::AsyncRead/AsyncWrite.
+# But if you are using tokio, this feature can be ignored.
+tokio-io = ["agnostic-io/tokio"]
+
+tokio = [
+  "dep:tokio",
+  "agnostic-lite/tokio",
+  "agnostic-io/tokio",
+  "pin-project-lite",
+  "tokio-stream",
+  "tokio/rt",
+  "tokio/sync",
+  "tokio/macros",
+  "tokio/time",
+  "tokio-io",
+]
+async-std = [
+  "dep:async-std",
+  "agnostic-lite/async-std",
+  "async-io",
+  "pin-project-lite",
+]
+smol = ["dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "0.38", features = ["net"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Networking_WinSock"] }
+socket2 = "0.5"
+
+[dependencies]
+agnostic-lite = { workspace = true, features = ["time"] }
+agnostic-io.workspace = true
+async-trait = "0.1"
+futures-util.workspace = true
+triomphe = "0.1"
+
+tokio = { version = "1", default-features = false, optional = true, features = ["net", "io-std", "io-util"] }
+tokio-stream = { version = "0.1", default-features = false, optional = true, features = [
+  "time",
+] }
+
+async-std = { workspace = true, optional = true, features = [
+  "unstable",
+  "default",
+] }
+async-io = { workspace = true, optional = true }
+paste = "1"
+pin-project-lite = { workspace = true, optional = true }
+smol = { workspace = true, default-features = false, optional = true }
+
+tracing = { version = "0.1", optional = true }
+
+[dev-dependencies]
+async-channel = "2"
+tokio = { workspace = true, features = ["full"] }

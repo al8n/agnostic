@@ -1,0 +1,100 @@
+name: process
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - 'process/src/**'
+      - 'process/tests/**'
+      - 'process/Cargo.toml'
+      - 'lite/src/**'
+      - 'lite/tests/**'
+      - 'lite/Cargo.toml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'process/src/**'
+      - 'process/tests/**'
+      - 'process/Cargo.toml'
+      - 'lite/src/**'
+      - 'lite/tests/**'
+      - 'lite/Cargo.toml'
+  schedule: [cron: "0 1 */7 * *"]
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+  CARGO_NET_RETRY: 10
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  RUSTFLAGS: -D warnings
+  RUSTDOCFLAGS: -D warnings
+  RUSTUP_MAX_RETRIES: 10
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [nightly, beta, stable]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
+      - run: cargo test --all-features
+        working-directory: agnostic-process
+
+  test-android:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [nightly]
+        target:
+          - aarch64-linux-android
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
+      - name: Install cross-compilation tools
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
+      # On nightly and `-Z doctest-xcompile` is available,
+      # `$DOCTEST_XCOMPILE` is `-Zdoctest-xcompile`.
+      #
+      # On stable, `$DOCTEST_XCOMPILE` is not set.
+      # Once `-Z doctest-xcompile` is stabilized, the corresponding flag
+      # will be set to `$DOCTEST_XCOMPILE` (if it is available).
+      - run: cargo test --verbose $DOCTEST_XCOMPILE --all-features
+        working-directory: agnostic-process
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup update stable
+      - run: cargo clippy --all-features --all-targets
+        working-directory: agnostic-process
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup update stable
+      - run: cargo fmt --all --check
+        working-directory: agnostic-process
+

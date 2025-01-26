@@ -1,0 +1,82 @@
+name: coverage
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'COPYRIGHT'
+      - 'LICENSE*'
+      - '**.md'
+      - '**.txt'
+      - 'art'
+  pull_request:
+    paths-ignore:
+      - 'README.md'
+      - 'COPYRIGHT'
+      - 'LICENSE*'
+      - '**.md'
+      - '**.txt'
+      - 'art'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage-report:
+    name: Generate Coverage for ${{matrix.crate}}-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        crate:
+          - agnostic
+          - agnostic-lite
+          - agnostic-net
+          - agnostic-dns
+          - agnostic-process
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+      - name: Run Coverage and Generate Report
+        run: |
+          mkdir -p coverage/${{ matrix.os }}/${{matrix.crate}}
+          cargo tarpaulin --run-types Doctests --run-types Tests --run-types Lib --features tokio,async-std,smol --out xml --output-dir coverage/${{ matrix.os }}/${{matrix.crate}} -j 1
+        working-directory: ${{matrix.crate}}
+        continue-on-error: true
+      - name: Upload Coverage Report as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-${{matrix.crate}}
+          path: coverage/${{ matrix.os }}/${{matrix.crate}}/cobertura.xml
+
+  upload-codecov:
+    needs: coverage-report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          path: reports/
+      - name: List contents of the reports directory
+        run: ls -a reports
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v5
+        with:
+          directory: reports
+          fail_ci_if_error: false
+          slug: ${{ github.repository }}
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

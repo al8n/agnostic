@@ -1,0 +1,88 @@
+name: dns
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - 'agnostic-dns/src/**'
+      - 'agnostic-dns/tests/**'
+      - 'agnostic-dns/Cargo.toml'
+      - 'agnostic-net/src/**'
+      - 'agnostic-net/tests/**'
+      - 'agnostic-net/Cargo.toml'
+      - 'agnostic-lite/src/**'
+      - 'agnostic-lite/tests/**'
+      - 'agnostic-lite/Cargo.toml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'agnostic-dns/src/**'
+      - 'agnostic-dns/tests/**'
+      - 'agnostic-dns/Cargo.toml'
+      - 'agnostic-net/src/**'
+      - 'agnostic-net/tests/**'
+      - 'agnostic-net/Cargo.toml'
+      - 'agnostic-lite/src/**'
+      - 'agnostic-lite/tests/**'
+      - 'agnostic-lite/Cargo.toml'
+  schedule: [cron: "0 1 */7 * *"]
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+  CARGO_NET_RETRY: 10
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  RUSTFLAGS: -D warnings
+  RUSTDOCFLAGS: -D warnings
+  RUSTUP_MAX_RETRIES: 10
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [nightly, beta, stable]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OpenSSL (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          vcpkg install openssl:x64-windows-static-md
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
+      - run: |
+          export MACOSX_DEPLOYMENT_TARGET=14.5
+          cargo test --features tokio,async-std,smol -p agnostic-dns -- --nocapture
+        working-directory: agnostic-dns
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup update stable
+      - run: cargo clippy --features tokio,async-std,smol --all-targets -p agnostic-dns
+        working-directory: agnostic-dns
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup update stable
+      - run: cargo fmt --all --check -p agnostic-dns
+        working-directory: agnostic-dns
+
