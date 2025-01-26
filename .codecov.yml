@@ -6,28 +6,7 @@ ignore:
   - "**/examples/"
   - "**/benches/"
   - "**/tests/"
-
-flags:
-  agnostic:
-    paths:
-      - agnostic/
-    carryforward: true
-  agnostic-lite:
-    paths:
-      - agnostic-lite/
-    carryforward: true
-  agnostic-net:
-    paths:
-      - agnostic-net/
-    carryforward: true
-  agnostic-dns:
-    paths:
-      - agnostic-dns/
-    carryforward: true
-  agnostic-process:
-    paths:
-      - agnostic-process/
-    carryforward: true
+  - "**/tests.rs"
 
 coverage:
   status:
