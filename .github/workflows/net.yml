@@ -57,7 +57,9 @@ jobs:
       - name: Install Rust
         # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
         run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
-      - run: cargo test --all-features
+      - run: |
+          export MACOSX_DEPLOYMENT_TARGET=14.5
+          cargo test --all-features
         working-directory: net
 
   test-android:
@@ -80,8 +82,8 @@ jobs:
 
       - name: Build OpenSSL for Android
         env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          ANDROID_NDK_ROOT: ${{ steps.install-ndk.outputs.ndk-path }}
+          ANDROID_NDK_HOME: ${{ steps.nttld-setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.nttld-setup-ndk.outputs.ndk-path }}
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential

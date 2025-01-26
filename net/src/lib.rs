@@ -1,3 +1,8 @@
+#![doc = include_str!("../README.md")]
+#![deny(warnings, missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, allow(unused_attributes))]
+
 use std::net::SocketAddr;
 
 use agnostic_lite::{cfg_async_std, cfg_smol, cfg_tokio, RuntimeLite};
@@ -34,7 +39,7 @@ macro_rules! impl_as_fd {
 
     #[cfg(windows)]
     impl std::os::windows::io::AsSocket for $name {
-      fn as_socket(&self) -> &std::os::windows::io::Socket {
+      fn as_socket(&self) -> std::os::windows::io::BorrowedSocket<'_> {
         self.$field.as_socket()
       }
     }
@@ -135,7 +140,7 @@ impl<T> As for T where T: std::os::fd::AsFd + std::os::fd::AsRawFd {}
 #[doc(hidden)]
 #[cfg(windows)]
 pub trait As: std::os::windows::io::AsRawSocket + std::os::windows::io::AsSocket {
-  fn __as(&self) -> &std::os::windows::io::BorrowedSocket<'_> {
+  fn __as(&self) -> std::os::windows::io::BorrowedSocket<'_> {
     self.as_socket()
   }
 
