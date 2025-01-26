@@ -1,11 +1,11 @@
 [workspace]
 members = [
   "agnostic",
-  "process",
-  "net",
-  "dns",
-  "lite",
-  "io",
+  "agnostic-process",
+  "agnostic-net",
+  "agnostic-dns",
+  "agnostic-lite",
+  "agnostic-io",
   "smol",
   "async-std",
   "wasm",
@@ -29,11 +29,11 @@ futures-io = { version = "0.3", default-features = false }
 futures-channel = "0.3"
 pin-project-lite = "0.2"
 
-agnostic-dns = { path = "./dns", version = "0.1" }
-agnostic-io = { path = "./io", version = "0.1" }
-agnostic-lite = { path = "./lite", version = "0.4" }
-agnostic-net = { path = "./net", version = "0.1" }
-agnostic-process = { path = "./process", version = "0.1" }
+agnostic-dns = { path = "./agnostic-dns", version = "0.1" }
+agnostic-io = { path = "./agnostic-io", version = "0.1" }
+agnostic-lite = { path = "./agnostic-lite", version = "0.4" }
+agnostic-net = { path = "./agnostic-net", version = "0.1" }
+agnostic-process = { path = "./agnostic-process", version = "0.1" }
 
 # runtimes
 smol = { package = "feature-extension-for-smol", version = "^0.2.1", path = "smol", default-features = false }

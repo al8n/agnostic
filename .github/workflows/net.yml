@@ -54,7 +54,7 @@ jobs:
       - run: |
           export MACOSX_DEPLOYMENT_TARGET=14.5
           cargo test --all-features -p agnostic-net -- --nocapture
-        working-directory: net
+        working-directory: agnostic-net
 
   clippy:
     runs-on: ubuntu-latest
@@ -63,7 +63,7 @@ jobs:
       - name: Install Rust
         run: rustup update stable
       - run: cargo clippy --all-features --all-targets -p agnostic-net
-        working-directory: net
+        working-directory: agnostic-net
 
   fmt:
     runs-on: ubuntu-latest
@@ -72,5 +72,5 @@ jobs:
       - name: Install Rust
         run: rustup update stable
       - run: cargo fmt --all --check -p agnostic-net
-        working-directory: net
+        working-directory: agnostic-net
 

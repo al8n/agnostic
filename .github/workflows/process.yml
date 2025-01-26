@@ -52,7 +52,7 @@ jobs:
         # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
         run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
       - run: cargo test --all-features
-        working-directory: process
+        working-directory: agnostic-process
 
   test-android:
     runs-on: ubuntu-latest
@@ -78,7 +78,7 @@ jobs:
       # Once `-Z doctest-xcompile` is stabilized, the corresponding flag
       # will be set to `$DOCTEST_XCOMPILE` (if it is available).
       - run: cargo test --verbose $DOCTEST_XCOMPILE --all-features
-        working-directory: process
+        working-directory: agnostic-process
 
   clippy:
     runs-on: ubuntu-latest
@@ -87,7 +87,7 @@ jobs:
       - name: Install Rust
         run: rustup update stable
       - run: cargo clippy --all-features --all-targets
-        working-directory: process
+        working-directory: agnostic-process
 
   fmt:
     runs-on: ubuntu-latest
@@ -96,5 +96,5 @@ jobs:
       - name: Install Rust
         run: rustup update stable
       - run: cargo fmt --all --check
-        working-directory: process
+        working-directory: agnostic-process
 

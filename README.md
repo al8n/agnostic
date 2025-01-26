@@ -18,10 +18,10 @@ Crates                            | Description
 ----------------------------------| -----------
 [`agnostic`](./agnostic/)         | Abstractions for users who want to develop async runtime-agnostic crate.
 [`agnostic-dns`](./agnostic-dns/) | `agnostic-dns` is an async runtime agnostic layer over [`hickory-dns`](https://github.com/hickory-dns/hickory-dns).
-[`agnostic-lite`](./lite/)        | WASM friendly and light version of `agnostic`, for users who want to develop async runtime-agnostic crate.
-[`agnostic-io`](./io/)            | Defines I/O traits for async runtime agnostic I/O.
-[`agnostic-net`](./net/)          | An async runtime agnostic version `std::net`.
-[`agnostic-process`](./process/)  | An async runtime agnostic version `std::process`.
+[`agnostic-lite`](./agnostic-lite/)        | WASM friendly and light version of `agnostic`, for users who want to develop async runtime-agnostic crate.
+[`agnostic-io`](./agnostic-io/)            | Defines I/O traits for async runtime agnostic I/O.
+[`agnostic-net`](./agnostic-net/)          | An async runtime agnostic version `std::net`.
+[`agnostic-process`](./agnostic-process/)  | An async runtime agnostic version `std::process`.
 
 #### License
 

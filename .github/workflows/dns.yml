@@ -6,28 +6,28 @@ permissions:
 on:
   pull_request:
     paths:
-      - 'dns/src/**'
-      - 'dns/tests/**'
-      - 'dns/Cargo.toml'
-      - 'net/src/**'
-      - 'net/tests/**'
-      - 'net/Cargo.toml'
-      - 'lite/src/**'
-      - 'lite/tests/**'
-      - 'lite/Cargo.toml'
+      - 'agnostic-dns/src/**'
+      - 'agnostic-dns/tests/**'
+      - 'agnostic-dns/Cargo.toml'
+      - 'agnostic-net/src/**'
+      - 'agnostic-net/tests/**'
+      - 'agnostic-net/Cargo.toml'
+      - 'agnostic-lite/src/**'
+      - 'agnostic-lite/tests/**'
+      - 'agnostic-lite/Cargo.toml'
   push:
     branches:
       - main
     paths:
-      - 'dns/src/**'
-      - 'dns/tests/**'
-      - 'dns/Cargo.toml'
-      - 'net/src/**'
-      - 'net/tests/**'
-      - 'net/Cargo.toml'
-      - 'lite/src/**'
-      - 'lite/tests/**'
-      - 'lite/Cargo.toml'
+      - 'agnostic-dns/src/**'
+      - 'agnostic-dns/tests/**'
+      - 'agnostic-dns/Cargo.toml'
+      - 'agnostic-net/src/**'
+      - 'agnostic-net/tests/**'
+      - 'agnostic-net/Cargo.toml'
+      - 'agnostic-lite/src/**'
+      - 'agnostic-lite/tests/**'
+      - 'agnostic-lite/Cargo.toml'
   schedule: [cron: "0 1 */7 * *"]
 
 env:
@@ -66,7 +66,7 @@ jobs:
       - run: |
           export MACOSX_DEPLOYMENT_TARGET=14.5
           cargo test --features tokio,async-std,smol -p agnostic-dns -- --nocapture
-        working-directory: dns
+        working-directory: agnostic-dns
 
   clippy:
     runs-on: ubuntu-latest
@@ -75,7 +75,7 @@ jobs:
       - name: Install Rust
         run: rustup update stable
       - run: cargo clippy --features tokio,async-std,smol --all-targets -p agnostic-dns
-        working-directory: dns
+        working-directory: agnostic-dns
 
   fmt:
     runs-on: ubuntu-latest
@@ -84,5 +84,5 @@ jobs:
       - name: Install Rust
         run: rustup update stable
       - run: cargo fmt --all --check -p agnostic-dns
-        working-directory: dns
+        working-directory: agnostic-dns
 

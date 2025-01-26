@@ -26,18 +26,12 @@ jobs:
     strategy:
       matrix:
         crates:
-          - name: agnostic
-            path: agnostic
-          - name: agnostic-lite
-            path: lite
-          - name: agnostic-process
-            path: process
-          - name: agnostic-net
-            path: net
-          - name: agnostic-io
-            path: io
-          - name: agnostic-dns
-            path: dns
+          - agnostic
+          - agnostic-lite
+          - agnostic-process
+          - agnostic-net
+          - agnostic-io
+          - agnostic-dns
     steps:
       - uses: actions/checkout@v4
 
@@ -75,11 +69,9 @@ jobs:
       
       - name: Count lines of code in subcrates
         run: |
-          for crate in agnostic lite process net io dns; do
-            cd $crate
-            tokeit
-            cd ..
-          done
+          cd ${{matrix.crates}}
+          tokeit
+          cd ..
 
       - name: Upload subcrates loc to GitHub Gist
         uses: actions/github-script@v7
