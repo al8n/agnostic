@@ -195,8 +195,6 @@ impl super::RuntimeLite for WasmRuntime {
   cfg_time!(
     type AfterSpawner = WasmSpawner;
 
-    type LocalAfterSpawner = WasmSpawner;
-
     type Interval = WasmInterval;
 
     type LocalInterval = WasmInterval;

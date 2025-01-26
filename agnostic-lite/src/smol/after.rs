@@ -8,18 +8,15 @@ use std::sync::Arc;
 
 use atomic_time::AtomicOptionDuration;
 use futures_util::{FutureExt, StreamExt};
-use smol::{
-  sync::{
-    mpsc::{unbounded, UnboundedSender},
-    oneshot::{channel, Canceled as JoinError, Receiver, Sender},
-  },
-  // channel::{Sender as UnboundedSender, unbounded}
+use smol::sync::{
+  mpsc::{unbounded, UnboundedSender},
+  oneshot::{channel, Canceled as JoinError, Receiver, Sender},
 };
 
 use crate::{
-  spawner::{AfterHandle, LocalAfterHandle, AfterHandleSignals, Canceled},
-  time::{AsyncLocalSleep, AsyncSleep},
-  AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner,
+  spawner::{AfterHandle, AfterHandleSignals, Canceled},
+  time::AsyncSleep,
+  AfterHandleError, AsyncAfterSpawner,
 };
 
 use super::{super::RuntimeLite, *};
@@ -268,48 +265,6 @@ where
   }
 }
 
-impl<O> LocalAfterHandle<O> for SmolAfterHandle<O>
-where
-  O: 'static,
-{
-  type JoinError = AfterHandleError<JoinError>;
-
-  async fn cancel(self) -> Option<Result<O, Self::JoinError>> {
-    if LocalAfterHandle::is_finished(&self) {
-      return Some(
-        self
-          .handle
-          .await
-          .map_err(AfterHandleError::Join)
-          .and_then(|v| v.map_err(|_| AfterHandleError::Canceled)),
-      );
-    }
-
-    let _ = self.tx.send(());
-    None
-  }
-
-  fn reset(&self, duration: core::time::Duration) {
-    self.resetter.reset(duration);
-    let _ = self.resetter.tx.unbounded_send(());
-  }
-
-  #[inline]
-  fn abort(self) {
-    let _ = self.abort_tx.send(());
-  }
-
-  #[inline]
-  fn is_expired(&self) -> bool {
-    self.signals.is_expired()
-  }
-
-  #[inline]
-  fn is_finished(&self) -> bool {
-    self.signals.is_finished()
-  }
-}
-
 impl AsyncAfterSpawner for SmolSpawner {
   type JoinHandle<F>
     = SmolAfterHandle<F>
@@ -330,29 +285,6 @@ impl AsyncAfterSpawner for SmolSpawner {
     F: Future + Send + 'static,
   {
     spawn_after!(spawn_detach, sleep_until(AsyncSleep) -> (instant, future))
-  }
-}
-
-impl AsyncLocalAfterSpawner for SmolSpawner {
-  type JoinHandle<F>
-    = SmolAfterHandle<F>
-  where
-    F: 'static;
-
-  fn spawn_local_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: 'static,
-    F: Future + 'static,
-  {
-    Self::spawn_local_after_at(Instant::now() + duration, future)
-  }
-
-  fn spawn_local_after_at<F>(instant: Instant, future: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: 'static,
-    F: Future + 'static,
-  {
-    spawn_after!(spawn_local_detach, sleep_local_until(AsyncLocalSleep) -> (instant, future))
   }
 }
 

@@ -7,9 +7,9 @@ use core::{
 use std::sync::Arc;
 
 use crate::{
-  spawner::{AfterHandle, LocalAfterHandle, AfterHandleSignals, Canceled},
+  spawner::{AfterHandle, AfterHandleSignals, Canceled},
   time::AsyncSleep,
-  AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner,
+  AfterHandleError, AsyncAfterSpawner,
 };
 use atomic_time::AtomicOptionDuration;
 use tokio::{
@@ -235,44 +235,6 @@ where
   }
 }
 
-impl<O> LocalAfterHandle<O> for TokioAfterHandle<O>
-where
-  O: 'static,
-{
-  type JoinError = AfterHandleError<JoinError>;
-
-  async fn cancel(self) -> Option<Result<O, Self::JoinError>> {
-    if self.is_finished() {
-      return Some(
-        self
-          .handle
-          .await
-          .map_err(AfterHandleError::Join)
-          .and_then(|v| v.map_err(|_| AfterHandleError::Canceled)),
-      );
-    }
-
-    let _ = self.tx.send(());
-    None
-  }
-
-  fn reset(&self, duration: core::time::Duration) {
-    self.resetter.reset(duration);
-  }
-
-  fn is_finished(&self) -> bool {
-    self.signals.is_finished()
-  }
-
-  fn is_expired(&self) -> bool {
-    self.signals.is_expired()
-  }
-
-  fn abort(self) {
-    self.handle.abort()
-  }
-}
-
 impl AsyncAfterSpawner for TokioSpawner {
   type JoinHandle<O>
     = TokioAfterHandle<O>
@@ -293,29 +255,6 @@ impl AsyncAfterSpawner for TokioSpawner {
     F: Future + Send + 'static,
   {
     spawn_after!(spawn, sleep_until -> (instant, future))
-  }
-}
-
-impl AsyncLocalAfterSpawner for TokioSpawner {
-  type JoinHandle<O>
-    = TokioAfterHandle<O>
-  where
-    O: 'static;
-
-  fn spawn_local_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: 'static,
-    F: Future + 'static,
-  {
-    Self::spawn_local_after_at(Instant::now() + duration, future)
-  }
-
-  fn spawn_local_after_at<F>(instant: Instant, future: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: 'static,
-    F: Future + 'static,
-  {
-    spawn_after!(spawn_local, sleep_local_until -> (instant, future))
   }
 }
 

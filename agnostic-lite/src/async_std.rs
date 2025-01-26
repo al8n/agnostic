@@ -99,7 +99,6 @@ impl super::RuntimeLite for AsyncStdRuntime {
 
   cfg_time!(
     type AfterSpawner = AsyncStdSpawner;
-    type LocalAfterSpawner = AsyncStdSpawner;
 
     type Interval = AsyncIoInterval;
     type LocalInterval = AsyncIoInterval;

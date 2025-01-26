@@ -133,7 +133,6 @@ impl super::RuntimeLite for SmolRuntime {
 
   cfg_time!(
     type AfterSpawner = SmolSpawner;
-    type LocalAfterSpawner = SmolSpawner;
 
     type Interval = AsyncIoInterval;
     type LocalInterval = AsyncIoInterval;

@@ -135,9 +135,6 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     /// The after spawner type for this runtime
     type AfterSpawner: AsyncAfterSpawner;
 
-    /// The local after spawner type for this runtime
-    type LocalAfterSpawner: AsyncLocalAfterSpawner;
-
     /// The interval type for this runtime
     type Interval: time::AsyncInterval;
 
@@ -267,34 +264,6 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
       F: Future + Send + 'static,
     {
       <Self::AfterSpawner as AsyncAfterSpawner>::spawn_after_at(at, future)
-    }
-
-    /// Like [`spawn_after`](RuntimeLite::spawn_after), but does not require the `future` to be `Send`.
-    ///
-    /// Spawn a future onto the runtime and run the given future after the given duration
-    fn spawn_local_after<F>(
-      duration: core::time::Duration,
-      future: F,
-    ) -> <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::JoinHandle<F::Output>
-    where
-      F::Output: Send + 'static,
-      F: Future + Send + 'static,
-    {
-      <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::spawn_local_after(duration, future)
-    }
-
-    /// Like [`spawn_after_at`](RuntimeLite::spawn_after_at), but does not require the `future` to be `Send`.
-    ///
-    /// Spawn a future onto the runtime and run the given future after the given instant.
-    fn spawn_local_after_at<F>(
-      at: std::time::Instant,
-      future: F,
-    ) -> <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::JoinHandle<F::Output>
-    where
-      F::Output: Send + 'static,
-      F: Future + Send + 'static,
-    {
-      <Self::LocalAfterSpawner as AsyncLocalAfterSpawner>::spawn_local_after_at(at, future)
     }
 
     /// Create a new interval that starts at the current time and

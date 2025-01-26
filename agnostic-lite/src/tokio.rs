@@ -135,7 +135,6 @@ impl super::RuntimeLite for TokioRuntime {
 
   cfg_time!(
     type AfterSpawner = TokioSpawner;
-    type LocalAfterSpawner = TokioSpawner;
 
     type Interval = TokioInterval;
     type LocalInterval = TokioInterval;

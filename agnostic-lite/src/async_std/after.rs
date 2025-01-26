@@ -14,9 +14,9 @@ use atomic_time::AtomicOptionDuration;
 use futures_util::{FutureExt, StreamExt};
 
 use crate::{
-  spawner::{AfterHandle, AfterHandleSignals, Canceled, LocalAfterHandle},
-  time::{AsyncLocalSleep, AsyncSleep},
-  AfterHandleError, AsyncAfterSpawner, AsyncLocalAfterSpawner,
+  spawner::{AfterHandle, AfterHandleSignals, Canceled},
+  time::AsyncSleep,
+  AfterHandleError, AsyncAfterSpawner,
 };
 
 use super::{super::RuntimeLite, *};
@@ -242,43 +242,6 @@ where
   }
 }
 
-impl<O> LocalAfterHandle<O> for AsyncStdAfterHandle<O>
-where
-  O: 'static,
-{
-  type JoinError = AfterHandleError<JoinError>;
-
-  async fn cancel(self) -> Option<Result<O, Self::JoinError>> {
-    if LocalAfterHandle::is_finished(&self) {
-      return Some(self.handle.await.map_err(AfterHandleError::Join)
-      .and_then(|v| v.map_err(|_| AfterHandleError::Canceled)));
-    }
-
-    let _ = self.tx.send(());
-    None
-  }
-
-  fn reset(&self, duration: Duration) {
-    self.resetter.reset(duration);
-    let _ = self.resetter.tx.unbounded_send(());
-  }
-
-  #[inline]
-  fn abort(self) {
-    let _ = self.abort_tx.send(());
-  }
-
-  #[inline]
-  fn is_expired(&self) -> bool {
-    self.signals.is_expired()
-  }
-
-  #[inline]
-  fn is_finished(&self) -> bool {
-    self.signals.is_finished()
-  }
-}
-
 impl AsyncAfterSpawner for AsyncStdSpawner {
   type JoinHandle<F>
     = AsyncStdAfterHandle<F>
@@ -299,29 +262,6 @@ impl AsyncAfterSpawner for AsyncStdSpawner {
     F: Future + Send + 'static,
   {
     spawn_after!(spawn, sleep_until(AsyncSleep) -> (instant, future))
-  }
-}
-
-impl AsyncLocalAfterSpawner for AsyncStdSpawner {
-  type JoinHandle<F>
-    = AsyncStdAfterHandle<F>
-  where
-    F: 'static;
-
-  fn spawn_local_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: 'static,
-    F: Future + 'static,
-  {
-    Self::spawn_local_after_at(Instant::now() + duration, future)
-  }
-
-  fn spawn_local_after_at<F>(instant: Instant, future: F) -> Self::JoinHandle<F::Output>
-  where
-    F::Output: 'static,
-    F: Future + 'static,
-  {
-    spawn_after!(spawn_local, sleep_local_until(AsyncLocalSleep) -> (instant, future))
   }
 }
 
