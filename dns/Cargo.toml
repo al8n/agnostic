@@ -6,7 +6,9 @@ license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
-keywords.workspace = true
+categories = ["asynchronous", "network-programming"]
+keywords = ["agnostic", "dns"]
+description = "`agnostic-dns` is an async runtime agnostic layer over `hickory-dns`."
 
 [features]
 default = []
