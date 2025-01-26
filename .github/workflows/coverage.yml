@@ -94,12 +94,9 @@ jobs:
           - agnostic-process
     steps:
       - uses: actions/checkout@v4
-      - name: Install jq
-        run: sudo apt-get install jq
-      - name: Query coverage of ${{matrix.crate}}
+      - name: Run coverage script
         run: |
-          sleep 60
-          curl --request GET --url 'https://api.codecov.io/api/v2/github/al8n/repos/agnostic/report/tree?branch=0.6.0&depth=1&path=${{matrix.crate}}' --header 'accept: application/json' --header 'authorization: Bearer ${{ secrets.CODECOV_QUERY_TOKEN }}' | jq '.[0].coverage | {coverage: (. | ceil)}' > ${{matrix.crate}}-coverage.json
+          ci/coverage.sh ${{matrix.crate}} ${{ secrets.CODECOV_QUERY_TOKEN }}
       - name: Upload coverage to GitHub Gist
         uses: actions/github-script@v7
         with:
