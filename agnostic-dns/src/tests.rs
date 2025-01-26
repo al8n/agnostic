@@ -1,5 +1,6 @@
 use super::*;
 
+#[cfg(any(feature = "tokio", feature = "async-std", feature = "smol"))]
 async fn resolve<N: net::Net>() {
   let dns = Dns::<N>::new(
     Default::default(),
