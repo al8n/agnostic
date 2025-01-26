@@ -114,7 +114,6 @@ windows-sys = { version = "0.59", features = ["Win32_Networking_WinSock"] }
 hickory-resolver = { version = "0.24", default-features = false, optional = true }
 
 [dependencies]
-atomic-time.workspace = true
 agnostic-lite = { workspace = true, features = ["time"] }
 agnostic-io.workspace = true
 async-trait = "0.1"
