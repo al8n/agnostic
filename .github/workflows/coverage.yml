@@ -80,37 +80,3 @@ jobs:
           slug: ${{ github.repository }}
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-  
-  update-gist-coverage:
-    needs: upload-codecov
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        crate:
-          - agnostic
-          - agnostic-lite
-          - agnostic-net
-          - agnostic-dns
-          - agnostic-process
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run coverage script
-        run: |
-          ci/coverage.sh ${{matrix.crate}} ${{ secrets.CODECOV_QUERY_TOKEN }}
-      - name: Upload coverage to GitHub Gist
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{secrets.GIST_PAT}}
-          script: |
-            const fs = require('fs');
-            const output = fs.readFileSync('${{ matrix.crate }}-coverage.json', 'utf8');
-            const gistId = '327b2a8aef9003246e45c6e47fe63937';
-            await github.rest.gists.update({
-              gist_id: gistId,
-              files: {
-                "${{ matrix.crate }}-coverage": {
-                  content: output
-                }
-              }
-            });
-            console.log("Gist updated");
