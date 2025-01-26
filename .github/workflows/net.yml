@@ -79,21 +79,22 @@ jobs:
           ndk-version: r25c
 
       - name: Build OpenSSL for Android
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.install-ndk.outputs.ndk-path }}
         run: |
-         sudo apt-get update
-         sudo apt-get install -y build-essential
-         git clone https://github.com/openssl/openssl.git
-         cd openssl
-         git checkout OpenSSL_1_1_1-stable
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+          git clone https://github.com/openssl/openssl.git
+          cd openssl
+          git checkout OpenSSL_1_1_1-stable
+
+          export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
          
-         export ANDROID_NDK_ROOT="${{ steps.install-ndk.outputs.ndk-path }}"
-         export ANDROID_NDK_HOME="${{ steps.install-ndk.outputs.ndk-path }}"
-         export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
-         
-         ./Configure android-arm64 -D__ANDROID_API__=21 --prefix=$PWD/install
-         make -j$(nproc)
-         make install
-         echo "OPENSSL_DIR=$PWD/install" >> $GITHUB_ENV
+          ./Configure android-arm64 -D__ANDROID_API__=21 --prefix=$PWD/install
+          make -j$(nproc)
+          make install
+          echo "OPENSSL_DIR=$PWD/install" >> $GITHUB_ENV
 
       - name: Install cross-compilation tools
         uses: taiki-e/setup-cross-toolchain-action@v1
