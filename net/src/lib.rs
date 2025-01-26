@@ -8,6 +8,11 @@ use std::net::SocketAddr;
 use agnostic_lite::{cfg_async_std, cfg_smol, cfg_tokio, RuntimeLite};
 use futures_util::Future;
 
+#[cfg_attr(windows, path = "windows.rs")]
+#[cfg_attr(unix, path = "unix.rs")]
+#[cfg_attr(not(any(unix, windows)), path = "unknown.rs")]
+mod os;
+
 #[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
 macro_rules! impl_as_raw_fd {
   ($name:ident.$field:ident) => {
@@ -124,7 +129,7 @@ cfg_async_std!(
 
 #[doc(hidden)]
 #[cfg(unix)]
-pub trait As: std::os::fd::AsFd + std::os::fd::AsRawFd {
+pub trait Fd: std::os::fd::AsFd + std::os::fd::AsRawFd {
   fn __as(&self) -> std::os::fd::BorrowedFd<'_> {
     self.as_fd()
   }
@@ -135,11 +140,11 @@ pub trait As: std::os::fd::AsFd + std::os::fd::AsRawFd {
 }
 
 #[cfg(unix)]
-impl<T> As for T where T: std::os::fd::AsFd + std::os::fd::AsRawFd {}
+impl<T> Fd for T where T: std::os::fd::AsFd + std::os::fd::AsRawFd {}
 
 #[doc(hidden)]
 #[cfg(windows)]
-pub trait As: std::os::windows::io::AsRawSocket + std::os::windows::io::AsSocket {
+pub trait Fd: std::os::windows::io::AsRawSocket + std::os::windows::io::AsSocket {
   fn __as(&self) -> std::os::windows::io::BorrowedSocket<'_> {
     self.as_socket()
   }
@@ -150,13 +155,13 @@ pub trait As: std::os::windows::io::AsRawSocket + std::os::windows::io::AsSocket
 }
 
 #[cfg(windows)]
-impl<T> As for T where T: std::os::windows::io::AsRawSocket + std::os::windows::io::AsSocket {}
+impl<T> Fd for T where T: std::os::windows::io::AsRawSocket + std::os::windows::io::AsSocket {}
 
 #[cfg(not(any(unix, windows)))]
-pub trait As {}
+pub trait Fd {}
 
 #[cfg(not(any(unix, windows)))]
-impl<T> As for T {}
+impl<T> Fd for T {}
 
 /// Converts or resolves without blocking base on your async runtime to one or more `SocketAddr` values.
 ///
@@ -193,73 +198,13 @@ pub trait Net: Unpin + Send + Sync + 'static {
   type UdpSocket: UdpSocket<Runtime = Self::Runtime>;
 }
 
-macro_rules! socket2_fn {
-  ($name:ident(
-    $($field_name:ident: $field_ty:ty),*
-  ) -> $return_ty:ty) => {
-    #[cfg(unix)]
-    #[inline]
-    fn $name<T>(this: &T, $($field_name: $field_ty,)*) -> io::Result<$return_ty>
-    where
-      T: $crate::As,
-    {
-      use socket2::SockRef;
-
-      SockRef::from(this).$name($($field_name,)*)
-    }
-
-    #[cfg(windows)]
-    #[inline]
-    fn $name<T>(this: &T, $($field_name: $field_ty,)*) -> io::Result<$return_ty>
-    where
-      T: $crate::As,
-    {
-      use socket2::SockRef;
-
-      SockRef::from(this).$name($($field_name,)*)
-    }
-
-    #[cfg(not(any(unix, windows)))]
-    #[inline]
-    fn $name<T>(_this: &T, $(paste::paste!{ [< _ $field_name >] }: $field_ty,)*) -> io::Result<$return_ty>
-    where
-      T: $crate::As,
-    {
-      panic!("unsupported platform")
-    }
-  };
-}
-
-cfg_async_std!(
-  socket2_fn!(set_ttl(ttl: u32) -> ());
-  socket2_fn!(ttl() -> u32);
-);
-
-socket2_fn!(shutdown(how: std::net::Shutdown) -> ());
-socket2_fn!(only_v6() -> bool);
-socket2_fn!(linger() -> Option<std::time::Duration>);
-socket2_fn!(set_linger(duration: Option<std::time::Duration>) -> ());
-socket2_fn!(recv_buffer_size() -> usize);
-socket2_fn!(set_recv_buffer_size(size: usize) -> ());
-socket2_fn!(send_buffer_size() -> usize);
-socket2_fn!(set_send_buffer_size(size: usize) -> ());
-
-#[cfg(unix)]
-fn duplicate<T: As>(this: &T) -> std::io::Result<socket2::Socket> {
-  use libc::dup;
-  use std::os::fd::FromRawFd;
-
-  let fd = unsafe { dup(this.__as_raw()) };
-  if fd < 0 {
-    return Err(std::io::Error::last_os_error());
-  }
-
-  Ok(unsafe { socket2::Socket::from_raw_fd(fd) })
-}
-
 #[cfg(windows)]
-fn duplicate<T: As>(this: &T) -> std::io::Result<socket2::Socket> {
-  use std::{mem::zeroed, os::windows::io::FromRawSocket};
+fn duplicate<T, O>(this: &T) -> std::io::Result<O>
+where
+  T: Fd,
+  O: std::os::windows::io::FromRawSocket,
+{
+  use std::mem::zeroed;
   use windows_sys::Win32::Networking::WinSock::{
     WSADuplicateSocketW, WSAGetLastError, WSASocketW, INVALID_SOCKET, SOCKET_ERROR,
     WSAPROTOCOL_INFOW,
@@ -291,10 +236,10 @@ fn duplicate<T: As>(this: &T) -> std::io::Result<socket2::Socket> {
     }));
   }
 
-  Ok(unsafe { socket2::Socket::from_raw_socket(socket as u64) })
+  Ok(unsafe { O::from_raw_socket(socket as u64) })
 }
 
 #[cfg(not(any(unix, windows)))]
-fn duplicate<T: As>(_this: &T) -> std::io::Result<socket2::Socket> {
+fn duplicate<T: As, O>(_this: &T) -> std::io::Result<O> {
   panic!("unsupported platform")
 }

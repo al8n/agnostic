@@ -16,14 +16,6 @@ impl From<TokioUdpSocket> for UdpSocket {
   }
 }
 
-impl TryFrom<socket2::Socket> for UdpSocket {
-  type Error = io::Error;
-
-  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
-    Self::try_from(std::net::UdpSocket::from(socket))
-  }
-}
-
 impl TryFrom<std::net::UdpSocket> for UdpSocket {
   type Error = io::Error;
 

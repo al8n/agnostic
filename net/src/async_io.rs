@@ -157,13 +157,13 @@ macro_rules! tcp_stream {
 
       const _: () = $converter;
 
-      impl TryFrom<socket2::Socket> for TcpStream {
-        type Error = ::std::io::Error;
+      // impl TryFrom<socket2::Socket> for TcpStream {
+      //   type Error = ::std::io::Error;
 
-        fn try_from(socket: socket2::Socket) -> ::std::io::Result<Self> {
-          Self::try_from(::std::net::TcpStream::from(socket))
-        }
-      }
+      //   fn try_from(socket: socket2::Socket) -> ::std::io::Result<Self> {
+      //     Self::try_from(::std::net::TcpStream::from(socket))
+      //   }
+      // }
 
       impl ::futures_util::AsyncRead for TcpStream {
         fn poll_read(

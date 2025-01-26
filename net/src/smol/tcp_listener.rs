@@ -27,14 +27,6 @@ impl TryFrom<std::net::TcpListener> for TcpListener {
   }
 }
 
-impl TryFrom<socket2::Socket> for TcpListener {
-  type Error = io::Error;
-
-  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
-    Self::try_from(std::net::TcpListener::from(socket))
-  }
-}
-
 impl_as!(TcpListener.ln);
 
 impl crate::TcpListener for TcpListener {

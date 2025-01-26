@@ -7,7 +7,7 @@ use std::{
 
 use agnostic_lite::RuntimeLite;
 
-use super::{As, ToSocketAddrs};
+use super::{Fd, ToSocketAddrs};
 
 #[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
 macro_rules! udp_common_methods_impl {
@@ -152,13 +152,7 @@ macro_rules! udp_common_methods_impl {
 
 /// The abstraction of a UDP socket.
 pub trait UdpSocket:
-  TryFrom<std::net::UdpSocket, Error = io::Error>
-  + TryFrom<socket2::Socket, Error = io::Error>
-  + As
-  + Unpin
-  + Send
-  + Sync
-  + 'static
+  TryFrom<std::net::UdpSocket, Error = io::Error> + Fd + Unpin + Send + Sync + 'static
 {
   /// The async runtime.
   type Runtime: RuntimeLite;
@@ -316,40 +310,40 @@ pub trait UdpSocket:
   /// object references. Both handles will read and write the same port, and
   /// options set on one socket will be propagated to the other.
   fn try_clone(&self) -> ::std::io::Result<Self> {
-    super::duplicate(self).and_then(Self::try_from)
+    super::os::duplicate::<_, std::net::UdpSocket>(self).and_then(Self::try_from)
   }
 
   /// Get the value of the `IPV6_V6ONLY` option for this socket.
   fn only_v6(&self) -> io::Result<bool> {
-    super::only_v6(self)
+    super::os::only_v6(self)
   }
 
   /// Set value for the `SO_RCVBUF` option on this socket.
   ///
   /// Changes the size of the operating system’s receive buffer associated with the socket.
   fn set_recv_buffer_size(&self, size: usize) -> io::Result<()> {
-    super::set_recv_buffer_size(self, size)
+    super::os::set_recv_buffer_size(self, size)
   }
 
   /// Get value for the `SO_RCVBUF` option on this socket.
   ///
   /// For more information about this option, see [`set_recv_buffer_size`](UdpSocket::set_recv_buffer_size).
   fn recv_buffer_size(&self) -> io::Result<usize> {
-    super::recv_buffer_size(self)
+    super::os::recv_buffer_size(self)
   }
 
   /// Set value for the `SO_SNDBUF` option on this socket.
   ///
   /// Changes the size of the operating system’s send buffer associated with the socket.
   fn set_send_buffer_size(&self, size: usize) -> io::Result<()> {
-    super::set_send_buffer_size(self, size)
+    super::os::set_send_buffer_size(self, size)
   }
 
   /// Get the value of the `SO_SNDBUF` option on this socket.
   ///
   /// For more information about this option, see [`set_send_buffer_size`](UdpSocket::set_send_buffer_size).
   fn send_buffer_size(&self) -> io::Result<usize> {
-    super::send_buffer_size(self)
+    super::os::send_buffer_size(self)
   }
 
   /// Attempts to receive a single datagram on the socket.

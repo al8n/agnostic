@@ -28,14 +28,6 @@ impl TryFrom<std::net::TcpStream> for TcpStream {
   }
 }
 
-impl TryFrom<socket2::Socket> for TcpStream {
-  type Error = io::Error;
-
-  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
-    Self::try_from(std::net::TcpStream::from(socket))
-  }
-}
-
 impl_as!(TcpStream.stream);
 
 impl futures_util::AsyncRead for TcpStream {

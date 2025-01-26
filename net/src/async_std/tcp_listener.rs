@@ -29,14 +29,6 @@ impl TryFrom<std::net::TcpListener> for TcpListener {
   }
 }
 
-impl TryFrom<socket2::Socket> for TcpListener {
-  type Error = io::Error;
-
-  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
-    Self::try_from(std::net::TcpListener::from(socket))
-  }
-}
-
 impl_as_raw_fd!(TcpListener.ln);
 impl_as_fd_async_std!(TcpListener.ln);
 
@@ -57,11 +49,11 @@ impl crate::TcpListener for TcpListener {
   }
 
   fn set_ttl(&self, ttl: u32) -> io::Result<()> {
-    crate::set_ttl(self, ttl)
+    crate::os::set_ttl(self, ttl)
   }
 
   fn ttl(&self) -> io::Result<u32> {
-    crate::ttl(self)
+    crate::os::ttl(self)
   }
   
   tcp_listener_common_methods!(AsyncStdTcpListener.ln);

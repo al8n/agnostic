@@ -4,7 +4,7 @@ use agnostic_lite::RuntimeLite;
 
 use super::{
   io::{AsyncRead, AsyncReadWrite, AsyncWrite},
-  As, ToSocketAddrs,
+  Fd, ToSocketAddrs,
 };
 
 #[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
@@ -237,8 +237,7 @@ pub trait OwnedWriteHalf: AsyncWrite + Unpin + Send + Sync + 'static {
 /// The abstraction of a TCP stream.
 pub trait TcpStream:
   TryFrom<std::net::TcpStream, Error = io::Error>
-  + TryFrom<socket2::Socket, Error = io::Error>
-  + As
+  + Fd
   + AsyncReadWrite
   + Unpin
   + Send
@@ -311,7 +310,7 @@ pub trait TcpStream:
 
   /// Shuts down the read, write, or both halves of this connection.
   fn shutdown(&self, how: std::net::Shutdown) -> io::Result<()> {
-    super::shutdown(self, how)
+    super::os::shutdown(self, how)
   }
 
   /// Creates a new independently owned handle to the underlying socket.
@@ -320,19 +319,19 @@ pub trait TcpStream:
   /// object references. Both handles will read and write the same port, and
   /// options set on one socket will be propagated to the other.
   fn try_clone(&self) -> io::Result<Self> {
-    super::duplicate(self).and_then(Self::try_from)
+    super::os::duplicate::<_, std::net::TcpStream>(self).and_then(Self::try_from)
   }
 
   /// Get the value of the `IPV6_V6ONLY` option for this socket.
   fn only_v6(&self) -> io::Result<bool> {
-    super::only_v6(self)
+    super::os::only_v6(self)
   }
 
   /// Gets the value of the `SO_LINGER` option on this socket.
   ///
   /// For more information about this option, see [`TcpStream::set_linger`].
   fn linger(&self) -> io::Result<Option<std::time::Duration>> {
-    super::linger(self)
+    super::os::linger(self)
   }
 
   /// Sets the value of the `SO_LINGER` option on this socket.
@@ -341,7 +340,7 @@ pub trait TcpStream:
   /// If `SO_LINGER` is set, the socket will remain open for the specified duration as the system attempts to send pending data.
   /// Otherwise, the system may close the socket immediately, or wait for a default timeout.
   fn set_linger(&self, duration: Option<std::time::Duration>) -> io::Result<()> {
-    super::set_linger(self, duration)
+    super::os::set_linger(self, duration)
   }
 
   /// Attempts to put the two halves of a TcpStream back together and recover the original socket. Succeeds only if the two halves originated from the same call to [`into_split`][TcpStream::into_split].
@@ -355,13 +354,7 @@ pub trait TcpStream:
 
 /// An abstraction layer for TCP listener.
 pub trait TcpListener:
-  TryFrom<std::net::TcpListener, Error = io::Error>
-  + TryFrom<socket2::Socket, Error = io::Error>
-  + As
-  + Unpin
-  + Send
-  + Sync
-  + 'static
+  TryFrom<std::net::TcpListener, Error = io::Error> + Fd + Unpin + Send + Sync + 'static
 {
   /// The async runtime.
   type Runtime: RuntimeLite;
@@ -443,6 +436,6 @@ pub trait TcpListener:
   /// object references. Both handles will read and write the same port, and
   /// options set on one socket will be propagated to the other.
   fn try_clone(&self) -> io::Result<Self> {
-    super::duplicate(self).and_then(Self::try_from)
+    super::os::duplicate::<_, std::net::TcpListener>(self).and_then(Self::try_from)
   }
 }

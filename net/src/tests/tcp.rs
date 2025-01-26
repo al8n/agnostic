@@ -282,7 +282,7 @@ async fn multiple_connect_serial<N: Net>() {
       }
     });
 
-    let incoming = acceptor.incoming().take(max);
+    let incoming = acceptor.into_incoming().take(max);
     futures_util::pin_mut!(incoming);
 
     for stream in incoming.next().await {

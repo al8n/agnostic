@@ -28,14 +28,6 @@ impl TryFrom<std::net::UdpSocket> for UdpSocket {
   }
 }
 
-impl TryFrom<socket2::Socket> for UdpSocket {
-  type Error = io::Error;
-
-  fn try_from(socket: socket2::Socket) -> io::Result<Self> {
-    Self::try_from(std::net::UdpSocket::from(socket))
-  }
-}
-
 impl_as_raw_fd!(UdpSocket.socket);
 impl_as_fd_async_std!(UdpSocket.socket);
 

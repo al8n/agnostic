@@ -102,13 +102,14 @@ tracing = ["dep:tracing"]
 hickory-resolver = { version = "0.24", default-features = false, optional = true, features = [
   "system-config",
 ] }
-libc = "0.2"
+rustix = { version = "0.38", default-features = false, features = ["net"] }
 
 [target.'cfg(windows)'.dependencies]
 hickory-resolver = { version = "0.24", default-features = false, optional = true, features = [
   "system-config",
 ] }
 windows-sys = { version = "0.59", features = ["Win32_Networking_WinSock"] }
+socket2 = "0.5"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 hickory-resolver = { version = "0.24", default-features = false, optional = true }
@@ -136,8 +137,6 @@ smol = { workspace = true, default-features = false, optional = true }
 
 hickory-proto = { version = "0.24", default-features = false, optional = true }
 resolv-conf = { version = "0.7", default-features = false, optional = true }
-
-socket2 = "0.5"
 
 tracing = { version = "0.1", optional = true }
 
