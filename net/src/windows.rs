@@ -40,7 +40,7 @@ socket2_fn!(set_send_buffer_size(size: usize) -> ());
 
 pub(super) fn duplicate<T, O>(this: &T) -> std::io::Result<O>
 where
-  T: AsSocket,
+  T: AsRawSocket,
   O: FromRawSocket,
 {
   let mut info: WSAPROTOCOL_INFOW = unsafe { zeroed() };
