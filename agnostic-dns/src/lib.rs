@@ -316,20 +316,12 @@ mod dns_util {
 
   /// Read the DNS configuration from a file.
   pub fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {
-    let mut data = String::new();
-    let mut file = File::open(path)?;
-    file.read_to_string(&mut data)?;
-    parse_resolv_conf(&data)
-      .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error parsing resolv.conf"))
+    std::fs::read_to_string(path).and_then(parse_resolv_conf)
   }
 
   fn parse_resolv_conf<T: AsRef<[u8]>>(data: T) -> io::Result<(ResolverConfig, ResolverOpts)> {
-    let parsed_conf = resolv_conf::Config::parse(&data).map_err(|e| {
-      io::Error::new(
-        io::ErrorKind::Other,
-        format!("Error parsing resolv.conf: {e}"),
-      )
-    })?;
+    let parsed_conf = resolv_conf::Config::parse(&data)
+      .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     into_resolver_config(parsed_conf)
   }
 
