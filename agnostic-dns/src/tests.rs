@@ -20,9 +20,16 @@ fn read_conf() {
   #[cfg(windows)]
   const PATH: &str = "C:\\Windows\\System32\\drivers\\etc\\hosts";
 
-  let (config, conf) = read_resolv_conf(PATH).unwrap();
-  println!("{:?}", config);
-  println!("{:?}", conf);
+  match read_resolv_conf(PATH) {
+    Ok((config, conf)) => {
+      println!("{:?}", config);
+      println!("{:?}", conf);
+    }
+    Err(e) => {
+      let data = std::fs::read_to_string(PATH).unwrap();
+      panic!("{}: {}", e, data);
+    }
+  }
 }
 
 #[test]
