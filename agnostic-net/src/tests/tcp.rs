@@ -885,13 +885,14 @@ async fn into_split<N: Net>() {
       t!(a.read(&mut buf).await);
     });
     let b = <N::Runtime as RuntimeLite>::spawn(async move {
+      a.await;
       let mut b = b;
       t!(b.write(&[1]).await);
       b.flush().await.unwrap();
       let _ = b.close().await;
     });
 
-    futures_util::future::join_all([a, b]).await;
+    b.await;
   })
   .await
 }
@@ -930,6 +931,7 @@ async fn tokio_into_split<N: Net>() {
       t!(::tokio::io::AsyncReadExt::read(&mut a, &mut buf).await);
     });
     let b = <N::Runtime as RuntimeLite>::spawn(async move {
+      a.await;
       println!(
         "local_addr {} peer_addr {}",
         b.local_addr().unwrap(),
@@ -942,7 +944,7 @@ async fn tokio_into_split<N: Net>() {
       b.forget();
     });
 
-    futures_util::future::join_all([a, b]).await;
+    b.await;
   })
   .await
 }
