@@ -283,6 +283,8 @@ impl<N: Net> ConnectionProvider for AsyncConnectionProvider<N> {
 #[cfg(unix)]
 pub use dns_util::read_resolv_conf;
 
+#[cfg(unix)]
+pub use hickory_resolver::system_conf::parse_resolv_conf;
 pub use hickory_resolver::system_conf::read_system_conf;
 
 #[cfg(unix)]
