@@ -19,7 +19,7 @@ fn tokio_run<F>(f: F)
 where
   F: core::future::Future<Output = ()>,
 {
-  tokio::runtime::Builder::new_current_thread()
+  tokio::runtime::Builder::new_multi_thread()
     .enable_all()
     .build()
     .unwrap()
