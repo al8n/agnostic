@@ -305,8 +305,7 @@ mod dns_util {
     Name,
   };
   use std::{
-    fs::File,
-    io::{self, Read},
+    io,
     net::SocketAddr,
     path::Path,
     time::Duration,
