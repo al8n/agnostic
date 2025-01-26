@@ -8,7 +8,7 @@ macro_rules! socket2_fn {
   ) -> $return_ty:ty) => {
     #[cfg(windows)]
     #[inline]
-    fn $name<T>(this: &T, $($field_name: $field_ty,)*) -> std::io::Result<$return_ty>
+    pub(super) fn $name<T>(this: &T, $($field_name: $field_ty,)*) -> std::io::Result<$return_ty>
     where
       T: ::std::os::windows::io::AsSocket,
     {
@@ -33,7 +33,7 @@ socket2_fn!(set_recv_buffer_size(size: usize) -> ());
 socket2_fn!(send_buffer_size() -> usize);
 socket2_fn!(set_send_buffer_size(size: usize) -> ());
 
-fn duplicate<T, O>(this: &T) -> std::io::Result<O>
+pub(super) fn duplicate<T, O>(this: &T) -> std::io::Result<O>
 where
   T: Fd,
   O: std::os::windows::io::FromRawSocket,

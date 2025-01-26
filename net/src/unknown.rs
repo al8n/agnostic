@@ -4,7 +4,7 @@ macro_rules! unknown_fn {
   ) -> $return_ty:ty) => {
     #[cfg(not(any(unix, windows)))]
     #[inline]
-    fn $name<T>(_this: &T, $(paste::paste!{ [< _ $field_name >] }: $field_ty,)*) -> std::io::Result<$return_ty>
+    pub(super) fn $name<T>(_this: &T, $(paste::paste!{ [< _ $field_name >] }: $field_ty,)*) -> std::io::Result<$return_ty>
     where
       T: $crate::Fd,
     {
@@ -27,6 +27,6 @@ unknown_fn!(set_recv_buffer_size(size: usize) -> ());
 unknown_fn!(send_buffer_size() -> usize);
 unknown_fn!(set_send_buffer_size(size: usize) -> ());
 
-fn duplicate<T: As, O>(_this: &T) -> std::io::Result<O> {
+pub(super) fn duplicate<T: As, O>(_this: &T) -> std::io::Result<O> {
   panic!("unsupported platform")
 }
