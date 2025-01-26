@@ -59,7 +59,7 @@ jobs:
         run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
       - run: |
           export MACOSX_DEPLOYMENT_TARGET=14.5
-          cargo test --all-features -p agnostic-net
+          cargo test --all-features -p agnostic-net -- --nocapture
         working-directory: net
 
   clippy:
