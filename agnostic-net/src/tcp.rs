@@ -234,6 +234,15 @@ pub trait OwnedWriteHalf: AsyncWrite + Unpin + Send + Sync + 'static {
   fn peer_addr(&self) -> io::Result<SocketAddr>;
 }
 
+/// Error indicating that two halves were not from the same socket, and thus could not be reunited.
+pub trait ReuniteError<T>: core::error::Error + Unpin + Send + Sync + 'static
+where
+  T: TcpStream,
+{
+  /// Consumes the error and returns the read half and write half of the socket.
+  fn into_components(self) -> (T::OwnedReadHalf, T::OwnedWriteHalf);
+}
+
 /// The abstraction of a TCP stream.
 pub trait TcpStream:
   TryFrom<std::net::TcpStream, Error = io::Error>
@@ -251,7 +260,7 @@ pub trait TcpStream:
   /// The owned write half of the stream.
   type OwnedWriteHalf: OwnedWriteHalf;
   /// Error indicating that two halves were not from the same socket, and thus could not be reunited.
-  type ReuniteError: core::error::Error + Unpin + Send + Sync + 'static;
+  type ReuniteError: ReuniteError<Self>;
 
   /// Connects to the specified address.
   fn connect<A: ToSocketAddrs<Self::Runtime>>(

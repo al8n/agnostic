@@ -839,6 +839,8 @@ async fn connect_timeout_valid<N: Net>() {
 }
 
 async fn reunite<N: Net>() {
+  use crate::ReuniteError;
+
   let listener = <N::TcpListener as TcpListener>::bind("127.0.0.1:0")
     .await
     .unwrap();
@@ -850,8 +852,11 @@ async fn reunite<N: Net>() {
   let stream2 = <N::TcpStream as TcpStream>::connect(&addr).await.unwrap();
   let (r, _w) = stream1.into_split();
   let (_r, w) = stream2.into_split();
-
-  assert!(<N::TcpStream as TcpStream>::reunite(r, w).is_err());
+  let Err(err) = <N::TcpStream as TcpStream>::reunite(r, w) else {
+    panic!("expected error")
+  };
+  println!("{}", err);
+  let (r, w) = err.into_components();
 }
 
 async fn into_split<N: Net>() {

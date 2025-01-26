@@ -8,6 +8,18 @@ pub struct OwnedReadHalf {
   pub(super) stream: ::tokio::net::tcp::OwnedReadHalf,
 }
 
+impl From<::tokio::net::tcp::OwnedReadHalf> for OwnedReadHalf {
+  fn from(stream: ::tokio::net::tcp::OwnedReadHalf) -> Self {
+    Self { stream }
+  }
+}
+
+impl From<OwnedReadHalf> for ::tokio::net::tcp::OwnedReadHalf {
+  fn from(stream: OwnedReadHalf) -> Self {
+    stream.stream
+  }
+}
+
 impl futures_util::io::AsyncRead for OwnedReadHalf {
   fn poll_read(
     mut self: Pin<&mut Self>,
@@ -34,6 +46,18 @@ impl tokio::io::AsyncRead for OwnedReadHalf {
 /// The [`OwnedWriteHalf`](super::super::super::OwnedWriteHalf) implementation for [`tokio`] runtime.
 pub struct OwnedWriteHalf {
   pub(super) stream: ::tokio::net::tcp::OwnedWriteHalf,
+}
+
+impl From<::tokio::net::tcp::OwnedWriteHalf> for OwnedWriteHalf {
+  fn from(stream: ::tokio::net::tcp::OwnedWriteHalf) -> Self {
+    Self { stream }
+  }
+}
+
+impl From<OwnedWriteHalf> for ::tokio::net::tcp::OwnedWriteHalf {
+  fn from(stream: OwnedWriteHalf) -> Self {
+    stream.stream
+  }
 }
 
 impl futures_util::io::AsyncWrite for OwnedWriteHalf {

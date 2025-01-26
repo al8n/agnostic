@@ -123,13 +123,12 @@ macro_rules! tcp_stream {
     paste::paste! {
       /// Error indicating that two halves were not from the same socket, and thus could
       /// not be reunited.
-      #[derive(Debug)]
       pub struct ReuniteError(
         pub OwnedReadHalf,
         pub OwnedWriteHalf,
       );
 
-      impl core::fmt::Display for ReuniteError {
+      impl core::fmt::Debug for ReuniteError {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
           write!(
             f,
@@ -138,7 +137,19 @@ macro_rules! tcp_stream {
         }
       }
 
+      impl core::fmt::Display for ReuniteError {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+          core::fmt::Debug::fmt(self, f)
+        }
+      }
+
       impl core::error::Error for ReuniteError {}
+
+      impl $crate::ReuniteError<TcpStream> for ReuniteError {
+        fn into_components(self) -> (OwnedReadHalf, OwnedWriteHalf) {
+          (self.0, self.1)
+        }
+      }
 
       #[doc = "The [`TcpStream`](crate::TcpStream) implementation for [`" $runtime "`] runtime"]
       ///

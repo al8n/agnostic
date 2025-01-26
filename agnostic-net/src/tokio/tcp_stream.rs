@@ -92,6 +92,12 @@ impl tokio::io::AsyncWrite for TcpStream {
   }
 }
 
+impl crate::ReuniteError<TcpStream> for ::tokio::net::tcp::ReuniteError {
+    fn into_components(self) -> (<TcpStream as crate::TcpStream>::OwnedReadHalf, <TcpStream as crate::TcpStream>::OwnedWriteHalf) {
+      (self.0.into(), self.1.into())
+    }
+}
+
 impl super::super::TcpStream for TcpStream {
   type Runtime = TokioRuntime;
   type OwnedReadHalf = OwnedReadHalf;
@@ -103,8 +109,8 @@ impl super::super::TcpStream for TcpStream {
   fn into_split(self) -> (Self::OwnedReadHalf, Self::OwnedWriteHalf) {
     let (read, write) = self.stream.into_split();
     (
-      Self::OwnedReadHalf { stream: read },
-      Self::OwnedWriteHalf { stream: write },
+      Self::OwnedReadHalf::from(read),
+      Self::OwnedWriteHalf::from(write),
     )
   }
 
