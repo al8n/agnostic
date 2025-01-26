@@ -14,11 +14,9 @@ async fn resolve<N: net::Net>() {
 }
 
 #[test]
+#[cfg(unix)]
 fn read_conf() {
-  #[cfg(unix)]
   const PATH: &str = "/etc/resolv.conf";
-  #[cfg(windows)]
-  const PATH: &str = "C:\\Windows\\System32\\drivers\\etc\\hosts";
 
   match read_resolv_conf(PATH) {
     Ok((config, conf)) => {
@@ -27,7 +25,7 @@ fn read_conf() {
     }
     Err(e) => {
       let data = std::fs::read_to_string(PATH).unwrap();
-      panic!("{}: {}", e, data);
+      panic!("{e}: \n{data}");
     }
   }
 }

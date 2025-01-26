@@ -280,7 +280,9 @@ impl<N: Net> ConnectionProvider for AsyncConnectionProvider<N> {
   }
 }
 
+#[cfg(unix)]
 pub use dns_util::read_resolv_conf;
+
 pub use hickory_resolver::system_conf::read_system_conf;
 
 #[cfg(unix)]
@@ -293,90 +295,7 @@ mod dns_util {
   pub fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {
     std::fs::read_to_string(path).and_then(|conf| {
       hickory_resolver::system_conf::parse_resolv_conf(conf)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error parsing resolv.conf"))
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     })
-  }
-}
-
-#[cfg(not(unix))]
-mod dns_util {
-  use hickory_resolver::{
-    config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts},
-    Name,
-  };
-  use std::{
-    io,
-    net::SocketAddr,
-    path::Path,
-    time::Duration,
-  };
-
-  const DEFAULT_PORT: u16 = 53;
-
-  /// Read the DNS configuration from a file.
-  pub fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {
-    std::fs::read_to_string(path).and_then(parse_resolv_conf)
-  }
-
-  fn parse_resolv_conf<T: AsRef<[u8]>>(data: T) -> io::Result<(ResolverConfig, ResolverOpts)> {
-    let parsed_conf = resolv_conf::Config::parse(&data)
-      .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-    into_resolver_config(parsed_conf)
-  }
-
-  fn into_resolver_config(
-    parsed_config: resolv_conf::Config,
-  ) -> io::Result<(ResolverConfig, ResolverOpts)> {
-    let domain = None;
-
-    // nameservers
-    let mut nameservers = Vec::<NameServerConfig>::with_capacity(parsed_config.nameservers.len());
-    for ip in &parsed_config.nameservers {
-      nameservers.push(NameServerConfig {
-        socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
-        protocol: Protocol::Udp,
-        tls_dns_name: None,
-        trust_negative_responses: false,
-        #[cfg(feature = "dns-over-rustls")]
-        tls_config: None,
-        bind_addr: None,
-      });
-      nameservers.push(NameServerConfig {
-        socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
-        protocol: Protocol::Tcp,
-        tls_dns_name: None,
-        trust_negative_responses: false,
-        #[cfg(feature = "dns-over-rustls")]
-        tls_config: None,
-        bind_addr: None,
-      });
-    }
-    if nameservers.is_empty() {
-      #[cfg(feature = "tracing")]
-      tracing::warn!(
-        target = "agnostic.read_resolv_conf",
-        "no nameservers found in resolv conf"
-      );
-    }
-
-    // search
-    let mut search = vec![];
-    for search_domain in parsed_config.get_last_search_or_domain() {
-      search.push(Name::from_str_relaxed(search_domain).map_err(|e| {
-        io::Error::new(
-          io::ErrorKind::Other,
-          format!("Error parsing resolv.conf: {e}"),
-        )
-      })?);
-    }
-
-    let config = ResolverConfig::from_parts(domain, search, nameservers);
-
-    let mut options = ResolverOpts::default();
-    options.timeout = Duration::from_secs(parsed_config.timeout as u64);
-    options.attempts = parsed_config.attempts as usize;
-    options.ndots = parsed_config.ndots as usize;
-
-    Ok((config, options))
   }
 }
