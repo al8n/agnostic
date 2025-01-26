@@ -108,7 +108,7 @@ jobs:
       # On stable, `$DOCTEST_XCOMPILE` is not set.
       # Once `-Z doctest-xcompile` is stabilized, the corresponding flag
       # will be set to `$DOCTEST_XCOMPILE` (if it is available).
-      - run: cargo test --verbose $DOCTEST_XCOMPILE --all-features
+      - run: cargo test --verbose $DOCTEST_XCOMPILE --features tokio,async-std,smol
         working-directory: net
 
   clippy:

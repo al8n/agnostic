@@ -15,7 +15,7 @@ macro_rules! impl_as_fd_async_std {
 
     #[cfg(windows)]
     impl std::os::windows::io::AsSocket for $name {
-      fn as_socket(&self) -> &std::os::windows::io::Socket {
+      fn as_socket(&self) -> &std::os::windows::io::BorrowedSocket<'_> {
         use std::os::fd::{AsRawSocket, BorrowedFd};
         use std::os::windows::io::{AsRawSocket, BorrowedSocket};
         let raw_socket = self.$field.as_raw_socket();

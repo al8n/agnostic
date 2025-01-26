@@ -261,7 +261,7 @@ fn duplicate<T: As>(this: &T) -> std::io::Result<socket2::Socket> {
 fn duplicate<T: As>(this: &T) -> std::io::Result<socket2::Socket> {
   use std::{mem::zeroed, os::windows::io::FromRawSocket};
   use windows_sys::Win32::Networking::WinSock::{
-    WSADuplicateSocketW, WSAGetLastError, WSASocket, INVALID_SOCKET, SOCKET_ERROR,
+    WSADuplicateSocketW, WSAGetLastError, WSASocketW, INVALID_SOCKET, SOCKET_ERROR,
     WSAPROTOCOL_INFOW,
   };
 
@@ -275,7 +275,7 @@ fn duplicate<T: As>(this: &T) -> std::io::Result<socket2::Socket> {
   }
 
   let socket = unsafe {
-    WSASocket(
+    WSASocketW(
       info.iAddressFamily,
       info.iSocketType,
       info.iProtocol,
