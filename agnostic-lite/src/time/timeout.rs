@@ -10,7 +10,7 @@ where
   Self: Future<Output = Result<F::Output, Elapsed>> + Send
 {
   /// The instant type
-  type Instant: crate::time::Instant + Send;
+  type Instant: super::Instant + Send;
 
   /// Requires a `Future` to complete before the specified duration has elapsed.
   ///
@@ -32,7 +32,7 @@ where
 /// Like [`AsyncTimeout`], but this does not require `Send`.
 pub trait AsyncLocalTimeout<F: Future>: Future<Output = Result<F::Output, Elapsed>> {
   /// The instant type
-  type Instant: crate::time::Instant;
+  type Instant: super::Instant;
 
   /// Requires a `Future` to complete before the specified duration has elapsed.
   ///
@@ -63,6 +63,7 @@ impl core::fmt::Display for Elapsed {
 
 impl core::error::Error for Elapsed {}
 
+#[cfg(feature = "std")]
 impl From<Elapsed> for std::io::Error {
   fn from(_: Elapsed) -> Self {
     std::io::ErrorKind::TimedOut.into()
@@ -77,6 +78,7 @@ impl From<::tokio::time::error::Elapsed> for Elapsed {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn test_elapsed_error() {
   assert_eq!(Elapsed.to_string(), "deadline has elapsed");
   let _: std::io::Error = Elapsed.into();

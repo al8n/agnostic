@@ -243,7 +243,7 @@ impl<E: core::fmt::Display> core::fmt::Display for AfterHandleError<E> {
 #[cfg(feature = "time")]
 impl<E: core::error::Error> core::error::Error for AfterHandleError<E> {}
 
-#[cfg(feature = "time")]
+#[cfg(all(feature = "time", feature = "std"))]
 impl<E: core::error::Error + Send + Sync + 'static> From<AfterHandleError<E>> for std::io::Error {
   fn from(value: AfterHandleError<E>) -> Self {
     match value {
@@ -319,7 +319,11 @@ pub trait AfterHandle<F: Send + 'static>:
   Send + Sync + Future<Output = Result<F, Self::JoinError>> + 'static
 {
   /// The join error type for the join handle
+  #[cfg(feature = "std")]
   type JoinError: core::error::Error + Into<std::io::Error> + Send + Sync + 'static;
+  /// The join error type for the join handle
+  #[cfg(not(feature = "std"))]
+  type JoinError: core::error::Error + 'static;
 
   /// Cancels the task related to this handle.
   ///

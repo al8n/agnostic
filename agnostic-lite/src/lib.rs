@@ -442,10 +442,11 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
 }
 
 /// Unit test for the [`RuntimeLite`]
-#[cfg(any(test, feature = "test"))]
+#[cfg(all(any(test, feature = "test"), feature = "std"))]
 #[cfg_attr(docsrs, doc(cfg(any(test, feature = "test"))))]
 pub mod tests {
   use core::sync::atomic::{AtomicUsize, Ordering};
+
   use std::{sync::Arc, time::Duration};
 
   use super::{AfterHandle, RuntimeLite};

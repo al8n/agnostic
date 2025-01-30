@@ -11,7 +11,9 @@ extern crate alloc as std;
 #[cfg(feature = "std")]
 extern crate std;
 
+#[allow(unused_imports)]
 pub use io::*;
 
+#[cfg_attr(not(feature = "std"), path = "no_std.rs")]
 #[cfg_attr(feature = "std", path = "std.rs")]
 mod io;
