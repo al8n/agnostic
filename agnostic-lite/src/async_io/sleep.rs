@@ -62,6 +62,8 @@ impl AsyncLocalSleepExt for AsyncIoSleep {
 }
 
 impl AsyncLocalSleep for AsyncIoSleep {
+  type Instant = Instant;
+
   /// Sets the timer to emit an event once at the given time instant.
   ///
   /// Note that resetting a timer is different from creating a new sleep by [`sleep()`][`Runtime::sleep()`] because
@@ -81,11 +83,6 @@ mod tests {
   const ORIGINAL: Duration = Duration::from_secs(1);
   const RESET: Duration = Duration::from_secs(2);
   const BOUND: Duration = Duration::from_millis(10);
-
-  #[test]
-  fn test_object_safe() {
-    let _a: Box<dyn AsyncSleep> = Box::new(AsyncIoSleep::sleep(ORIGINAL));
-  }
 
   #[test]
   fn test_asyncio_sleep() {

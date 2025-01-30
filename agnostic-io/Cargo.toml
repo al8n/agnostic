@@ -1,20 +1,22 @@
 [package]
 name = "agnostic-io"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
-description = "Defines I/O traits for async runtime agnostic I/O."
+description = "`agnostic-io` defines I/O traits in Sans-I/O style for any async runtime."
 
 [features]
-default = []
-tokio = ["dep:tokio", "dep:tokio-util"]
+default = ["std"]
+alloc = []
+std = ["futures-util/io"]
+tokio = ["dep:tokio", "tokio-util", "std"]
 
 [dependencies]
-futures-util = { workspace = true, features = ["io"] }
+futures-util = { workspace = true, optional = true }
 
 tokio = { workspace = true, default-features = false, optional = true }
 tokio-util = { workspace = true, default-features = false, optional = true, features = ["compat"] }

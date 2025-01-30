@@ -1,5 +1,4 @@
-use core::{future::Future, task::Poll, time::Duration};
-use std::time::Instant;
+use core::{future::Future, pin::Pin, task::{Context, Poll}, time::Duration};
 
 use crate::time::{AsyncLocalSleep, AsyncLocalSleepExt};
 
@@ -26,11 +25,11 @@ impl From<TokioSleep> for ::tokio::time::Sleep {
 }
 
 impl Future for TokioSleep {
-  type Output = Instant;
+  type Output = ::tokio::time::Instant;
 
-  fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+  fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
     let this = self.project();
-    let ddl = this.inner.deadline().into();
+    let ddl = this.inner.deadline();
     match this.inner.poll(cx) {
       Poll::Ready(_) => Poll::Ready(ddl),
       Poll::Pending => Poll::Pending,
@@ -39,8 +38,10 @@ impl Future for TokioSleep {
 }
 
 impl AsyncLocalSleep for TokioSleep {
-  fn reset(self: std::pin::Pin<&mut Self>, deadline: Instant) {
-    self.project().inner.as_mut().reset(deadline.into())
+  type Instant = ::tokio::time::Instant;
+
+  fn reset(self: Pin<&mut Self>, deadline: Self::Instant) {
+    self.project().inner.as_mut().reset(deadline)
   }
 }
 
@@ -54,12 +55,12 @@ impl AsyncLocalSleepExt for TokioSleep {
     }
   }
 
-  fn sleep_local_until(deadline: Instant) -> Self
+  fn sleep_local_until(deadline: Self::Instant) -> Self
   where
     Self: Sized,
   {
     Self {
-      inner: tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)),
+      inner: tokio::time::sleep_until(deadline),
     }
   }
 }
@@ -68,16 +69,11 @@ impl AsyncLocalSleepExt for TokioSleep {
 mod tests {
   use super::TokioSleep;
   use crate::time::{AsyncSleep, AsyncSleepExt};
-  use std::time::{Duration, Instant};
+  use tokio::time::{Duration, Instant};
 
   const ORIGINAL: Duration = Duration::from_secs(1);
   const RESET: Duration = Duration::from_secs(2);
   const BOUND: Duration = Duration::from_millis(10);
-
-  #[tokio::test]
-  async fn test_object_safe() {
-    let _a: Box<dyn AsyncSleep> = Box::new(TokioSleep::sleep(ORIGINAL));
-  }
 
   #[tokio::test]
   async fn test_tokio_sleep() {

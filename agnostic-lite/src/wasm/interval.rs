@@ -44,6 +44,8 @@ impl Stream for WasmInterval {
 }
 
 impl AsyncLocalInterval for WasmInterval {
+  type Instant = Instant;
+
   fn reset(&mut self, interval: Duration) {
     Pin::new(&mut *self.inner).reset(Instant::now() + interval);
   }
@@ -103,11 +105,6 @@ mod tests {
   const INTERVAL: Duration = Duration::from_millis(100);
   const BOUND: Duration = Duration::from_millis(50);
   const IMMEDIATE: Duration = Duration::from_millis(1);
-
-  #[test]
-  fn test_object_safe() {
-    let _: Box<dyn AsyncInterval> = Box::new(WasmInterval::interval(Duration::from_secs(1)));
-  }
 
   #[test]
   fn test_interval() {

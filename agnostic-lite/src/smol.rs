@@ -132,8 +132,8 @@ impl super::RuntimeLite for SmolRuntime {
   type BlockingSpawner = SmolSpawner;
 
   cfg_time!(
+    type Instant = Instant;
     type AfterSpawner = SmolSpawner;
-
     type Interval = AsyncIoInterval;
     type LocalInterval = AsyncIoInterval;
     type Sleep = AsyncIoSleep;

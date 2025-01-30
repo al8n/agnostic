@@ -1,14 +1,50 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![deny(warnings, missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 #![allow(clippy::needless_return)]
 #![allow(unreachable_code)]
 
-pub use agnostic_lite::{
-  cfg_async_std, cfg_smol, cfg_tokio, time, AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner,
-  RuntimeLite, Yielder,
-};
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+extern crate alloc as std;
+
+#[cfg(feature = "std")]
+extern crate std;
+
+pub use runtime::*;
+
+/// The runtime related traits and types
+mod runtime {
+  pub use agnostic_lite::{
+    cfg_async_std, cfg_linux, cfg_smol, cfg_tokio, cfg_unix, cfg_windows, time, AfterHandle,
+    AfterHandleError, AsyncAfterSpawner, AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner,
+    JoinHandle, LocalJoinHandle, RuntimeLite, Yielder,
+  };
+
+  /// Runtime trait
+  pub trait Runtime: RuntimeLite {
+    /// The network abstraction for this runtime
+    #[cfg(feature = "net")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
+    type Net: super::net::Net;
+
+    /// The process abstraction for this runtime
+    #[cfg(feature = "process")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "process")))]
+    type Process: super::process::Process;
+
+    /// The Quinn abstraction for this runtime
+    #[cfg(feature = "quinn")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
+    type Quinn: super::quinn::QuinnRuntime;
+
+    /// Returns the runtime for [`quinn`](::quinn)
+    #[cfg(feature = "quinn")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
+    fn quinn() -> Self::Quinn;
+  }
+}
 
 /// Traits, helpers, and type definitions for asynchronous I/O functionality.
 pub use agnostic_io as io;
@@ -42,7 +78,22 @@ pub mod net;
 /// Agnostic async DNS provider.
 #[cfg(feature = "dns")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dns")))]
-pub use agnostic_dns as dns;
+pub mod dns {
+  pub use agnostic_dns::{
+    read_system_conf, AgnosticTime, AsyncConnectionProvider, AsyncDnsUdp, AsyncRuntimeProvider,
+    AsyncSpawn, Dns, LookupIpStrategy, NameServerConfig, NameServerConfigGroup, Protocol,
+    ResolverConfig, ResolverOpts, ServerOrderingStrategy, Timer, CLOUDFLARE_IPS, GOOGLE_IPS,
+    QUAD9_IPS,
+  };
+
+  #[cfg(feature = "dns-over-rustls")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
+  pub use agnostic_dns::TlsClientConfig;
+
+  #[cfg(unix)]
+  #[cfg_attr(docsrs, doc(cfg(unix)))]
+  pub use agnostic_dns::{parse_resolv_conf, read_resolv_conf};
+}
 
 /// Quinn related traits
 #[cfg(feature = "quinn")]
@@ -53,26 +104,3 @@ pub mod quinn;
 #[cfg(feature = "process")]
 #[cfg_attr(docsrs, doc(cfg(feature = "process")))]
 pub mod process;
-
-/// Runtime trait
-pub trait Runtime: RuntimeLite {
-  /// The network abstraction for this runtime
-  #[cfg(feature = "net")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
-  type Net: net::Net;
-
-  /// The process abstraction for this runtime
-  #[cfg(feature = "process")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "process")))]
-  type Process: process::Process;
-
-  /// The Quinn abstraction for this runtime
-  #[cfg(feature = "quinn")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
-  type Quinn: quinn::QuinnRuntime;
-
-  /// Returns the runtime for [`quinn`](::quinn)
-  #[cfg(feature = "quinn")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
-  fn quinn() -> Self::Quinn;
-}

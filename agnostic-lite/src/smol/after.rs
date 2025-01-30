@@ -266,6 +266,7 @@ where
 }
 
 impl AsyncAfterSpawner for SmolSpawner {
+  type Instant = Instant;
   type JoinHandle<F>
     = SmolAfterHandle<F>
   where

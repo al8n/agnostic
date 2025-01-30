@@ -35,6 +35,8 @@ impl<F: Future> Future for WasmTimeout<F> {
 }
 
 impl<F: Future + Send> AsyncTimeout<F> for WasmTimeout<F> {
+  type Instant = Instant;
+
   fn timeout(t: Duration, fut: F) -> Self
   where
     Self: Sized,
@@ -54,6 +56,8 @@ impl<F> AsyncLocalTimeout<F> for WasmTimeout<F>
 where
   F: Future,
 {
+  type Instant = Instant;
+
   fn timeout_local(timeout: Duration, fut: F) -> Self
   where
     Self: Sized,

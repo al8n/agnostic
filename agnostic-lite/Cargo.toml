@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-lite"
-version = "0.4.0"
+version = "0.5.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 
-description = "`agnostic-lite` is WASM friendly and light version of `agnostic`, for users who want to write async runtime-agnostic crate."
+description = "`agnostic-lite` is a Sans-I/O abstraction layer for any async runtime."
 documentation = "https://docs.rs/agnostic-lite"
 readme = "README.md"
 categories = ["asynchronous", "no-std"]
@@ -20,9 +20,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["std"]
+alloc = []
 std = []
 time = [
-  "std",
   "atomic-time",
   "paste",
   "tokio?/time",
@@ -36,11 +36,11 @@ time = [
   "async-std?/channel",
 ]
 
-tokio = ["dep:tokio"]
+tokio = ["dep:tokio", "std"]
 
-async-io = ["dep:async-io", "time"]
-smol = ["dep:smol", "async-io"]
-async-std = ["dep:async-std", "async-io"]
+async-io = ["dep:async-io", "time", "std"]
+smol = ["dep:smol", "async-io", "std"]
+async-std = ["dep:async-std", "async-io", "std"]
 
 wasm = [
   "std",

@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-net"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -8,18 +8,20 @@ repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 categories = ["asynchronous", "network-programming"]
-description = "An async runtime agnostic version `std::net`."
+description = "Sans-I/O abstraction layer of `std::net` for any async runtime."
 
 [features]
-default = []
+default = ["std"]
+std = []
 
 # This feature must be used with net feature
 # by enable this feature, TcpStream will implement
 # both futures::AsyncRead/AsyncWrite and tokio::io::AsyncRead/AsyncWrite.
 # But if you are using tokio, this feature can be ignored.
-tokio-io = ["agnostic-io/tokio"]
+tokio-io = ["agnostic-io/tokio", "std"]
 
 tokio = [
+  "std",
   "dep:tokio",
   "agnostic-lite/tokio",
   "agnostic-io/tokio",
@@ -32,12 +34,13 @@ tokio = [
   "tokio-io",
 ]
 async-std = [
+  "std",
   "dep:async-std",
   "agnostic-lite/async-std",
   "async-io",
   "pin-project-lite",
 ]
-smol = ["dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
+smol = ["std", "dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
 
 [target.'cfg(unix)'.dependencies]
 rustix = { version = "0.38", features = ["net"] }
@@ -47,7 +50,7 @@ windows-sys = { version = "0.59", features = ["Win32_Networking_WinSock"] }
 socket2 = "0.5"
 
 [dependencies]
-agnostic-lite = { workspace = true, features = ["time"] }
+agnostic-lite = { workspace = true, features = ["time", "std"] }
 agnostic-io.workspace = true
 async-trait = "0.1"
 futures-util.workspace = true

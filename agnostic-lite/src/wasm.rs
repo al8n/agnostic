@@ -193,6 +193,7 @@ impl super::RuntimeLite for WasmRuntime {
   type BlockingSpawner = WasmSpawner;
 
   cfg_time!(
+    type Instant = Instant;
     type AfterSpawner = WasmSpawner;
 
     type Interval = WasmInterval;

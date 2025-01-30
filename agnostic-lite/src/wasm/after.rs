@@ -242,6 +242,7 @@ where
 }
 
 impl AsyncAfterSpawner for WasmSpawner {
+  type Instant = Instant;
   type JoinHandle<F>
     = WasmAfterHandle<F>
   where

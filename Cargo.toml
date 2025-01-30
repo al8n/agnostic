@@ -14,11 +14,11 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 rust-version = "1.81.0"
 repository = "https://github.com/al8n/agnostic"
 homepage = "https://github.com/al8n/agnostic"
-keywords = ["async", "runtime", "agnostic", "trait"]
+keywords = ["async", "runtime", "agnostic", "sansio", "sans"]
 
 [workspace.dependencies]
 atomic-time = "0.1"
@@ -29,11 +29,11 @@ futures-io = { version = "0.3", default-features = false }
 futures-channel = "0.3"
 pin-project-lite = "0.2"
 
-agnostic-dns = { path = "./agnostic-dns", version = "0.1" }
+agnostic-dns = { path = "./agnostic-dns", version = "0.2" }
 agnostic-io = { path = "./agnostic-io", version = "0.1" }
-agnostic-lite = { path = "./agnostic-lite", version = "0.4" }
-agnostic-net = { path = "./agnostic-net", version = "0.1" }
-agnostic-process = { path = "./agnostic-process", version = "0.1" }
+agnostic-lite = { path = "./agnostic-lite", default-features = false, version = "0.5" }
+agnostic-net = { path = "./agnostic-net", version = "0.2" }
+agnostic-process = { path = "./agnostic-process", version = "0.2" }
 
 # runtimes
 smol = { package = "feature-extension-for-smol", version = "^0.2.1", path = "smol", default-features = false }

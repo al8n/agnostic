@@ -7,7 +7,7 @@
 </div>
 <div align="center">
 
-`agnostic` is a helpful crate for users who want to develop async runtime-agnostic crate.
+`agnostic` is a [Sans-I/O] abstraction layer for any async runtime.
 
 If you want a light weight crate, see `agnostic-lite`.
 
@@ -25,7 +25,7 @@ If you want a light weight crate, see `agnostic-lite`.
 
 ## Introduction
 
-`agnostic` is a helpful crate for users who want to write async runtime-agnostic crate.
+A Sans-I/O abstraction layer for any async runtime.
 
 If you want a light weight crate, see `agnostic-lite`.
 
@@ -33,7 +33,7 @@ If you want a light weight crate, see `agnostic-lite`.
 
 ```toml
 [dependencies]
-agnostic = "0.6"
+agnostic = "0.7"
 ```
 
 #### License
@@ -50,3 +50,4 @@ Copyright (c) 2025 Al Liu.
 [doc-url]: https://docs.rs/agnostic
 [crates-url]: https://crates.io/crates/agnostic
 [codecov-url]: https://app.codecov.io/gh/al8n/agnostic/
+[Sans-I/O]: https://sans-io.readthedocs.io/en/latest/
