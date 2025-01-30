@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 categories = ["asynchronous"]
-description = "An async runtime agnostic version `std::process`."
+description = "Sans-I/O abstraction layer of `std::process` for any async runtime."
 
 [features]
 default = []

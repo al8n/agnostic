@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 categories = ["asynchronous", "network-programming"]
 keywords = ["agnostic", "dns"]
-description = "`agnostic-dns` is an async runtime agnostic layer over `hickory-dns`."
+description = "`agnostic-dns` is a Sans-I/O abstraction layer over `hickory-dns`."
 
 [features]
 default = []

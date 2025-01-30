@@ -12,16 +12,18 @@
 [<img alt="Build" src="https://img.shields.io/github/actions/workflow/status/al8n/agnostic/ci.yml?logo=Github-Actions&style=for-the-badge" height="22">][CI-url]
 [<img alt="codecov" src="https://img.shields.io/codecov/c/gh/al8n/agnostic?style=for-the-badge&token=6R3QFWRWHL&logo=codecov" height="22">][codecov-url]
 
+[Sans-I/O] abstraction layer for any async runtime.
+
 </div>
 
 Crates                            | Description
 ----------------------------------| -----------
-[`agnostic`](./agnostic/)         | Sans-I/O abstraction layer for any async runtime.
-[`agnostic-dns`](./agnostic-dns/) | `agnostic-dns` is an async runtime agnostic layer over [`hickory-dns`](https://github.com/hickory-dns/hickory-dns).
-[`agnostic-lite`](./agnostic-lite/)        | `agnostic-lite` is a Sans-I/O abstraction layer for any async runtime.
+[`agnostic`](./agnostic/)         | [Sans-I/O] abstraction layer for any async runtime.
+[`agnostic-dns`](./agnostic-dns/) | `agnostic-dns` is a [Sans-I/O] abstraction layer over [`hickory-dns`](https://github.com/hickory-dns/hickory-dns).
+[`agnostic-lite`](./agnostic-lite/)        | `agnostic-lite` is a [Sans-I/O] abstraction layer for any async runtime.
 [`agnostic-io`](./agnostic-io/)            | Defines I/O traits for async runtime agnostic I/O.
-[`agnostic-net`](./agnostic-net/)          | An async runtime agnostic version `std::net`.
-[`agnostic-process`](./agnostic-process/)  | An async runtime agnostic version `std::process`.
+[`agnostic-net`](./agnostic-net/)          | [Sans-I/O] abstraction layer of `std::net` for any async runtime.
+[`agnostic-process`](./agnostic-process/)  | [Sans-I/O] abstraction layer of `std::process` for any async runtime.
 
 #### License
 
@@ -39,4 +41,4 @@ Copyright (c) 2024 Al Liu.
 [crates-url]: https://crates.io/crates/agnostic
 [agnostic-lite-crates-url]: https://crates.io/crates/agnostic-lite
 [codecov-url]: https://app.codecov.io/gh/al8n/agnostic/
-
+[Sans-I/O]: https://sans-io.readthedocs.io/en/latest/

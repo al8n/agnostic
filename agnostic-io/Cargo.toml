@@ -7,7 +7,7 @@ rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
-description = "Defines I/O traits for async runtime agnostic I/O."
+description = "`agnostic-io` defines I/O traits in Sans-I/O style for any async runtime."
 
 [features]
 default = ["std"]

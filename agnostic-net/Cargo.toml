@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 categories = ["asynchronous", "network-programming"]
-description = "An async runtime agnostic version `std::net`."
+description = "Sans-I/O abstraction layer of `std::net` for any async runtime."
 
 [features]
 default = ["std"]
