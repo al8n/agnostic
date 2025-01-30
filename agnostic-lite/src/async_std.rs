@@ -98,6 +98,7 @@ impl super::RuntimeLite for AsyncStdRuntime {
   type BlockingSpawner = AsyncStdSpawner;
 
   cfg_time!(
+    type Instant = Instant;
     type AfterSpawner = AsyncStdSpawner;
 
     type Interval = AsyncIoInterval;

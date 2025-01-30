@@ -96,7 +96,7 @@ macro_rules! spawn_after {
                     None => {
                       match d.checked_sub($instant.elapsed()) {
                         Some(v) => {
-                          delay.as_mut().reset(Instant::now() + v);
+                          delay.as_mut().reset(::tokio::time::Instant::now() + v);
                         },
                         None => {
                           s1.set_expired();
@@ -236,6 +236,8 @@ where
 }
 
 impl AsyncAfterSpawner for TokioSpawner {
+  type Instant = ::tokio::time::Instant;
+
   type JoinHandle<O>
     = TokioAfterHandle<O>
   where
@@ -246,10 +248,10 @@ impl AsyncAfterSpawner for TokioSpawner {
     F::Output: Send + 'static,
     F: Future + Send + 'static,
   {
-    Self::spawn_after_at(Instant::now() + duration, future)
+    Self::spawn_after_at(::tokio::time::Instant::now() + duration, future)
   }
 
-  fn spawn_after_at<F>(instant: Instant, future: F) -> Self::JoinHandle<F::Output>
+  fn spawn_after_at<F>(instant: Self::Instant, future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static,

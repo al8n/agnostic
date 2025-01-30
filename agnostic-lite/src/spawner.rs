@@ -1,5 +1,9 @@
 use core::future::Future;
 
+cfg_time!(
+  use core::time::Duration;
+);
+
 use crate::Yielder;
 
 #[cfg(any(feature = "smol", feature = "async-std"))]
@@ -347,19 +351,22 @@ pub trait AfterHandle<F: Send + 'static>:
 #[cfg(feature = "time")]
 #[cfg_attr(docsrs, doc(cfg(feature = "time")))]
 pub trait AsyncAfterSpawner: Copy + Send + Sync + 'static {
+  /// The instant type for the spawner
+  type Instant: crate::time::Instant;
+
   /// The handle returned by the spawner when a future is spawned.
   type JoinHandle<F>: AfterHandle<F>
   where
     F: Send + 'static;
 
   /// Spawn a future onto the runtime and run the given future after the given duration
-  fn spawn_after<F>(duration: core::time::Duration, future: F) -> Self::JoinHandle<F::Output>
+  fn spawn_after<F>(duration: Duration, future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static;
 
   /// Spawn and detach a future onto the runtime and run the given future after the given duration
-  fn spawn_after_detach<F>(duration: core::time::Duration, future: F)
+  fn spawn_after_detach<F>(duration: Duration, future: F)
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static,
@@ -368,13 +375,13 @@ pub trait AsyncAfterSpawner: Copy + Send + Sync + 'static {
   }
 
   /// Spawn a future onto the runtime and run the given future after reach the given instant
-  fn spawn_after_at<F>(instant: std::time::Instant, future: F) -> Self::JoinHandle<F::Output>
+  fn spawn_after_at<F>(instant: Self::Instant, future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static;
 
   /// Spawn and detach a future onto the runtime and run the given future after reach the given instant
-  fn spawn_after_at_detach<F>(instant: std::time::Instant, future: F)
+  fn spawn_after_at_detach<F>(instant: Self::Instant, future: F)
   where
     F::Output: Send + 'static,
     F: Future + Send + 'static,

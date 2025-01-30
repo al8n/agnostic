@@ -13,6 +13,8 @@ use crate::time::{AsyncLocalInterval, AsyncLocalIntervalExt};
 pub type AsyncIoInterval = Timer;
 
 impl AsyncLocalInterval for Timer {
+  type Instant = Instant;
+
   fn reset(&mut self, interval: Duration) {
     self.set_after(interval)
   }
@@ -53,11 +55,6 @@ mod tests {
   const INTERVAL: Duration = Duration::from_millis(100);
   const BOUND: Duration = Duration::from_millis(50);
   const IMMEDIATE: Duration = Duration::from_millis(1);
-
-  #[test]
-  fn test_object_safe() {
-    let _x: Box<dyn AsyncInterval> = Box::new(AsyncIoInterval::interval(Duration::from_secs(1)));
-  }
 
   #[test]
   fn test_interval() {

@@ -30,6 +30,8 @@ impl Future for WasmSleep {
 }
 
 impl AsyncLocalSleep for WasmSleep {
+  type Instant = Instant;
+
   fn reset(self: Pin<&mut Self>, deadline: Instant) {
     let mut this = self.project();
     let ddl = deadline - Instant::now();
@@ -73,11 +75,6 @@ mod tests {
   const ORIGINAL: Duration = Duration::from_secs(1);
   const RESET: Duration = Duration::from_secs(2);
   const BOUND: Duration = Duration::from_millis(10);
-
-  #[test]
-  fn test_object_safe() {
-    let _a: Box<dyn AsyncSleep> = Box::new(WasmSleep::sleep(ORIGINAL));
-  }
 
   #[test]
   fn test_wasm_sleep() {

@@ -1,6 +1,6 @@
-use std::{
+use core::{
   future::Future,
-  time::{Duration, Instant},
+  time::Duration,
 };
 
 /// The timeout abstraction for async runtime.
@@ -9,6 +9,9 @@ where
   F: Future + Send,
   Self: Future<Output = Result<F::Output, Elapsed>> + Send
 {
+  /// The instant type
+  type Instant: crate::time::Instant + Send;
+
   /// Requires a `Future` to complete before the specified duration has elapsed.
   ///
   /// The behavior of this function may different in different runtime implementations.
@@ -20,7 +23,7 @@ where
   /// Requires a `Future` to complete before the specified instant in time.
   ///
   /// The behavior of this function may different in different runtime implementations.
-  fn timeout_at(deadline: Instant, fut: F) -> Self
+  fn timeout_at(deadline: Self::Instant, fut: F) -> Self
   where
     F: Future + Send,
     Self: Future<Output = Result<F::Output, Elapsed>> + Send + Sized;
@@ -28,6 +31,9 @@ where
 
 /// Like [`AsyncTimeout`], but this does not require `Send`.
 pub trait AsyncLocalTimeout<F: Future>: Future<Output = Result<F::Output, Elapsed>> {
+  /// The instant type
+  type Instant: crate::time::Instant;
+
   /// Requires a `Future` to complete before the specified duration has elapsed.
   ///
   /// The behavior of this function may different in different runtime implementations.
@@ -39,7 +45,7 @@ pub trait AsyncLocalTimeout<F: Future>: Future<Output = Result<F::Output, Elapse
   /// Requires a `Future` to complete before the specified instant in time.
   ///
   /// The behavior of this function may different in different runtime implementations.
-  fn timeout_local_at(deadline: Instant, fut: F) -> Self
+  fn timeout_local_at(deadline: Self::Instant, fut: F) -> Self
   where
     Self: Sized + Future<Output = Result<F::Output, Elapsed>>,
     F: Future;

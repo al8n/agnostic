@@ -7,7 +7,6 @@ use core::{
   task::{Context, Poll},
   time::Duration,
 };
-use std::time::Instant;
 
 pin_project_lite::pin_project! {
   /// The [`AsyncTimeout`] implementation for tokio runtime
@@ -43,6 +42,8 @@ impl<F: Future> Future for TokioTimeout<F> {
 }
 
 impl<F: Future + Send> AsyncTimeout<F> for TokioTimeout<F> {
+  type Instant = ::tokio::time::Instant;
+
   fn timeout(t: Duration, fut: F) -> Self
   where
     Self: Sized,
@@ -50,7 +51,7 @@ impl<F: Future + Send> AsyncTimeout<F> for TokioTimeout<F> {
     <Self as AsyncLocalTimeout<F>>::timeout_local(t, fut)
   }
 
-  fn timeout_at(deadline: Instant, fut: F) -> Self
+  fn timeout_at(deadline: Self::Instant, fut: F) -> Self
   where
     Self: Sized,
   {
@@ -62,6 +63,8 @@ impl<F> AsyncLocalTimeout<F> for TokioTimeout<F>
 where
   F: Future,
 {
+  type Instant = tokio::time::Instant;
+
   fn timeout_local(t: Duration, fut: F) -> Self
   where
     Self: Sized,
@@ -71,12 +74,12 @@ where
     }
   }
 
-  fn timeout_local_at(deadline: Instant, fut: F) -> Self
+  fn timeout_local_at(deadline: Self::Instant, fut: F) -> Self
   where
     Self: Sized,
   {
     Self {
-      inner: timeout_at(tokio::time::Instant::from_std(deadline), fut),
+      inner: timeout_at(deadline, fut),
     }
   }
 }
@@ -125,7 +128,7 @@ mod tests {
         1
       };
       let start = Instant::now();
-      let rst = TokioTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
+      let rst = TokioTimeout::timeout_at(::tokio::time::Instant::now() + TIMEOUT, fut).await;
       assert!(rst.is_err());
       let elapsed = start.elapsed();
       assert!(elapsed >= TIMEOUT && elapsed <= TIMEOUT + BOUND);
@@ -136,7 +139,7 @@ mod tests {
       };
 
       let start = Instant::now();
-      let rst = TokioTimeout::timeout_at(Instant::now() + TIMEOUT, fut).await;
+      let rst = TokioTimeout::timeout_at(::tokio::time::Instant::now() + TIMEOUT, fut).await;
       assert!(rst.is_ok());
       let elapsed = start.elapsed();
       assert!(elapsed >= GOOD && elapsed <= GOOD + BOUND);

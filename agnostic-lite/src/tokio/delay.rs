@@ -7,13 +7,12 @@ mod tests {
 
   use super::TokioDelay;
 
-  use std::{
-    sync::{
-      atomic::{AtomicUsize, Ordering},
-      Arc,
-    },
-    time::{Duration, Instant},
+  use core::{
+    sync::atomic::{AtomicUsize, Ordering},
+    time::Duration,
   };
+  use std::sync::Arc;
+  use tokio::time::Instant;
 
   const DELAY: Duration = Duration::from_millis(10);
   const RESET: Duration = Duration::from_millis(20);

@@ -243,6 +243,7 @@ where
 }
 
 impl AsyncAfterSpawner for AsyncStdSpawner {
+  type Instant = Instant;
   type JoinHandle<F>
     = AsyncStdAfterHandle<F>
   where

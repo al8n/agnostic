@@ -1,11 +1,14 @@
 #![doc = include_str!("../README.md")]
-#![cfg_attr(not(any(feature = "std", test)), no_std)]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 #![deny(warnings, missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
-#[cfg(any(feature = "std", test))]
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+extern crate alloc as std;
+
+#[cfg(feature = "std")]
 extern crate std;
 
 macro_rules! cfg_time_with_docsrs {
@@ -29,10 +32,6 @@ macro_rules! cfg_time {
 
 use core::future::Future;
 
-cfg_time!(
-  use std::time::{Duration, Instant};
-);
-
 cfg_time_with_docsrs!(
   /// Time related traits
   pub mod time;
@@ -47,7 +46,13 @@ macro_rules! cfg_async_std {
       #[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
       $item
     )*
-  }
+  };
+  (@no_doc_cfg $($item:item)*) => {
+    $(
+      #[cfg(feature = "async-std")]
+      $item
+    )*
+  };
 }
 
 /// Macro to conditionally compile items for `tokio` feature
@@ -59,7 +64,13 @@ macro_rules! cfg_tokio {
       #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
       $item
     )*
-  }
+  };
+  (@no_doc_cfg $($item:item)*) => {
+    $(
+      #[cfg(feature = "tokio")]
+      $item
+    )*
+  };
 }
 
 /// Macro to conditionally compile items for `smol` feature
@@ -71,7 +82,67 @@ macro_rules! cfg_smol {
       #[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
       $item
     )*
-  }
+  };
+  (@no_doc_cfg $($item:item)*) => {
+    $(
+      #[cfg(feature = "smol")]
+      $item
+    )*
+  };
+}
+
+/// Macro to conditionally compile items for `unix` system
+#[macro_export]
+macro_rules! cfg_unix {
+  ($($item:item)*) => {
+    $(
+      #[cfg(feature = "unix")]
+      #[cfg_attr(docsrs, doc(cfg(feature = "unix")))]
+      $item
+    )*
+  };
+  (@no_doc_cfg $($item:item)*) => {
+    $(
+      #[cfg(feature = "unix")]
+      $item
+    )*
+  };
+}
+
+/// Macro to conditionally compile items for `windows` system
+#[macro_export]
+macro_rules! cfg_windows {
+  ($($item:item)*) => {
+    $(
+      #[cfg(feature = "windows")]
+      #[cfg_attr(docsrs, doc(cfg(feature = "windows")))]
+      $item
+    )*
+  };
+  (@no_doc_cfg $($item:item)*) => {
+    $(
+      #[cfg(feature = "windows")]
+      $item
+    )*
+  };
+}
+
+/// Macro to conditionally compile items for `linux` system
+#[macro_export]
+macro_rules! cfg_linux {
+  ($($item:item)*) => {
+    $(
+      #[cfg(target_os = "linux")]
+      #[cfg_attr(docsrs, doc(cfg(target_os = "linux")))]
+      $item
+    )*
+  };
+  (@no_doc_cfg $($item:item)*) => {
+    $(
+      #[cfg(target_os = "linux")]
+      $item
+    )*
+  };
 }
 
 #[macro_use]
@@ -132,38 +203,41 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   type BlockingSpawner: AsyncBlockingSpawner;
 
   cfg_time_with_docsrs!(
+    /// The instant type for this runtime
+    type Instant: time::Instant;
+
     /// The after spawner type for this runtime
-    type AfterSpawner: AsyncAfterSpawner;
+    type AfterSpawner: AsyncAfterSpawner<Instant = Self::Instant>;
 
     /// The interval type for this runtime
-    type Interval: time::AsyncInterval;
+    type Interval: time::AsyncInterval<Instant = Self::Instant>;
 
     /// The local interval type for this runtime
-    type LocalInterval: time::AsyncLocalInterval;
+    type LocalInterval: time::AsyncLocalInterval<Instant = Self::Instant>;
 
     /// The sleep type for this runtime
-    type Sleep: time::AsyncSleep;
+    type Sleep: time::AsyncSleep<Instant = Self::Instant>;
 
     /// The local sleep type for this runtime
-    type LocalSleep: time::AsyncLocalSleep;
+    type LocalSleep: time::AsyncLocalSleep<Instant = Self::Instant>;
 
     /// The delay type for this runtime
-    type Delay<F>: time::AsyncDelay<F>
+    type Delay<F>: time::AsyncDelay<F, Instant = Self::Instant>
     where
       F: Future + Send;
 
     /// The local delay type for this runtime
-    type LocalDelay<F>: time::AsyncLocalDelay<F>
+    type LocalDelay<F>: time::AsyncLocalDelay<F, Instant = Self::Instant>
     where
       F: Future;
 
     /// The timeout type for this runtime
-    type Timeout<F>: time::AsyncTimeout<F>
+    type Timeout<F>: time::AsyncTimeout<F, Instant = Self::Instant>
     where
       F: Future + Send;
 
     /// The local timeout type for this runtime
-    type LocalTimeout<F>: time::AsyncLocalTimeout<F>
+    type LocalTimeout<F>: time::AsyncLocalTimeout<F, Instant = Self::Instant>
     where
       F: Future;
   );
@@ -256,7 +330,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
 
     /// Spawn a future onto the runtime and run the given future after the given instant.
     fn spawn_after_at<F>(
-      at: std::time::Instant,
+      at: Self::Instant,
       future: F,
     ) -> <Self::AfterSpawner as AsyncAfterSpawner>::JoinHandle<F::Output>
     where
@@ -268,42 +342,43 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
 
     /// Create a new interval that starts at the current time and
     /// yields every `period` duration
-    fn interval(interval: Duration) -> Self::Interval;
+    fn interval(interval: core::time::Duration) -> Self::Interval;
 
     /// Create a new interval that starts at the given instant and
     /// yields every `period` duration
-    fn interval_at(start: Instant, period: Duration) -> Self::Interval;
+    fn interval_at(start: Self::Instant, period: core::time::Duration) -> Self::Interval;
 
     /// Create a new interval that starts at the current time and
     /// yields every `period` duration
-    fn interval_local(interval: Duration) -> Self::LocalInterval;
+    fn interval_local(interval: core::time::Duration) -> Self::LocalInterval;
 
     /// Create a new interval that starts at the given instant and
     /// yields every `period` duration
-    fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval;
+    fn interval_local_at(start: Self::Instant, period: core::time::Duration)
+      -> Self::LocalInterval;
 
     /// Create a new sleep future that completes after the given duration
     /// has elapsed
-    fn sleep(duration: Duration) -> Self::Sleep;
+    fn sleep(duration: core::time::Duration) -> Self::Sleep;
 
     /// Create a new sleep future that completes at the given instant
     /// has elapsed
-    fn sleep_until(instant: Instant) -> Self::Sleep;
+    fn sleep_until(instant: Self::Instant) -> Self::Sleep;
 
     /// Create a new sleep future that completes after the given duration
     /// has elapsed
-    fn sleep_local(duration: Duration) -> Self::LocalSleep;
+    fn sleep_local(duration: core::time::Duration) -> Self::LocalSleep;
 
     /// Create a new sleep future that completes at the given instant
     /// has elapsed
-    fn sleep_local_until(instant: Instant) -> Self::LocalSleep;
+    fn sleep_local_until(instant: Self::Instant) -> Self::LocalSleep;
 
     /// Create a new delay future that runs the `fut` after the given duration
     /// has elapsed. The `Future` will never be polled until the duration has
     /// elapsed.
     ///
     /// The behavior of this function may different in different runtime implementations.
-    fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
+    fn delay<F>(duration: core::time::Duration, fut: F) -> Self::Delay<F>
     where
       F: Future + Send;
 
@@ -313,7 +388,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     /// elapsed.
     ///
     /// The behavior of this function may different in different runtime implementations.
-    fn delay_local<F>(duration: Duration, fut: F) -> Self::LocalDelay<F>
+    fn delay_local<F>(duration: core::time::Duration, fut: F) -> Self::LocalDelay<F>
     where
       F: Future;
 
@@ -321,7 +396,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     /// The `Future` will never be polled until the deadline has reached.
     ///
     /// The behavior of this function may different in different runtime implementations.
-    fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
+    fn delay_at<F>(deadline: Self::Instant, fut: F) -> Self::Delay<F>
     where
       F: Future + Send;
 
@@ -330,21 +405,21 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     /// The `Future` will never be polled until the deadline has reached.
     ///
     /// The behavior of this function may different in different runtime implementations.
-    fn delay_local_at<F>(deadline: Instant, fut: F) -> Self::LocalDelay<F>
+    fn delay_local_at<F>(deadline: Self::Instant, fut: F) -> Self::LocalDelay<F>
     where
       F: Future;
 
     /// Requires a `Future` to complete before the specified duration has elapsed.
     ///
     /// The behavior of this function may different in different runtime implementations.
-    fn timeout<F>(duration: Duration, future: F) -> Self::Timeout<F>
+    fn timeout<F>(duration: core::time::Duration, future: F) -> Self::Timeout<F>
     where
       F: Future + Send;
 
     /// Requires a `Future` to complete before the specified instant in time.
     ///
     /// The behavior of this function may different in different runtime implementations.
-    fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
+    fn timeout_at<F>(deadline: Self::Instant, future: F) -> Self::Timeout<F>
     where
       F: Future + Send;
 
@@ -352,7 +427,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     /// Requires a `Future` to complete before the specified duration has elapsed.
     ///
     /// The behavior of this function may different in different runtime implementations.
-    fn timeout_local<F>(duration: Duration, future: F) -> Self::LocalTimeout<F>
+    fn timeout_local<F>(duration: core::time::Duration, future: F) -> Self::LocalTimeout<F>
     where
       F: Future;
 
@@ -360,7 +435,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     /// Requires a `Future` to complete before the specified duration has elapsed.
     ///
     /// The behavior of this function may different in different runtime implementations.
-    fn timeout_local_at<F>(deadline: Instant, future: F) -> Self::LocalTimeout<F>
+    fn timeout_local_at<F>(deadline: Self::Instant, future: F) -> Self::LocalTimeout<F>
     where
       F: Future;
   );

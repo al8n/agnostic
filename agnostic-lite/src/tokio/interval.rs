@@ -31,28 +31,30 @@ impl From<TokioInterval> for ::tokio::time::Interval {
 }
 
 impl Stream for TokioInterval {
-  type Item = Instant;
+  type Item = tokio::time::Instant;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
     self
       .project()
       .inner
       .poll_tick(cx)
-      .map(|ins| Some(ins.into()))
+      .map(Some)
   }
 }
 
 impl AsyncLocalInterval for TokioInterval {
+  type Instant = ::tokio::time::Instant;
+
   fn reset(&mut self, interval: Duration) {
     self.inner.reset_after(interval);
   }
 
-  fn reset_at(&mut self, instant: Instant) {
-    self.inner.reset_at(tokio::time::Instant::from_std(instant));
+  fn reset_at(&mut self, instant: Self::Instant) {
+    self.inner.reset_at(instant);
   }
-
-  fn poll_tick(&mut self, cx: &mut Context<'_>) -> Poll<Instant> {
-    self.inner.poll_tick(cx).map(|ins| ins.into())
+  
+  fn poll_tick(&mut self, cx: &mut Context<'_>) -> Poll<Self::Instant> {
+    self.inner.poll_tick(cx)
   }
 }
 
@@ -66,12 +68,12 @@ impl AsyncLocalIntervalExt for TokioInterval {
     }
   }
 
-  fn interval_local_at(start: Instant, period: Duration) -> Self
+  fn interval_local_at(start: Self::Instant, period: Duration) -> Self
   where
     Self: Sized,
   {
     Self {
-      inner: tokio::time::interval_at(tokio::time::Instant::from_std(start), period),
+      inner: tokio::time::interval_at(start, period),
     }
   }
 }
@@ -82,16 +84,11 @@ mod tests {
 
   use super::TokioInterval;
   use crate::time::{AsyncInterval, AsyncIntervalExt};
-  use std::time::{Duration, Instant};
+  use tokio::time::{Duration, Instant};
 
   const INTERVAL: Duration = Duration::from_millis(100);
   const BOUND: Duration = Duration::from_millis(50);
   const IMMEDIATE: Duration = Duration::from_millis(1);
-
-  #[tokio::test]
-  async fn test_object_safe() {
-    let _: Box<dyn AsyncInterval> = Box::new(TokioInterval::interval(Duration::from_secs(1)));
-  }
 
   #[tokio::test]
   async fn test_interval() {
