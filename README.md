@@ -16,9 +16,9 @@
 
 Crates                            | Description
 ----------------------------------| -----------
-[`agnostic`](./agnostic/)         | Abstractions for users who want to develop async runtime-agnostic crate.
+[`agnostic`](./agnostic/)         | Sans-I/O abstraction layer for any async runtime.
 [`agnostic-dns`](./agnostic-dns/) | `agnostic-dns` is an async runtime agnostic layer over [`hickory-dns`](https://github.com/hickory-dns/hickory-dns).
-[`agnostic-lite`](./agnostic-lite/)        | WASM friendly and light version of `agnostic`, for users who want to develop async runtime-agnostic crate.
+[`agnostic-lite`](./agnostic-lite/)        | `agnostic-lite` is a Sans-I/O abstraction layer for any async runtime.
 [`agnostic-io`](./agnostic-io/)            | Defines I/O traits for async runtime agnostic I/O.
 [`agnostic-net`](./agnostic-net/)          | An async runtime agnostic version `std::net`.
 [`agnostic-process`](./agnostic-process/)  | An async runtime agnostic version `std::process`.
