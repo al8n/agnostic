@@ -1,4 +1,4 @@
-/// Alias for [`Delay`] using [`tokio`] runtime.
+/// Alias for [`Delay`](crate::time::Delay) using [`tokio`] runtime.
 pub type TokioDelay<F> = crate::time::Delay<F, super::TokioSleep>;
 
 #[cfg(test)]

@@ -64,10 +64,6 @@ impl AsyncLocalSleepExt for AsyncIoSleep {
 impl AsyncLocalSleep for AsyncIoSleep {
   type Instant = Instant;
 
-  /// Sets the timer to emit an event once at the given time instant.
-  ///
-  /// Note that resetting a timer is different from creating a new sleep by [`sleep()`][`Runtime::sleep()`] because
-  /// `reset()` does not remove the waker associated with the task.
   fn reset(self: Pin<&mut Self>, deadline: Instant) {
     self.project().t.as_mut().set_at(deadline)
   }

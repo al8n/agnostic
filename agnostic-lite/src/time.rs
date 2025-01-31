@@ -49,7 +49,7 @@ macro_rules! instant_methods {
 
 
 /// A measurement of a monotonically nondecreasing clock.
-/// Opaque and useful only with [`Duration`](::core::time::Duration).
+/// Opaque and useful only with [`Duration`].
 #[cfg(not(feature = "std"))]
 pub trait Instant:
   Copy
@@ -70,7 +70,7 @@ pub trait Instant:
 }
 
 /// A measurement of a monotonically nondecreasing clock.
-/// Opaque and useful only with [`Duration`](::core::time::Duration).
+/// Opaque and useful only with [`Duration`].
 #[cfg(feature = "std")]
 pub trait Instant:
   Copy

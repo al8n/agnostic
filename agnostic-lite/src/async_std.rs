@@ -82,7 +82,9 @@ impl AsyncBlockingSpawner for AsyncStdSpawner {
   }
 }
 
-/// Concrete [`RuntimeLite`](crate::RuntimeLite) implementation based on [`async_std`](::async_std) runtime.
+/// Concrete [`RuntimeLite`](crate::RuntimeLite) implementation based on [`async_std`] runtime.
+///
+/// [`async_std`]: https://docs.rs/async-std
 #[derive(Debug, Clone, Copy)]
 pub struct AsyncStdRuntime;
 

@@ -169,7 +169,9 @@ pub mod async_std;
 #[cfg_attr(docsrs, doc(cfg(feature = "smol")))]
 pub mod smol;
 
-/// Concrete runtime implementations based on [`wasm-bindgen-futures`](::wasm_bindgen_futures).
+/// Concrete runtime implementations based on [`wasm-bindgen-futures`].
+///
+/// [`wasm-bindgen-futures`]: https://docs.rs/wasm-bindgen-futures
 #[cfg(feature = "wasm")]
 #[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
 pub mod wasm;

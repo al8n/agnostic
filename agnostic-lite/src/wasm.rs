@@ -74,7 +74,9 @@ impl<O> super::LocalJoinHandle<O> for JoinHandle<O> {
   }
 }
 
-/// A [`AsyncSpawner`] that uses the [`wasm-bindgen-futures`](wasm_bindgen_futures) runtime.
+/// A [`AsyncSpawner`] that uses the [`wasm-bindgen-futures`] runtime.
+///
+/// [`wasm-bindgen-futures`]: https://docs.rs/wasm-bindgen-futures
 #[derive(Debug, Clone, Copy)]
 pub struct WasmSpawner;
 
