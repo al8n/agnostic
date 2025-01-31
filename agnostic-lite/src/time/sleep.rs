@@ -7,7 +7,7 @@ use core::{
 /// The sleep abstraction for a runtime.
 pub trait AsyncSleep: Future<Output = Self::Instant> + Send {
   /// The instant type
-  type Instant: super::Instant + Send;
+  type Instant: super::Instant;
 
   /// Resets the Sleep instance to a new deadline.
   ///

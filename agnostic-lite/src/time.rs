@@ -65,6 +65,10 @@ pub trait Instant:
   + core::ops::Sub<Self>
   + core::ops::Sub<Duration>
   + core::ops::SubAssign<Duration>
+  + Send
+  + Sync
+  + Unpin
+  + 'static
 {
   instant_methods!();
 }
@@ -88,6 +92,10 @@ pub trait Instant:
   + core::ops::SubAssign<Duration>
   + From<std::time::Instant>
   + Into<std::time::Instant>
+  + Send
+  + Sync
+  + Unpin
+  + 'static
 {
   instant_methods!();
 }

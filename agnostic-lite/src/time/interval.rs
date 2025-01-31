@@ -8,7 +8,7 @@ use futures_util::stream::Stream;
 /// The interval abstraction for a runtime.
 pub trait AsyncInterval: Stream<Item = Self::Instant> + Send + Unpin {
   /// The instant type
-  type Instant: super::Instant + Send;
+  type Instant: super::Instant;
 
   /// Resets the interval to a [`Duration`]. Sets the next tick after the specified [`Duration`].
   ///

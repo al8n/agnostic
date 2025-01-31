@@ -29,7 +29,7 @@ where
   F: Future + Send,
 {
   /// The instant type
-  type Instant: super::Instant + Send;
+  type Instant: super::Instant;
 
   /// Abort the delay, if future has not yet completed, then it will never be polled again.
   fn abort(&self);

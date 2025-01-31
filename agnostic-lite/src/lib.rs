@@ -206,7 +206,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
 
   cfg_time_with_docsrs!(
     /// The instant type for this runtime
-    type Instant: time::Instant + Send + Sync + 'static;
+    type Instant: time::Instant;
 
     /// The after spawner type for this runtime
     type AfterSpawner: AsyncAfterSpawner<Instant = Self::Instant>;

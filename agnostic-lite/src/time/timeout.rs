@@ -10,7 +10,7 @@ where
   Self: Future<Output = Result<F::Output, Elapsed>> + Send
 {
   /// The instant type
-  type Instant: super::Instant + Send;
+  type Instant: super::Instant;
 
   /// Requires a `Future` to complete before the specified duration has elapsed.
   ///
