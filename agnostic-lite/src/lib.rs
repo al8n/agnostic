@@ -316,6 +316,11 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   fn yield_now() -> impl Future<Output = ()> + Send;
 
   cfg_time_with_docsrs!(
+    /// Returns an instant corresponding to "now".
+    fn now() -> Self::Instant {
+      <Self::Instant as time::Instant>::now()
+    }
+
     /// Spawn a future onto the runtime and run the given future after the given duration
     fn spawn_after<F>(
       duration: core::time::Duration,
