@@ -362,7 +362,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     /// Create a new interval that starts at the given instant and
     /// yields every `period` duration
     fn interval_local_at(start: Self::Instant, period: core::time::Duration)
-      -> Self::LocalInterval;
+    -> Self::LocalInterval;
 
     /// Create a new sleep future that completes after the given duration
     /// has elapsed

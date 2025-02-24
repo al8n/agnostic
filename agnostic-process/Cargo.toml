@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-process"
-version = "0.2.1"
+version = "0.2.2"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 categories = ["asynchronous"]
-description = "Sans-I/O abstraction layer of `std::process` for any async runtime."
+description = "Agnostic abstraction layer of `std::process` for any async runtime."
 
 [features]
 default = []

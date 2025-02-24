@@ -218,8 +218,8 @@ impl<R: agnostic_lite::JoinHandle<io::Result<sealed::OneOrMore>>> Future
     cx: &mut std::task::Context<'_>,
   ) -> std::task::Poll<Self::Output> {
     match self.get_mut() {
-      Self::Ready(ref mut i) => Poll::Ready(Ok(sealed::OneOrMore::One(i.take().into_iter()))),
-      Self::Blocking(ref mut i) => {
+      Self::Ready(i) => Poll::Ready(Ok(sealed::OneOrMore::One(i.take().into_iter()))),
+      Self::Blocking(i) => {
         let res = Pin::new(i).poll(cx).map_err(Into::into)?;
         match res {
           Poll::Ready(res) => match res {

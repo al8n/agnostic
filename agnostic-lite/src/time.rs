@@ -105,7 +105,6 @@ const _: () = {
   use std::time::Instant as StdInstant;
 
   impl Instant for StdInstant {
-    #[must_use]
     #[inline]
     fn now() -> Self {
       StdInstant::now()
@@ -138,7 +137,6 @@ const _: () = {
   use tokio::time::Instant as TokioInstant;
 
   impl Instant for TokioInstant {
-    #[must_use]
     #[inline]
     fn now() -> Self {
       TokioInstant::now()

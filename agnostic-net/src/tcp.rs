@@ -3,8 +3,8 @@ use std::{future::Future, io, net::SocketAddr, time::Duration};
 use agnostic_lite::RuntimeLite;
 
 use super::{
-  io::{AsyncRead, AsyncReadWrite, AsyncWrite},
   Fd, ToSocketAddrs,
+  io::{AsyncRead, AsyncReadWrite, AsyncWrite},
 };
 
 #[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]

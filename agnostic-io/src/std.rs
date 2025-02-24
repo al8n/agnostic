@@ -37,11 +37,8 @@ pub trait AsyncReadWrite:
 
 #[cfg(feature = "tokio")]
 impl<
-    T: ::tokio::io::AsyncRead
-      + ::tokio::io::AsyncWrite
-      + futures_io::AsyncRead
-      + futures_io::AsyncWrite,
-  > AsyncReadWrite for T
+  T: ::tokio::io::AsyncRead + ::tokio::io::AsyncWrite + futures_io::AsyncRead + futures_io::AsyncWrite,
+> AsyncReadWrite for T
 {
 }
 

@@ -7,9 +7,9 @@
 </div>
 <div align="center">
 
-`agnostic-lite` is a Sans-I/O abstraction layer for any async runtime.
+`agnostic-lite` is an agnostic abstraction layer for any async runtime.
 
-In order to make it trivial for others to build implementations of any async runtime, this crate provides a [sans-I/O](https://sans-io.readthedocs.io/en/latest/) implementation.
+In order to make it trivial for others to build implementations of any async runtime, this crate provides an abstraction layer implementation.
 
 In addition, this crate is not only `no_std`, but also alloc-free. This means that it can be used in environments where alloc is not available, such as embedded systems. It also has no unsafe code.
 
@@ -27,9 +27,9 @@ In addition, this crate is not only `no_std`, but also alloc-free. This means th
 
 ## Introduction
 
-`agnostic-lite` is a Sans-I/O abstraction layer for any async runtime.
+`agnostic-lite` is an agnostic abstraction layer for any async runtime.
 
-In order to make it trivial for others to build implementations of any async runtime, this crate provides a [sans-I/O](https://sans-io.readthedocs.io/en/latest/) implementation.
+In order to make it trivial for others to build implementations of any async runtime, this crate provides an abstraction layer implementation.
 
 In addition, this crate is not only `no_std`, but also alloc-free. This means that it can be used in environments where alloc is not available, such as embedded systems. It also has no unsafe code.
 

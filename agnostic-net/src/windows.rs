@@ -2,7 +2,7 @@ use std::mem::zeroed;
 
 use socket2::SockRef;
 use windows_sys::Win32::Networking::WinSock::{
-  WSADuplicateSocketW, WSAGetLastError, WSASocketW, INVALID_SOCKET, SOCKET_ERROR, WSAPROTOCOL_INFOW,
+  INVALID_SOCKET, SOCKET_ERROR, WSADuplicateSocketW, WSAGetLastError, WSAPROTOCOL_INFOW, WSASocketW,
 };
 
 pub use std::os::windows::io::{

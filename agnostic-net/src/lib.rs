@@ -3,7 +3,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
-use agnostic_lite::{cfg_async_std, cfg_smol, cfg_tokio, RuntimeLite};
+use agnostic_lite::{RuntimeLite, cfg_async_std, cfg_smol, cfg_tokio};
 use futures_util::Future;
 use std::net::SocketAddr;
 

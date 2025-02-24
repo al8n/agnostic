@@ -7,7 +7,7 @@
 </div>
 <div align="center">
 
-`agnostic` is a [Sans-I/O] abstraction layer for any async runtime.
+`agnostic` is an agnostic abstraction layer for any async runtime.
 
 If you want a light weight crate, see `agnostic-lite`.
 
@@ -25,7 +25,7 @@ If you want a light weight crate, see `agnostic-lite`.
 
 ## Introduction
 
-A Sans-I/O abstraction layer for any async runtime.
+An agnostic abstraction layer for any async runtime.
 
 If you want a light weight crate, see `agnostic-lite`.
 
@@ -50,4 +50,4 @@ Copyright (c) 2025 Al Liu.
 [doc-url]: https://docs.rs/agnostic
 [crates-url]: https://crates.io/crates/agnostic
 [codecov-url]: https://app.codecov.io/gh/al8n/agnostic/
-[Sans-I/O]: https://sans-io.readthedocs.io/en/latest/
+
