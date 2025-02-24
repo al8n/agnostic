@@ -17,9 +17,9 @@ pub use runtime::*;
 /// The runtime related traits and types
 mod runtime {
   pub use agnostic_lite::{
-    cfg_async_std, cfg_linux, cfg_smol, cfg_tokio, cfg_unix, cfg_windows, time, AfterHandle,
-    AfterHandleError, AsyncAfterSpawner, AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner,
-    JoinHandle, LocalJoinHandle, RuntimeLite, Yielder,
+    AfterHandle, AfterHandleError, AsyncAfterSpawner, AsyncBlockingSpawner, AsyncLocalSpawner,
+    AsyncSpawner, JoinHandle, LocalJoinHandle, RuntimeLite, Yielder, cfg_async_std, cfg_linux,
+    cfg_smol, cfg_tokio, cfg_unix, cfg_windows, time,
   };
 
   /// Runtime trait
@@ -80,10 +80,10 @@ pub mod net;
 #[cfg_attr(docsrs, doc(cfg(feature = "dns")))]
 pub mod dns {
   pub use agnostic_dns::{
-    read_system_conf, AgnosticTime, AsyncConnectionProvider, AsyncDnsUdp, AsyncRuntimeProvider,
-    AsyncSpawn, Dns, LookupIpStrategy, NameServerConfig, NameServerConfigGroup, Protocol,
-    ResolverConfig, ResolverOpts, ServerOrderingStrategy, Timer, CLOUDFLARE_IPS, GOOGLE_IPS,
-    QUAD9_IPS,
+    AgnosticTime, AsyncConnectionProvider, AsyncDnsUdp, AsyncRuntimeProvider, AsyncSpawn,
+    CLOUDFLARE_IPS, Dns, GOOGLE_IPS, LookupIpStrategy, NameServerConfig, NameServerConfigGroup,
+    Protocol, QUAD9_IPS, ResolverConfig, ResolverOpts, ServerOrderingStrategy, Timer,
+    read_system_conf,
   };
 
   #[cfg(feature = "dns-over-rustls")]

@@ -4,15 +4,15 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
-use agnostic_net::{runtime::RuntimeLite, Net, UdpSocket};
+use agnostic_net::{Net, UdpSocket, runtime::RuntimeLite};
 use futures_util::future::FutureExt;
 use std::{future::Future, io, marker::PhantomData, net::SocketAddr, pin::Pin, time::Duration};
 
 use hickory_proto::Time;
 pub use hickory_resolver::config::*;
 use hickory_resolver::{
-  name_server::{ConnectionProvider, GenericConnector, RuntimeProvider, Spawn},
   AsyncResolver,
+  name_server::{ConnectionProvider, GenericConnector, RuntimeProvider, Spawn},
 };
 
 pub use agnostic_net as net;
