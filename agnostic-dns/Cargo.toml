@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-dns"
-version = "0.2.1"
+version = "0.2.2"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 categories = ["asynchronous", "network-programming"]
 keywords = ["agnostic", "dns"]
-description = "`agnostic-dns` is a Sans-I/O abstraction layer over `hickory-dns`."
+description = "`agnostic-dns` is an agnostic abstraction layer over `hickory-dns`."
 
 [features]
 default = []

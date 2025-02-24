@@ -1,13 +1,13 @@
 [package]
 name = "agnostic-io"
-version = "0.1.1"
+version = "0.1.2"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
-description = "`agnostic-io` defines I/O traits in Sans-I/O style for any async runtime."
+description = "`agnostic-io` defines I/O traits in agnostic style for any async runtime."
 
 [features]
 default = ["std"]

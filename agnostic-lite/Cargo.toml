@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-lite"
-version = "0.5.4"
+version = "0.5.5"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 
-description = "`agnostic-lite` is a Sans-I/O abstraction layer for any async runtime."
+description = "`agnostic-lite` is an agnostic abstraction layer for any async runtime."
 documentation = "https://docs.rs/agnostic-lite"
 readme = "README.md"
 categories = ["asynchronous", "no-std"]
