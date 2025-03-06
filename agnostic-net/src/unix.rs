@@ -17,16 +17,16 @@ macro_rules! rustix_fn {
 
 super::cfg_async_std!(
   rustix_fn!(set_ip_ttl(set_ttl(ttl: u32) -> ()));
-  rustix_fn!(get_ip_ttl(ttl() -> u32));
+  rustix_fn!(ip_ttl(ttl() -> u32));
 );
 
-rustix_fn!(get_ipv6_v6only(only_v6() -> bool));
+rustix_fn!(ipv6_v6only(only_v6() -> bool));
 rustix_fn!(set_socket_recv_buffer_size(set_recv_buffer_size(size: usize) -> ()));
-rustix_fn!(get_socket_recv_buffer_size(recv_buffer_size() -> usize));
+rustix_fn!(socket_recv_buffer_size(recv_buffer_size() -> usize));
 rustix_fn!(set_socket_send_buffer_size(set_send_buffer_size(size: usize) -> ()));
-rustix_fn!(get_socket_send_buffer_size(send_buffer_size() -> usize));
+rustix_fn!(socket_send_buffer_size(send_buffer_size() -> usize));
 rustix_fn!(set_socket_linger(set_linger(duration: Option<std::time::Duration>) -> ()));
-rustix_fn!(get_socket_linger(linger() -> Option<std::time::Duration>));
+rustix_fn!(socket_linger(linger() -> Option<std::time::Duration>));
 
 pub(super) fn shutdown<T>(this: &T, how: std::net::Shutdown) -> std::io::Result<()>
 where
@@ -37,7 +37,7 @@ where
     match how {
       std::net::Shutdown::Read => rustix::net::Shutdown::Read,
       std::net::Shutdown::Write => rustix::net::Shutdown::Write,
-      std::net::Shutdown::Both => rustix::net::Shutdown::ReadWrite,
+      std::net::Shutdown::Both => rustix::net::Shutdown::Both,
     },
   )
   .map_err(|e| std::io::Error::from_raw_os_error(e.raw_os_error()))
