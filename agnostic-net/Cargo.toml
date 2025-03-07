@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-net"
-version = "0.2.2"
+version = "0.2.3"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -43,7 +43,7 @@ async-std = [
 smol = ["std", "dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
 
 [target.'cfg(unix)'.dependencies]
-rustix = { version = "0.38", features = ["net"] }
+rustix = { version = "1", features = ["net"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Networking_WinSock"] }
