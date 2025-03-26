@@ -4,6 +4,7 @@ use agnostic_lite::tokio::TokioRuntime;
 use ::tokio::net::UdpSocket as TokioUdpSocket;
 
 /// The [`UdpSocket`](super::super::UdpSocket) implementation for [`tokio`] runtime.
+#[derive(Debug)]
 pub struct UdpSocket {
   socket: TokioUdpSocket,
 }

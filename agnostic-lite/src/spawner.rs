@@ -6,7 +6,7 @@ cfg_time!(
 
 use crate::Yielder;
 
-#[cfg(any(feature = "smol", feature = "async-std"))]
+#[cfg(feature = "smol")]
 macro_rules! join_handle {
   ($handle:ty) => {
     pin_project_lite::pin_project! {
@@ -184,23 +184,13 @@ pub trait AsyncBlockingSpawner: Yielder + Copy + 'static {
 #[derive(Debug, Clone, Copy)]
 #[cfg(all(
   feature = "time",
-  any(
-    feature = "async-std",
-    feature = "tokio",
-    feature = "smol",
-    feature = "wasm"
-  )
+  any(feature = "tokio", feature = "smol", feature = "wasm")
 ))]
 pub(crate) struct Canceled;
 
 #[cfg(all(
   feature = "time",
-  any(
-    feature = "async-std",
-    feature = "tokio",
-    feature = "smol",
-    feature = "wasm"
-  )
+  any(feature = "tokio", feature = "smol", feature = "wasm")
 ))]
 impl core::fmt::Display for Canceled {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -210,12 +200,7 @@ impl core::fmt::Display for Canceled {
 
 #[cfg(all(
   feature = "time",
-  any(
-    feature = "async-std",
-    feature = "tokio",
-    feature = "smol",
-    feature = "wasm"
-  )
+  any(feature = "tokio", feature = "smol", feature = "wasm")
 ))]
 impl core::error::Error for Canceled {}
 
@@ -255,12 +240,7 @@ impl<E: core::error::Error + Send + Sync + 'static> From<AfterHandleError<E>> fo
 
 #[cfg(all(
   feature = "time",
-  any(
-    feature = "async-std",
-    feature = "tokio",
-    feature = "smol",
-    feature = "wasm"
-  )
+  any(feature = "tokio", feature = "smol", feature = "wasm")
 ))]
 pub(crate) struct AfterHandleSignals {
   finished: core::sync::atomic::AtomicBool,
@@ -269,12 +249,7 @@ pub(crate) struct AfterHandleSignals {
 
 #[cfg(all(
   feature = "time",
-  any(
-    feature = "async-std",
-    feature = "tokio",
-    feature = "smol",
-    feature = "wasm"
-  )
+  any(feature = "tokio", feature = "smol", feature = "wasm")
 ))]
 impl AfterHandleSignals {
   #[inline]

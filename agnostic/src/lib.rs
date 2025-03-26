@@ -18,8 +18,8 @@ pub use runtime::*;
 mod runtime {
   pub use agnostic_lite::{
     AfterHandle, AfterHandleError, AsyncAfterSpawner, AsyncBlockingSpawner, AsyncLocalSpawner,
-    AsyncSpawner, JoinHandle, LocalJoinHandle, RuntimeLite, Yielder, cfg_async_std, cfg_linux,
-    cfg_smol, cfg_tokio, cfg_unix, cfg_windows, time,
+    AsyncSpawner, JoinHandle, LocalJoinHandle, RuntimeLite, Yielder, cfg_linux, cfg_smol,
+    cfg_tokio, cfg_unix, cfg_windows, time,
   };
 
   /// Runtime trait
@@ -56,13 +56,6 @@ pub use agnostic_io as io;
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
 pub mod tokio;
 
-/// [`async_std`] runtime adapter
-///
-/// [`async_std`]: https://docs.rs/async-std
-#[cfg(feature = "async-std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
-pub mod async_std;
-
 /// [`smol`] runtime adapter
 ///
 /// [`smol`]: https://docs.rs/smol
@@ -75,25 +68,25 @@ pub mod smol;
 #[cfg_attr(docsrs, doc(cfg(feature = "net")))]
 pub mod net;
 
-/// Agnostic async DNS provider.
-#[cfg(feature = "dns")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dns")))]
-pub mod dns {
-  pub use agnostic_dns::{
-    AgnosticTime, AsyncConnectionProvider, AsyncDnsUdp, AsyncRuntimeProvider, AsyncSpawn,
-    CLOUDFLARE_IPS, Dns, GOOGLE_IPS, LookupIpStrategy, NameServerConfig, NameServerConfigGroup,
-    Protocol, QUAD9_IPS, ResolverConfig, ResolverOpts, ServerOrderingStrategy, Timer,
-    read_system_conf,
-  };
+// /// Agnostic async DNS provider.
+// #[cfg(feature = "dns")]
+// #[cfg_attr(docsrs, doc(cfg(feature = "dns")))]
+// pub mod dns {
+//   pub use agnostic_dns::{
+//     AgnosticTime, AsyncConnectionProvider, AsyncDnsUdp, AsyncRuntimeProvider, AsyncSpawn,
+//     CLOUDFLARE_IPS, Dns, GOOGLE_IPS, LookupIpStrategy, NameServerConfig, NameServerConfigGroup,
+//     Protocol, QUAD9_IPS, ResolverConfig, ResolverOpts, ServerOrderingStrategy, Timer,
+//     read_system_conf,
+//   };
 
-  #[cfg(feature = "dns-over-rustls")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
-  pub use agnostic_dns::TlsClientConfig;
+//   #[cfg(feature = "dns-over-rustls")]
+//   #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
+//   pub use agnostic_dns::TlsClientConfig;
 
-  #[cfg(unix)]
-  #[cfg_attr(docsrs, doc(cfg(unix)))]
-  pub use agnostic_dns::{parse_resolv_conf, read_resolv_conf};
-}
+//   #[cfg(unix)]
+//   #[cfg_attr(docsrs, doc(cfg(unix)))]
+//   pub use agnostic_dns::{parse_resolv_conf, read_resolv_conf};
+// }
 
 /// Quinn related traits
 #[cfg(feature = "quinn")]

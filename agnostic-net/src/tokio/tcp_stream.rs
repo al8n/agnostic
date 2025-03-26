@@ -9,6 +9,7 @@ pub use owned::*;
 
 
 /// A [`TcpStream`](super::super::TcpStream) implementation for [`tokio`] runtime.
+#[derive(Debug)]
 pub struct TcpStream {
   stream: TokioTcpStream,
 }

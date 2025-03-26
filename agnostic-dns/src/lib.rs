@@ -4,24 +4,29 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
-use agnostic_net::{Net, UdpSocket, runtime::RuntimeLite};
+use agnostic_net::{runtime::RuntimeLite, Net, TcpSocket, UdpSocket};
 use futures_util::future::FutureExt;
-use std::{future::Future, io, marker::PhantomData, net::SocketAddr, pin::Pin, time::Duration};
-
-use hickory_proto::Time;
-pub use hickory_resolver::config::*;
+use hickory_proto::{
+  ProtoError,
+  runtime::{RuntimeProvider, Spawn, Time},
+};
+#[cfg(feature = "quic")]
+use hickory_proto::runtime::QuicSocketBinder;
 use hickory_resolver::{
-  AsyncResolver,
-  name_server::{ConnectionProvider, GenericConnector, RuntimeProvider, Spawn},
+  Resolver,
+  name_server::{ConnectionProvider, GenericConnector},
 };
 
+use std::{future::Future, io, marker::PhantomData, net::SocketAddr, pin::Pin, time::Duration};
+
+pub use hickory_resolver::config::*;
 pub use agnostic_net as net;
 
 #[cfg(test)]
 mod tests;
 
 /// Agnostic aysnc DNS resolver
-pub type Dns<N> = AsyncResolver<AsyncConnectionProvider<N>>;
+pub type Dns<N> = Resolver<AsyncConnectionProvider<N>>;
 
 /// Async spawner
 #[derive(Debug, Default)]
@@ -41,7 +46,7 @@ impl<N> Copy for AsyncSpawn<N> {}
 impl<N: Net> Spawn for AsyncSpawn<N> {
   fn spawn_bg<F>(&mut self, future: F)
   where
-    F: Future<Output = Result<(), hickory_proto::error::ProtoError>> + Send + 'static,
+    F: Future<Output = Result<(), ProtoError>> + Send + 'static,
   {
     <N::Runtime as RuntimeLite>::spawn_detach(future);
   }
@@ -127,14 +132,6 @@ impl<N: Net> hickory_proto::tcp::DnsTcpStream for AsyncDnsTcp<N> {
   type Time = AgnosticTime<N>;
 }
 
-impl<N: Net> AsyncDnsTcp<N> {
-  async fn connect(addr: SocketAddr) -> std::io::Result<Self> {
-    <N::TcpStream as agnostic_net::TcpStream>::connect(addr)
-      .await
-      .map(Self)
-  }
-}
-
 impl<N: Net> futures_util::AsyncRead for AsyncDnsTcp<N> {
   fn poll_read(
     mut self: std::pin::Pin<&mut Self>,
@@ -199,13 +196,6 @@ impl<N: Net> hickory_proto::udp::DnsUdpSocket for AsyncDnsUdp<N> {
   }
 }
 
-#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-impl<N: Net> hickory_proto::udp::QuicLocalAddr for AsyncDnsUdp<N> {
-  fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
-    <N::UdpSocket as UdpSocket>::local_addr(&self.0)
-  }
-}
-
 impl<N: Net> RuntimeProvider for AsyncRuntimeProvider<N> {
   type Handle = AsyncSpawn<N>;
 
@@ -221,9 +211,32 @@ impl<N: Net> RuntimeProvider for AsyncRuntimeProvider<N> {
 
   fn connect_tcp(
     &self,
-    addr: SocketAddr,
-  ) -> std::pin::Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>> {
-    AsyncDnsTcp::connect(addr).boxed()
+    server_addr: SocketAddr,
+    bind_addr: Option<SocketAddr>,
+    wait_for: Option<Duration>,
+  ) -> Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>> {
+    Box::pin(async move {
+      let socket = match server_addr {
+        SocketAddr::V4(_) => <N::TcpSocket as TcpSocket>::new_v4(),
+        SocketAddr::V6(_) => <N::TcpSocket as TcpSocket>::new_v6(),
+      }?;
+
+      if let Some(bind_addr) = bind_addr {
+        socket.bind(bind_addr)?;
+      }
+
+      socket.set_nodelay(true)?;
+      let future = socket.connect(server_addr);
+      let wait_for = wait_for.unwrap_or(Duration::from_secs(5));
+      match <N::Runtime as RuntimeLite>::timeout(wait_for, future).await {
+        Ok(Ok(socket)) => Ok(AsyncDnsTcp(socket)),
+        Ok(Err(e)) => Err(e),
+        Err(_) => Err(io::Error::new(
+          io::ErrorKind::TimedOut,
+          format!("connection to {server_addr:?} timed out after {wait_for:?}"),
+        )),
+      }
+    })
   }
 
   fn bind_udp(
@@ -233,7 +246,20 @@ impl<N: Net> RuntimeProvider for AsyncRuntimeProvider<N> {
   ) -> std::pin::Pin<Box<dyn Send + Future<Output = io::Result<Self::Udp>>>> {
     AsyncDnsUdp::bind(local_addr).boxed()
   }
+
+  fn quic_binder(&self) -> Option<&dyn hickory_proto::runtime::QuicSocketBinder> {
+    #[cfg(feature = "quic")]
+    {
+
+    }
+
+    None
+  }
 }
+
+// impl<> QuicSocketBinder for AsyncRuntimeQuinnSocketBinder {
+
+// }
 
 /// Create `DnsHandle` with the help of `AsyncRuntimeProvider`.
 pub struct AsyncConnectionProvider<N: Net> {
@@ -273,9 +299,9 @@ impl<N: Net> ConnectionProvider for AsyncConnectionProvider<N> {
 
   fn new_connection(
     &self,
-    config: &hickory_resolver::config::NameServerConfig,
-    options: &hickory_resolver::config::ResolverOpts,
-  ) -> Self::FutureConn {
+    config: &NameServerConfig,
+    options: &ResolverOpts,
+  ) -> Result<Self::FutureConn, io::Error> {
     self.connection_provider.new_connection(config, options)
   }
 }

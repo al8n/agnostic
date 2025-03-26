@@ -7,6 +7,7 @@ use ::tokio::net::TcpListener as TokioTcpListener;
 /// A [`TcpListener`](super::super::TcpListener) implementation for [`tokio`] runtime.
 /// 
 /// [`tokio`]: https://docs.rs/tokio
+#[derive(Debug)]
 pub struct TcpListener {
   ln: TokioTcpListener,
 }

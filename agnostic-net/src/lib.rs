@@ -3,7 +3,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
-use agnostic_lite::{RuntimeLite, cfg_async_std, cfg_smol, cfg_tokio};
+use agnostic_lite::{RuntimeLite, cfg_smol, cfg_tokio};
 use futures_util::Future;
 use std::net::SocketAddr;
 
@@ -15,7 +15,7 @@ pub use agnostic_lite as runtime;
 #[cfg_attr(not(any(unix, windows)), path = "unknown.rs")]
 pub mod os;
 
-#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
+#[cfg(any(feature = "smol", feature = "tokio"))]
 macro_rules! impl_as_raw_fd {
   ($name:ident.$field:ident) => {
     #[cfg(unix)]
@@ -61,7 +61,7 @@ macro_rules! impl_as {
   };
 }
 
-#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
+#[cfg(any(feature = "smol", feature = "tokio"))]
 macro_rules! call {
   ($this:ident.$field:ident.$method:ident($buf:ident)) => {{
     paste::paste! {
@@ -88,18 +88,25 @@ pub use agnostic_io as io;
 
 mod to_socket_addrs;
 
+#[cfg(feature = "quinn")]
+mod quinn;
+
 #[cfg(test)]
 mod tests;
 
 #[macro_use]
 mod tcp;
+mod tcp_socket;
 #[macro_use]
 mod udp;
 
 pub use tcp::*;
+pub use tcp_socket::*;
 pub use udp::*;
+#[cfg(feature = "quinn")]
+pub use self::quinn::*;
 
-#[cfg(any(feature = "smol", feature = "async-std"))]
+#[cfg(feature = "smol")]
 #[macro_use]
 mod async_io;
 
@@ -115,13 +122,6 @@ cfg_smol!(
   ///
   /// [`smol`]: https://docs.rs/smol
   pub mod smol;
-);
-
-cfg_async_std!(
-  /// Network abstractions for [`async-std`] runtime
-  ///
-  /// [`async-std`]: https://docs.rs/async-std
-  pub mod async_std;
 );
 
 #[doc(hidden)]
@@ -191,6 +191,13 @@ pub trait Net: Unpin + Send + Sync + 'static {
   type TcpListener: TcpListener<Stream = Self::TcpStream, Runtime = Self::Runtime>;
   /// The [`TcpStream`] implementation
   type TcpStream: TcpStream<Runtime = Self::Runtime>;
+  /// The [`TcpSocket`] implementation
+  type TcpSocket: TcpSocket<Stream = Self::TcpStream, Listener = Self::TcpListener, Runtime = Self::Runtime>;
   /// The [`UdpSocket`] implementation
   type UdpSocket: UdpSocket<Runtime = Self::Runtime>;
+
+  /// The [`Quinn`] implementation
+  #[cfg(feature = "quinn")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "quinn")))]
+  type Quinn: ::quinn::Runtime;
 }

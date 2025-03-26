@@ -1,6 +1,6 @@
 [package]
 name = "agnostic"
-version = "0.7.2"
+version = "0.8.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -36,14 +36,6 @@ tokio = [
   "agnostic-process?/tokio",
   "quinn?/runtime-tokio",
 ]
-async-std = [
-  "std",
-  "agnostic-lite/async-std",
-  "agnostic-net?/async-std",
-  "agnostic-dns?/async-std",
-  "agnostic-process?/async-std",
-  "quinn?/runtime-async-std",
-]
 smol = [
   "std",
   "agnostic-lite/smol",
@@ -57,47 +49,48 @@ tracing = ["std", "agnostic-dns/tracing"]
 
 ## DNS related features
 dns = ["std", "dep:agnostic-dns"]
-dns-over-quic = [
+
+tls-aws-lc-rs = [
   "dns",
-  "agnostic-dns/dns-over-quic",
+  "agnostic-dns/tls-aws-lc-rs",
 ]
-dns-over-h3 = [
+https-aws-lc-rs = [
   "dns",
-  "agnostic-dns/dns-over-h3",
+  "agnostic-dns/https-aws-lc-rs",
 ]
-dns-over-https-rustls = [
+quic-aws-lc-rs = [
   "dns",
-  "agnostic-dns/dns-over-https-rustls",
+  "agnostic-dns/quic-aws-lc-rs",
 ]
-dns-over-rustls = [
+h3-aws-lc-rs = [
   "dns",
-  "agnostic-dns/dns-over-rustls",
+  "agnostic-dns/h3-aws-lc-rs",
 ]
-dns-over-openssl = [
+tls-ring = [
   "dns",
-  "agnostic-dns/dns-over-openssl",
+  "agnostic-dns/tls-ring",
 ]
-dns-over-native-tls = [
+https-ring = [
   "dns",
-  "agnostic-dns/dns-over-native-tls",
+  "agnostic-dns/https-ring",
 ]
-dns-webpki-roots = [
+quic-ring = [
   "dns",
-  "agnostic-dns/dns-webpki-roots",
+  "agnostic-dns/quic-ring",
 ]
-dns-native-certs = [
+h3-ring = [
   "dns",
-  "agnostic-dns/dns-native-certs",
+  "agnostic-dns/h3-ring",
 ]
-dnssec-openssl = [
+dnssec-aws-lc-rs = [
   "dns",
-  "agnostic-dns/dnssec-openssl",
+  "agnostic-dns/dnssec-aws-lc-rs",
 ]
 dnssec-ring = [
-  "dnssec",
+  "dns",
   "agnostic-dns/dnssec-ring",
 ]
-dnssec = ["dns", "agnostic-dns/dnssec"]
+
 
 [dependencies]
 agnostic-lite = { workspace = true, features = ["time"] }

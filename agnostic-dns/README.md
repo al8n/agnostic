@@ -28,7 +28,6 @@
 Builtin supports runtimes:
 
 - `tokio`
-- `async-std`
 - `smol`
 
 ## Installation
@@ -48,12 +47,6 @@ agnostic-dns = "0.1"
 
   ```toml
   agnostic-dns = { version = "0.1", features = ["smol"] }
-  ```
-
-- `async-std`
-
-  ```toml
-  agnostic-dns = { version = "0.1", features = ["async-std"] }
   ```
 
 #### License

@@ -28,7 +28,6 @@ Agnostic abstraction layer of `std::process` for any async runtime.
 Builtin supports runtimes:
 
 - `tokio`
-- `async-std`
 - `smol`
 
 ## Installation
@@ -48,12 +47,6 @@ agnostic-process = "0.1"
 
   ```toml
   agnostic-process = { version = "0.1", features = ["smol"] }
-  ```
-
-- `async-std`
-
-  ```toml
-  agnostic-process = { version = "0.1", features = ["async-std"] }
   ```
 
 #### License

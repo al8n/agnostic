@@ -44,7 +44,6 @@ In addition, this crate is not only `no_std`, but also alloc-free. This means th
 Builtin supports runtimes:
 
 - `tokio`
-- `async-std`
 - `smol`
 - `wasm-bindgen-futures`
 

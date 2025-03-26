@@ -32,15 +32,9 @@ tokio = [
   "tokio/macros",
   "tokio/time",
   "tokio-io",
+  "quinn?/runtime-tokio",
 ]
-async-std = [
-  "std",
-  "dep:async-std",
-  "agnostic-lite/async-std",
-  "async-io",
-  "pin-project-lite",
-]
-smol = ["std", "dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
+smol = ["std", "dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io", "quinn?/runtime-smol"]
 
 [target.'cfg(unix)'.dependencies]
 rustix = { version = "1", features = ["net"] }
@@ -56,15 +50,13 @@ async-trait = "0.1"
 futures-util.workspace = true
 triomphe = "0.1"
 
+quinn = { version = "0.11", optional = true }
+
 tokio = { version = "1", default-features = false, optional = true, features = ["net", "io-std", "io-util"] }
 tokio-stream = { version = "0.1", default-features = false, optional = true, features = [
   "time",
 ] }
 
-async-std = { workspace = true, optional = true, features = [
-  "unstable",
-  "default",
-] }
 async-io = { workspace = true, optional = true }
 paste = "1"
 pin-project-lite = { workspace = true, optional = true }

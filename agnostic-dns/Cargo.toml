@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-dns"
-version = "0.2.2"
+version = "0.3.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -14,67 +14,58 @@ description = "`agnostic-dns` is an agnostic abstraction layer over `hickory-dns
 default = []
 
 tokio = ["agnostic-net/tokio"]
-async-std = ["agnostic-net/async-std"]
 smol = ["agnostic-net/smol"]
 
 tracing = ["dep:tracing"]
 
-dns-over-quic = [
-  "hickory-resolver/dns-over-quic",
-  "hickory-proto/dns-over-quic",
-  "dns-over-rustls",
+quic = ["hickory-resolver/__quic"]
+
+tls-aws-lc-rs = [
+  "hickory-resolver/tls-aws-lc-rs",
 ]
-dns-over-h3 = [
-  "hickory-resolver/dns-over-h3",
-  "dns-over-rustls",
-  "hickory-proto/dns-over-h3",
+https-aws-lc-rs = [
+  "hickory-resolver/https-aws-lc-rs",
 ]
-dns-over-https-rustls = [
-  "hickory-resolver/dns-over-https-rustls",
-  "hickory-proto/dns-over-https-rustls",
-  "dns-over-rustls",
+quic-aws-lc-rs = [
+  "hickory-resolver/quic-aws-lc-rs",
+  "quic",
 ]
-dns-over-rustls = [
-  "hickory-resolver/dns-over-rustls",
-  "hickory-proto/dns-over-rustls",
+h3-aws-lc-rs = [
+  "hickory-resolver/h3-aws-lc-rs",
+  "quic",
 ]
-dns-over-openssl = [
-  "hickory-resolver/dns-over-openssl",
-  "hickory-proto/dns-over-openssl",
+tls-ring = [
+  "hickory-resolver/tls-ring",
 ]
-dns-over-native-tls = [
-  "hickory-resolver/dns-over-native-tls",
-  "hickory-proto/dns-over-native-tls",
+https-ring = [
+  "hickory-resolver/https-ring",
 ]
-dns-webpki-roots = [
-  "hickory-proto/webpki-roots",
-  "hickory-resolver/webpki-roots",
+quic-ring = [
+  "hickory-resolver/quic-ring",
+  "quic",
 ]
-dns-native-certs = [
-  "hickory-proto/native-certs",
-  "hickory-resolver/native-certs",
+h3-ring = [
+  "hickory-resolver/h3-ring",
+  "quic",
 ]
-dnssec-openssl = [
-  "hickory-proto/dnssec-openssl",
-  "hickory-resolver/dnssec-openssl",
+dnssec-aws-lc-rs = [
+  "hickory-resolver/dnssec-aws-lc-rs",
 ]
 dnssec-ring = [
-  "dnssec",
-  "hickory-proto/dnssec-ring",
   "hickory-resolver/dnssec-ring",
 ]
-dnssec = [ "hickory-proto/dnssec", "hickory-resolver/dnssec"]
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-hickory-resolver = { version = "0.24", default-features = false, optional = true }
+hickory-resolver = { version = "0.25", default-features = false, optional = true }
 
 [target.'cfg(unix)'.dependencies]
-hickory-resolver = { version = "0.24", default-features = false, features = [
+hickory-resolver = { version = "0.25", default-features = false, features = [
   "system-config",
 ] }
+rustix = { version = "1", features = ["net"] }
 
 [target.'cfg(windows)'.dependencies]
-hickory-resolver = { version = "0.24", default-features = false, features = [
+hickory-resolver = { version = "0.25", default-features = false, features = [
   "system-config",
 ] }
 
@@ -82,9 +73,11 @@ hickory-resolver = { version = "0.24", default-features = false, features = [
 async-trait = "0.1"
 agnostic-net.workspace = true
 futures-util.workspace = true
-hickory-proto = { version = "0.24", default-features = false }
+hickory-proto = { version = "0.25", default-features = false }
 resolv-conf = { version = "0.7", default-features = false }
 tracing = { version = "0.1", optional = true }
+
+quinn = { version = "0.11", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt"] }
