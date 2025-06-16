@@ -29,7 +29,7 @@ smol = { workspace = true, default-features = false, optional = true }
 async-std = { workspace = true, default-features = false, optional = true, features = ["unstable"] }
 
 [target.'cfg(windows)'.dev-dependencies.windows-sys]
-version = "0.59"
+version = "0.60"
 default-features = false
 features = [
   "Win32_Foundation",

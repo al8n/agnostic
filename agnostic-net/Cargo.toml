@@ -46,7 +46,7 @@ smol = ["std", "dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
 rustix = { version = "1", features = ["net"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Networking_WinSock"] }
+windows-sys = { version = "0.60", features = ["Win32_Networking_WinSock"] }
 socket2 = "0.5"
 
 [dependencies]
