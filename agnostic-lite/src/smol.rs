@@ -51,12 +51,12 @@ impl AsyncSpawner for SmolSpawner {
 }
 
 impl AsyncLocalSpawner for SmolSpawner {
-  type JoinHandle<O>
+  type SmolJoinHandle<O>
     = JoinHandle<O>
   where
     O: 'static;
 
-  fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(future: F) -> Self::SmolJoinHandle<F::Output>
   where
     F::Output: 'static,
     F: Future + 'static,
@@ -80,6 +80,11 @@ impl<T> super::JoinHandle<T> for JoinHandle<T> {
 
   fn detach(self) {
     ::smol::Task::detach(self.handle)
+  }
+
+  fn abort(self) -> impl std::future::Future<Output = ()> + Send {
+    drop(self);
+    std::future::ready(())
   }
 }
 
