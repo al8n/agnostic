@@ -51,12 +51,12 @@ impl AsyncSpawner for TokioSpawner {
 }
 
 impl AsyncLocalSpawner for TokioSpawner {
-  type SmolJoinHandle<F>
+  type JoinHandle<F>
     = ::tokio::task::JoinHandle<F>
   where
     F: 'static;
 
-  fn spawn_local<F>(future: F) -> Self::SmolJoinHandle<F::Output>
+  fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: 'static,
     F: core::future::Future + 'static,
@@ -68,9 +68,8 @@ impl AsyncLocalSpawner for TokioSpawner {
 impl<T> super::JoinHandle<T> for ::tokio::task::JoinHandle<T> {
   type JoinError = ::tokio::task::JoinError;
 
-  fn abort(self) -> impl std::future::Future<Output = ()> + Send {
+  fn abort(self) {
     (&self).abort();
-    std::future::ready(())
   }
 }
 

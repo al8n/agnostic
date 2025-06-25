@@ -85,7 +85,7 @@ pub trait JoinHandle<O>: Future<Output = Result<O, Self::JoinError>> + Unpin {
   type JoinError: core::error::Error + Send + Sync + 'static;
 
   /// Aborts the task related to this handle.
-  fn abort(self) -> impl Future<Output = ()> + Send;
+  fn abort(self);
 
   /// Detaches the task to let it keep running in the background.
   fn detach(self)
@@ -140,12 +140,12 @@ pub trait AsyncSpawner: Yielder + Copy + Send + Sync + 'static {
 /// A spawner trait for spawning futures.
 pub trait AsyncLocalSpawner: Yielder + Copy + 'static {
   /// The handle returned by the spawner when a future is spawned.
-  type SmolJoinHandle<O>: LocalJoinHandle<O> + 'static
+  type JoinHandle<O>: LocalJoinHandle<O> + 'static
   where
     O: 'static;
 
   /// Spawn a future.
-  fn spawn_local<F>(future: F) -> Self::SmolJoinHandle<F::Output>
+  fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: 'static,
     F: Future + 'static;

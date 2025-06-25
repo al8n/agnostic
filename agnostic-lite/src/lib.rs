@@ -276,9 +276,7 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   }
 
   /// Spawn a future onto the local runtime
-  fn spawn_local<F>(
-    future: F,
-  ) -> <Self::LocalSpawner as AsyncLocalSpawner>::SmolJoinHandle<F::Output>
+  fn spawn_local<F>(future: F) -> <Self::LocalSpawner as AsyncLocalSpawner>::JoinHandle<F::Output>
   where
     F: Future + 'static,
     F::Output: 'static,
