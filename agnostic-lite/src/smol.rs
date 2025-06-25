@@ -81,6 +81,10 @@ impl<T> super::JoinHandle<T> for JoinHandle<T> {
   fn detach(self) {
     ::smol::Task::detach(self.handle)
   }
+
+  fn abort(self) {
+    drop(self);
+  }
 }
 
 impl<T> super::LocalJoinHandle<T> for JoinHandle<T> {

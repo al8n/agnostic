@@ -64,6 +64,10 @@ impl<O> super::JoinHandle<O> for JoinHandle<O> {
   fn detach(self) {
     Self::detach(self)
   }
+
+  fn abort(self) {
+    self.cancel();
+  }
 }
 
 impl<O> super::LocalJoinHandle<O> for JoinHandle<O> {

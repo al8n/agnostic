@@ -67,6 +67,10 @@ impl AsyncLocalSpawner for TokioSpawner {
 
 impl<T> super::JoinHandle<T> for ::tokio::task::JoinHandle<T> {
   type JoinError = ::tokio::task::JoinError;
+
+  fn abort(self) {
+    (&self).abort();
+  }
 }
 
 impl<T> super::LocalJoinHandle<T> for ::tokio::task::JoinHandle<T> {

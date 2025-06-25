@@ -9,6 +9,8 @@ cfg_time!(
   use std::time::{Duration, Instant};
 );
 
+use async_std::task::block_on;
+
 use crate::{AsyncBlockingSpawner, AsyncLocalSpawner, AsyncSpawner, Yielder};
 
 pub use crate::spawner::handle::JoinError;
@@ -61,6 +63,10 @@ join_handle!(::async_std::task::JoinHandle<T>);
 
 impl<T> super::JoinHandle<T> for JoinHandle<T> {
   type JoinError = super::spawner::handle::JoinError;
+
+  fn abort(self) {
+    block_on(self.handle.cancel());
+  }
 }
 
 impl<T> super::LocalJoinHandle<T> for JoinHandle<T> {

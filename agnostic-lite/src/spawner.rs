@@ -84,6 +84,9 @@ pub trait JoinHandle<O>: Future<Output = Result<O, Self::JoinError>> + Unpin {
   #[cfg(not(feature = "std"))]
   type JoinError: core::error::Error + Send + Sync + 'static;
 
+  /// Aborts the task related to this handle.
+  fn abort(self);
+
   /// Detaches the task to let it keep running in the background.
   fn detach(self)
   where
