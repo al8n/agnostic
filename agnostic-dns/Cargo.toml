@@ -82,7 +82,7 @@ hickory-resolver = { version = "0.24", default-features = false, features = [
 async-trait = "0.1"
 agnostic-net.workspace = true
 futures-util.workspace = true
-hickory-proto = { version = "0.24", default-features = false }
+hickory-proto = { version = "0.25", default-features = false }
 resolv-conf = { version = "0.7", default-features = false }
 tracing = { version = "0.1", optional = true }
 
