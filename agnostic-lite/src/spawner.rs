@@ -69,7 +69,7 @@ pub(crate) mod handle {
   #[cfg(feature = "std")]
   impl From<JoinError> for std::io::Error {
     fn from(_: JoinError) -> Self {
-      std::io::Error::new(std::io::ErrorKind::Other, "join error")
+      std::io::Error::other("join error")
     }
   }
 }
@@ -250,8 +250,8 @@ impl<E: core::error::Error> core::error::Error for AfterHandleError<E> {}
 impl<E: core::error::Error + Send + Sync + 'static> From<AfterHandleError<E>> for std::io::Error {
   fn from(value: AfterHandleError<E>) -> Self {
     match value {
-      AfterHandleError::Canceled => std::io::Error::new(std::io::ErrorKind::Other, "task canceled"),
-      AfterHandleError::Join(e) => std::io::Error::new(std::io::ErrorKind::Other, e),
+      AfterHandleError::Canceled => std::io::Error::other("task canceled"),
+      AfterHandleError::Join(e) => std::io::Error::other(e),
     }
   }
 }

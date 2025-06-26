@@ -69,7 +69,7 @@ impl<T> super::JoinHandle<T> for ::tokio::task::JoinHandle<T> {
   type JoinError = ::tokio::task::JoinError;
 
   fn abort(self) {
-    (&self).abort();
+    Self::abort(&self)
   }
 }
 
