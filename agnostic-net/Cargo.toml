@@ -47,7 +47,7 @@ rustix = { version = "1", features = ["net"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Networking_WinSock"] }
-socket2 = "0.5"
+socket2 = "0.6"
 
 [dependencies]
 agnostic-lite = { workspace = true, features = ["time", "std"] }
