@@ -33,7 +33,7 @@ jobs:
           - agnostic-io
           - agnostic-dns
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust
         run: |

@@ -53,7 +53,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         rust: [nightly, beta, stable]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install OpenSSL (Windows)
         if: matrix.os == 'windows-latest'
         shell: powershell
@@ -71,7 +71,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         run: rustup update stable
       - run: cargo clippy --features tokio,async-std,smol --all-targets -p agnostic-dns
@@ -80,7 +80,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         run: rustup update stable
       - run: cargo fmt --all --check -p agnostic-dns
