@@ -165,7 +165,7 @@ macro_rules! converter {
 
     cfg_unix!(
       impl std::os::fd::AsFd for $outer<$inner> {
-        fn as_fd(&self) -> std::os::fd::BorrowedFd {
+        fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
           self.0.as_fd()
         }
       }
@@ -177,7 +177,7 @@ macro_rules! converter {
       }
 
       impl std::os::fd::AsFd for $outer<&mut $inner> {
-        fn as_fd(&self) -> std::os::fd::BorrowedFd {
+        fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
           self.0.as_fd()
         }
       }
@@ -189,7 +189,7 @@ macro_rules! converter {
       }
 
       impl std::os::fd::AsFd for $outer<&$inner> {
-        fn as_fd(&self) -> std::os::fd::BorrowedFd {
+        fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
           self.0.as_fd()
         }
       }
