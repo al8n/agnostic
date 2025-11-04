@@ -65,7 +65,7 @@ dnssec-ring = [
 dnssec = [ "hickory-proto/dnssec", "hickory-resolver/dnssec"]
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-hickory-resolver = { version = "0.24", default-features = false, optional = true }
+hickory-resolver = { version = "0.25", default-features = false, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 hickory-resolver = { version = "0.24", default-features = false, features = [
