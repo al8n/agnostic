@@ -23,7 +23,7 @@
 
 ## Introduction
 
-`agnostic-dns` provides runtime-agnostic DNS resolution built on [`hickory-dns`](https://github.com/hickory-dns/hickory-dns). It supports multiple transport protocols (UDP, TCP, DoT, DoH, DoQ, DoH3) and DNSSEC validation - all working seamlessly across tokio, async-std, and smol runtimes.
+`agnostic-dns` provides runtime-agnostic DNS resolution built on [`hickory-dns`](https://github.com/hickory-dns/hickory-dns). It supports multiple transport protocols (UDP, TCP, DoT, DoH, DoQ, DoH3) and DNSSEC validation - all working seamlessly across tokio, and smol runtimes.
 
 ### Key Features
 
@@ -34,14 +34,13 @@
   - DNS over QUIC (DoQ)
   - DNS over HTTP/3 (DoH3)
 - **DNSSEC Support**: Validate DNS responses with OpenSSL or ring
-- **Runtime Agnostic**: Works with tokio, async-std, and smol
+- **Runtime Agnostic**: Works with tokio, and smol
 - **Flexible Configuration**: Use system settings or custom resolvers
 - **Comprehensive**: Built on the mature hickory-dns library
 
 ### Supported Runtimes
 
 - **tokio** - Enable with `features = ["tokio"]`
-- **async-std** - Enable with `features = ["async-std"]`
 - **smol** - Enable with `features = ["smol"]`
 
 ## Installation
@@ -63,12 +62,6 @@ agnostic-dns = "0.2"
   agnostic-dns = { version = "0.2", features = ["smol"] }
   ```
 
-- `async-std`
-
-  ```toml
-  agnostic-dns = { version = "0.2", features = ["async-std"] }
-  ```
-
 ## Feature Matrix
 
 | Feature | Description | Enable With |
@@ -77,7 +70,6 @@ agnostic-dns = "0.2"
 | `dns` | Basic DNS resolution | Default |
 | **Runtimes** | | |
 | `tokio` | Tokio runtime support | `features = ["tokio"]` |
-| `async-std` | Async-std support | `features = ["async-std"]` |
 | `smol` | Smol runtime support | `features = ["smol"]` |
 | **Transport Protocols** | | |
 | `dns-over-rustls` | DNS over TLS with rustls | `features = ["dns-over-rustls"]` |

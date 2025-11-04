@@ -525,11 +525,6 @@ pub trait Process {
 #[cfg(feature = "async-process")]
 mod async_process_impl;
 
-/// Async process related implementations for `async-std` runtime.
-#[cfg(feature = "async-std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
-pub mod async_std;
-
 /// Async process related implementations for `tokio` runtime.
 #[cfg(feature = "tokio")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]

@@ -9,7 +9,7 @@ use core::{
 use std::time::Instant;
 
 pin_project_lite::pin_project! {
-  /// The [`AsyncTimeout`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
+  /// The [`AsyncTimeout`] implementation for any runtime based on [`async-io`](async_io), e.g. `smol`.
   pub struct AsyncIoTimeout<F> {
     #[pin]
     future: F,

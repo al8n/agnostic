@@ -23,21 +23,20 @@ Agnostic abstraction layer of `std::net` for any async runtime.
 
 ## Introduction
 
-`agnostic-net` provides runtime-agnostic abstractions for TCP and UDP networking. Write your network code once and run it with tokio, async-std, or smol - without any code changes.
+`agnostic-net` provides runtime-agnostic abstractions for TCP and UDP networking. Write your network code once and run it with tokio, or smol - without any code changes.
 
 ### Key Features
 
 - **TCP Support**: Async TCP listeners and streams
 - **UDP Support**: Async UDP sockets
 - **Cross-Platform**: Works on Unix, Windows, and other platforms
-- **Runtime Agnostic**: Seamlessly switch between tokio, async-std, and smol
+- **Runtime Agnostic**: Seamlessly switch between tokio, and smol
 - **Zero-Cost**: Compiles to runtime-specific code
 - **Familiar API**: Similar to `std::net` but async
 
 ### Supported Runtimes
 
 - **tokio** - Enable with `features = ["tokio"]`
-- **async-std** - Enable with `features = ["async-std"]`
 - **smol** - Enable with `features = ["smol"]`
 
 ## Installation
@@ -59,12 +58,6 @@ agnostic-net = "0.2"
   agnostic-net = { version = "0.2", features = ["smol"] }
   ```
 
-- `async-std`
-
-  ```toml
-  agnostic-net = { version = "0.2", features = ["async-std"] }
-  ```
-
 ## Platform Support
 
 `agnostic-net` works on all major platforms:
@@ -79,7 +72,6 @@ agnostic-net = "0.2"
 - `std` (default): Standard library support
 - `tokio`: Tokio runtime support
 - `tokio-io`: Tokio I/O trait implementations
-- `async-std`: Async-std runtime support
 - `smol`: Smol runtime support
 
 ## Performance Considerations

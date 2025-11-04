@@ -1,6 +1,6 @@
 use super::*;
 
-#[cfg(any(feature = "tokio", feature = "async-std", feature = "smol"))]
+#[cfg(any(feature = "tokio", feature = "smol"))]
 async fn resolve<N: net::Net>() {
   let dns = Dns::<N>::new(
     Default::default(),
@@ -38,14 +38,6 @@ fn tokio_resolve() {
     .build()
     .unwrap()
     .block_on(resolve::<agnostic_net::tokio::Net>());
-}
-
-#[test]
-#[cfg(feature = "async-std")]
-fn async_std_resolve() {
-  agnostic_net::runtime::async_std::AsyncStdRuntime::block_on(resolve::<
-    agnostic_net::async_std::Net,
-  >());
 }
 
 #[test]

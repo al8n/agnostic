@@ -18,32 +18,16 @@ Write once, run on any async runtime.
 
 ## Overview
 
-**Agnostic** is a Rust ecosystem that provides runtime-agnostic abstractions for async operations. Write your async code once and run it seamlessly with tokio, async-std, smol, or even in WebAssembly - without code changes.
+**Agnostic** is a Rust ecosystem that provides runtime-agnostic abstractions for async operations. Write your async code once and run it seamlessly with tokio, smol, or even in WebAssembly - without code changes.
 
 ### Why Agnostic?
 
-- **Runtime Independence**: Switch between tokio, async-std, and smol with a single feature flag
+- **Runtime Independence**: Switch between tokio, smol with a single feature flag
 - **Zero-Cost Abstractions**: Generic implementations compile to specialized code per runtime
 - **Incremental Adoption**: Use lightweight `agnostic-lite` or the full-featured `agnostic` crate
 - **no_std Support**: Core abstractions work in embedded and constrained environments
 - **Memory Safe**: No unsafe code in core abstractions (`agnostic-lite`)
 - **Comprehensive**: Covers spawning, networking, DNS, process management, and more
-
-### Quick Start
-
-```rust
-use agnostic::Runtime;
-
-#[tokio::main] // or #[async_std::main] or #[smol_macros::main]
-async fn main() {
-    // Spawn a task - works with any runtime
-    let handle = Runtime::spawn(async {
-        println!("Hello from runtime-agnostic code!");
-    });
-
-    handle.await.unwrap();
-}
-```
 
 ## Architecture
 
@@ -54,7 +38,7 @@ agnostic (facade - full-featured)
 ├── agnostic-lite (core - no_std, alloc-free)
 │   ├── Task spawning (AsyncSpawner, AsyncLocalSpawner)
 │   ├── Time abstractions (AsyncSleep, AsyncInterval, AsyncTimeout)
-│   └── Runtime implementations (tokio, async-std, smol, wasm)
+│   └── Runtime implementations (tokio, smol, wasm)
 ├── agnostic-io (Sans-I/O trait definitions)
 │   └── AsyncRead, AsyncWrite, etc.
 ├── agnostic-net (networking)
@@ -110,7 +94,6 @@ agnostic (facade - full-featured)
 Choose your runtime based on your needs:
 
 - **tokio**: Mature, widely used, excellent ecosystem
-- **async-std**: std-like API, good for learning
 - **smol**: Lightweight, minimal dependencies
 - **wasm-bindgen-futures**: WebAssembly support
 
@@ -119,7 +102,6 @@ All runtimes work identically with Agnostic abstractions.
 ## Supported Runtimes
 
 - **tokio** - Enable with `features = ["tokio"]`
-- **async-std** - Enable with `features = ["async-std"]`
 - **smol** - Enable with `features = ["smol"]`
 - **wasm-bindgen-futures** - Enable with `features = ["wasm"]` (agnostic-lite only)
 

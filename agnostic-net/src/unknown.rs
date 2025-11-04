@@ -13,11 +13,6 @@ macro_rules! unknown_fn {
   };
 }
 
-super::cfg_async_std!(
-  unknown_fn!(set_ttl(ttl: u32) -> ());
-  unknown_fn!(ttl() -> u32);
-);
-
 unknown_fn!(shutdown(how: std::net::Shutdown) -> ());
 unknown_fn!(only_v6() -> bool);
 unknown_fn!(linger() -> Option<std::time::Duration>);

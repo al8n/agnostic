@@ -23,7 +23,7 @@
 
 ## Introduction
 
-`agnostic-io` provides runtime-agnostic I/O traits following the [Sans-I/O] design philosophy. It defines standardized async I/O interfaces that work across tokio, async-std, smol, and other runtimes without coupling your protocol implementations to specific I/O primitives.
+`agnostic-io` provides runtime-agnostic I/O traits following the [Sans-I/O] design philosophy. It defines standardized async I/O interfaces that work across tokio, smol, and other runtimes without coupling your protocol implementations to specific I/O primitives.
 
 ### What is Sans-I/O?
 
@@ -42,7 +42,7 @@ This approach makes your code:
 
 ### Key Features
 
-- **Runtime Agnostic**: Works with tokio, async-std, smol, and more
+- **Runtime Agnostic**: Works with tokio, smol, and more
 - **`no_std` Compatible**: Can be used in embedded environments
 - **Zero-Cost**: Trait-based design compiles away
 - **Comprehensive**: AsyncRead, AsyncWrite, AsyncSeek, and more

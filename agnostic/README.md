@@ -25,7 +25,7 @@ If you want a light weight crate, see `agnostic-lite`.
 
 ## Introduction
 
-`agnostic` is a comprehensive, runtime-agnostic abstraction layer for async Rust. It provides a unified API for task spawning, networking, DNS resolution, process management, and QUIC protocol support - all working seamlessly with tokio, async-std, or smol.
+`agnostic` is a comprehensive, runtime-agnostic abstraction layer for async Rust. It provides a unified API for task spawning, networking, DNS resolution, process management, and QUIC protocol support - all working seamlessly with tokio, or smol.
 
 **Looking for a lightweight option?** Check out [`agnostic-lite`](../agnostic-lite/) for a minimal, `no_std`-compatible core.
 
@@ -54,9 +54,6 @@ Choose one runtime feature:
 ```toml
 # For tokio
 agnostic = { version = "0.7", features = ["tokio"] }
-
-# For async-std
-agnostic = { version = "0.7", features = ["async-std"] }
 
 # For smol
 agnostic = { version = "0.7", features = ["smol"] }
@@ -87,217 +84,6 @@ agnostic = { version = "0.7", features = ["tokio", "process"] }
 agnostic = { version = "0.7", features = ["tokio", "quinn"] }
 ```
 
-## Quick Start
-
-### Task Spawning
-
-```rust
-use agnostic::Runtime;
-
-#[tokio::main]
-async fn main() {
-    // Spawn a task
-    let handle = Runtime::spawn(async {
-        println!("Hello from a spawned task!");
-        42
-    });
-
-    let result = handle.await.unwrap();
-    println!("Task returned: {}", result);
-}
-```
-
-### Sleep and Timeouts
-
-```rust
-use agnostic::time::{timeout, Duration};
-use agnostic::Runtime;
-
-#[tokio::main]
-async fn main() {
-    // Sleep for 1 second
-    Runtime::sleep(Duration::from_secs(1)).await;
-
-    // Timeout an operation
-    let result = timeout(Duration::from_secs(2), async {
-        Runtime::sleep(Duration::from_secs(1)).await;
-        "completed"
-    }).await;
-
-    match result {
-        Ok(val) => println!("Operation completed: {}", val),
-        Err(_) => println!("Operation timed out"),
-    }
-}
-```
-
-### TCP Server
-
-```rust
-use agnostic::net::TcpListener;
-use agnostic_io::AsyncReadExt;
-
-#[tokio::main]
-async fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:8080").await?;
-    println!("Server listening on port 8080");
-
-    loop {
-        let (mut stream, addr) = listener.accept().await?;
-        println!("New connection from: {}", addr);
-
-        agnostic::Runtime::spawn(async move {
-            let mut buf = vec![0u8; 1024];
-            match stream.read(&mut buf).await {
-                Ok(n) => {
-                    println!("Received {} bytes", n);
-                }
-                Err(e) => eprintln!("Error reading: {}", e),
-            }
-        });
-    }
-}
-```
-
-### TCP Client
-
-```rust
-use agnostic::net::TcpStream;
-use agnostic_io::{AsyncReadExt, AsyncWriteExt};
-
-#[tokio::main]
-async fn main() -> std::io::Result<()> {
-    let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
-
-    // Write data
-    stream.write_all(b"Hello, server!").await?;
-    stream.flush().await?;
-
-    // Read response
-    let mut buf = vec![0u8; 1024];
-    let n = stream.read(&mut buf).await?;
-    println!("Received: {}", String::from_utf8_lossy(&buf[..n]));
-
-    Ok(())
-}
-```
-
-### UDP Socket
-
-```rust
-use agnostic::net::UdpSocket;
-
-#[tokio::main]
-async fn main() -> std::io::Result<()> {
-    let socket = UdpSocket::bind("127.0.0.1:8080").await?;
-
-    let mut buf = [0u8; 1024];
-    let (len, addr) = socket.recv_from(&mut buf).await?;
-
-    println!("Received {} bytes from {}", len, addr);
-
-    // Echo back
-    socket.send_to(&buf[..len], addr).await?;
-
-    Ok(())
-}
-```
-
-### DNS Resolution
-
-```rust
-use agnostic::dns::{Dns, ResolverConfig, ResolverOpts};
-use agnostic::net::Net;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create DNS resolver
-    let dns = Dns::<Net>::new(
-        ResolverConfig::default(),
-        ResolverOpts::default()
-    )?;
-
-    // Lookup A records
-    let response = dns.lookup_ip("example.com").await?;
-
-    for ip in response.iter() {
-        println!("IP: {}", ip);
-    }
-
-    Ok(())
-}
-```
-
-### Process Spawning
-
-```rust
-use agnostic::process::Command;
-
-#[tokio::main]
-async fn main() -> std::io::Result<()> {
-    let output = Command::new("echo")
-        .arg("Hello from subprocess!")
-        .output()
-        .await?;
-
-    println!("Output: {}", String::from_utf8_lossy(&output.stdout));
-    println!("Exit status: {}", output.status);
-
-    Ok(())
-}
-```
-
-### Intervals
-
-```rust
-use agnostic::time::{interval, Duration};
-use agnostic::Runtime;
-
-#[tokio::main]
-async fn main() {
-    let mut ticker = interval(Duration::from_secs(1));
-
-    for i in 0..5 {
-        ticker.tick().await;
-        println!("Tick {}", i);
-    }
-}
-```
-
-## Switching Runtimes
-
-One of the key benefits of `agnostic` is the ability to switch runtimes without changing your code. Simply change the feature flag and runtime initialization:
-
-```rust
-// Your application code remains the same
-use agnostic::Runtime;
-
-async fn my_app() {
-    Runtime::spawn(async {
-        println!("This works with any runtime!");
-    }).await.unwrap();
-}
-
-// Just change the main function:
-
-// With tokio:
-#[tokio::main]
-async fn main() {
-    my_app().await;
-}
-
-// With async-std:
-#[async_std::main]
-async fn main() {
-    my_app().await;
-}
-
-// With smol:
-fn main() {
-    smol::block_on(my_app());
-}
-```
-
 ## Feature Flags
 
 ### Core Features
@@ -308,7 +94,6 @@ fn main() {
 ### Runtime Features (choose one)
 
 - `tokio`: Tokio runtime support
-- `async-std`: Async-std runtime support
 - `smol`: Smol runtime support
 
 ### Component Features

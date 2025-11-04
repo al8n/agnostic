@@ -53,7 +53,6 @@ In addition, this crate is not only `no_std`, but also alloc-free. This means th
 ### Supported Runtimes
 
 - **tokio** - Enable with `features = ["tokio"]`
-- **async-std** - Enable with `features = ["async-std"]`
 - **smol** - Enable with `features = ["smol"]`
 - **wasm-bindgen-futures** - Enable with `features = ["wasm"]`
 
@@ -88,9 +87,6 @@ Choose one runtime feature:
 # With tokio
 agnostic-lite = { version = "0.5", features = ["tokio"] }
 
-# With async-std
-agnostic-lite = { version = "0.5", features = ["async-std"] }
-
 # With smol
 agnostic-lite = { version = "0.5", features = ["smol"] }
 
@@ -116,9 +112,8 @@ agnostic-lite = { version = "0.5", default-features = false, features = ["tokio"
 ### Runtime Features (choose one)
 
 - `tokio`: Tokio runtime implementations
-- `async-io`: async-io backend (used by smol/async-std)
+- `async-io`: async-io backend (used by smol)
 - `smol`: Smol runtime implementations
-- `async-std`: Async-std runtime implementations
 - `wasm`: WebAssembly support via wasm-bindgen-futures
 
 ## Trait Reference
@@ -201,16 +196,11 @@ pub trait RuntimeLite:
 `agnostic-lite` provides macros for conditional compilation:
 
 ```rust
-use agnostic_lite::{cfg_tokio, cfg_async_std, cfg_smol};
+use agnostic_lite::{cfg_tokio, cfg_smol};
 
 cfg_tokio! {
     // This code only compiles when tokio feature is enabled
     use tokio::task;
-}
-
-cfg_async_std! {
-    // This code only compiles when async-std feature is enabled
-    use async_std::task;
 }
 
 cfg_smol! {
