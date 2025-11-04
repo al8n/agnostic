@@ -11,7 +11,7 @@ use std::time::Instant;
 use crate::time::{AsyncLocalSleep, AsyncLocalSleepExt};
 
 pin_project_lite::pin_project! {
-  /// The [`AsyncSleep`] implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
+  /// The [`AsyncSleep`] implementation for any runtime based on [`async-io`](async_io), e.g. `smol`.
   #[derive(Debug)]
   #[repr(transparent)]
   #[cfg_attr(docsrs, doc(cfg(feature = "async-io")))]

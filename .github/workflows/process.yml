@@ -6,22 +6,22 @@ permissions:
 on:
   pull_request:
     paths:
-      - 'process/src/**'
-      - 'process/tests/**'
-      - 'process/Cargo.toml'
-      - 'lite/src/**'
-      - 'lite/tests/**'
-      - 'lite/Cargo.toml'
+      - "process/src/**"
+      - "process/tests/**"
+      - "process/Cargo.toml"
+      - "lite/src/**"
+      - "lite/tests/**"
+      - "lite/Cargo.toml"
   push:
     branches:
       - main
     paths:
-      - 'process/src/**'
-      - 'process/tests/**'
-      - 'process/Cargo.toml'
-      - 'lite/src/**'
-      - 'lite/tests/**'
-      - 'lite/Cargo.toml'
+      - "process/src/**"
+      - "process/tests/**"
+      - "process/Cargo.toml"
+      - "lite/src/**"
+      - "lite/tests/**"
+      - "lite/Cargo.toml"
   schedule: [cron: "0 1 */7 * *"]
 
 env:
@@ -47,7 +47,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         rust: [nightly, beta, stable]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
         run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
@@ -63,7 +63,7 @@ jobs:
         target:
           - aarch64-linux-android
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
         run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
@@ -83,7 +83,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         run: rustup update stable
       - run: cargo clippy --all-features --all-targets
@@ -92,9 +92,8 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         run: rustup update stable
       - run: cargo fmt --all --check
         working-directory: agnostic-process
-

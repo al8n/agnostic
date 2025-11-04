@@ -144,9 +144,6 @@ mod tokio;
 #[cfg(feature = "smol")]
 mod smol;
 
-#[cfg(feature = "async-std")]
-mod async_std;
-
 async fn smoke<P: Process>() {
   let p = if cfg!(target_os = "windows") {
     <P::Command as Command>::new("cmd")

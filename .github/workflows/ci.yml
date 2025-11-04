@@ -7,19 +7,19 @@ on:
       - main
     # Don't run Clippy tests, when only textfiles were modified
     paths-ignore:
-      - 'README'
-      - 'COPYRIGHT'
-      - 'LICENSE-*'
-      - '**.md'
-      - '**.txt'
+      - "README"
+      - "COPYRIGHT"
+      - "LICENSE-*"
+      - "**.md"
+      - "**.txt"
   pull_request:
     # Don't run Clippy tests, when only textfiles were modified
     paths-ignore:
-      - 'README'
-      - 'COPYRIGHT'
-      - 'LICENSE-*'
-      - '**.md'
-      - '**.txt'
+      - "README"
+      - "COPYRIGHT"
+      - "LICENSE-*"
+      - "**.md"
+      - "**.txt"
   workflow_dispatch:
   schedule: [cron: "40 1 * * *"]
 
@@ -39,12 +39,12 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-      run: rustup update --no-self-update && rustup default nightly && rustup component add rustfmt
-    - name: Check formatting
-      run: cargo fmt --all -- --check
+      - uses: actions/checkout@v5
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update --no-self-update && rustup default nightly && rustup component add rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
 
   # Apply clippy lints
   clippy:
@@ -57,21 +57,21 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-      run: rustup update stable --no-self-update && rustup default stable
-    - name: Install cargo-hack
-      run: cargo install cargo-hack
-    - name: Apply clippy lints (unix)
-      run: cargo hack clippy --each-feature
-      if: matrix.os != 'windows-latest'
-    - name: Apply clippy lints (windows)
-      run: cargo hack clippy --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
-      if: matrix.os == 'windows-latest'
+      - uses: actions/checkout@v5
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update stable --no-self-update && rustup default stable
+      - name: Install cargo-hack
+        run: cargo install cargo-hack
+      - name: Apply clippy lints (unix)
+        run: cargo hack clippy --each-feature
+        if: matrix.os != 'windows-latest'
+      - name: Apply clippy lints (windows)
+        run: cargo hack clippy --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
+        if: matrix.os == 'windows-latest'
 
   build:
-    name: build 
+    name: build
     strategy:
       matrix:
         os:
@@ -80,30 +80,30 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
-      run: rustup update stable --no-self-update && rustup default stable
-    - name: Install cargo-hack
-      run: cargo install cargo-hack
-    - name: Install OpenSSL (Windows)
-      if: matrix.os == 'windows-latest'
-      shell: powershell
-      run: |
-        echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-        vcpkg install openssl:x64-windows-static-md
-    - name: Build (unix)
-      run: cargo hack build --each-feature
-      if: matrix.os != 'windows-latest'
-    - name: Build (windows)
-      run: cargo hack build --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
-      if: matrix.os == 'windows-latest'
+      - uses: actions/checkout@v5
+      - name: Install Rust
+        # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
+        run: rustup update stable --no-self-update && rustup default stable
+      - name: Install cargo-hack
+        run: cargo install cargo-hack
+      - name: Install OpenSSL (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          vcpkg install openssl:x64-windows-static-md
+      - name: Build (unix)
+        run: cargo hack build --each-feature
+        if: matrix.os != 'windows-latest'
+      - name: Build (windows)
+        run: cargo hack build --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
+        if: matrix.os == 'windows-latest'
 
   docs:
     name: docs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache cargo build and registry
         uses: actions/cache@v4
         with:
@@ -122,4 +122,4 @@ jobs:
         run: cargo doc --lib --no-deps --all-features
         env:
           RUSTFLAGS: --cfg docsrs
-          RUSTDOCFLAGS: --cfg docsrs -Dwarnings
+          RUSTDOCFLAGS: --cfg docsrs

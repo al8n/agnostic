@@ -24,11 +24,6 @@ macro_rules! socket2_fn {
   };
 }
 
-super::cfg_async_std!(
-  socket2_fn!(set_ttl(ttl: u32) -> ());
-  socket2_fn!(ttl() -> u32);
-);
-
 socket2_fn!(shutdown(how: std::net::Shutdown) -> ());
 socket2_fn!(only_v6() -> bool);
 socket2_fn!(linger() -> Option<std::time::Duration>);
