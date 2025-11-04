@@ -15,11 +15,6 @@ macro_rules! rustix_fn {
   };
 }
 
-super::cfg_async_std!(
-  rustix_fn!(set_ip_ttl(set_ttl(ttl: u32) -> ()));
-  rustix_fn!(ip_ttl(ttl() -> u32));
-);
-
 rustix_fn!(ipv6_v6only(only_v6() -> bool));
 rustix_fn!(set_socket_recv_buffer_size(set_recv_buffer_size(size: usize) -> ()));
 rustix_fn!(socket_recv_buffer_size(recv_buffer_size() -> usize));

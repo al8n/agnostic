@@ -23,38 +23,70 @@
 
 ## Introduction
 
-`agnostic-dns` is an async runtime agnostic layer over [`hickory-dns`](https://github.com/hickory-dns/hickory-dns).
+`agnostic-dns` provides runtime-agnostic DNS resolution built on [`hickory-dns`](https://github.com/hickory-dns/hickory-dns). It supports multiple transport protocols (UDP, TCP, DoT, DoH, DoQ, DoH3) and DNSSEC validation - all working seamlessly across tokio, and smol runtimes.
 
-Builtin supports runtimes:
+### Key Features
 
-- `tokio`
-- `async-std`
-- `smol`
+- **Multiple Transport Protocols**:
+  - DNS over UDP/TCP (standard)
+  - DNS over TLS (DoT)
+  - DNS over HTTPS (DoH)
+  - DNS over QUIC (DoQ)
+  - DNS over HTTP/3 (DoH3)
+- **DNSSEC Support**: Validate DNS responses with OpenSSL or ring
+- **Runtime Agnostic**: Works with tokio, and smol
+- **Flexible Configuration**: Use system settings or custom resolvers
+- **Comprehensive**: Built on the mature hickory-dns library
+
+### Supported Runtimes
+
+- **tokio** - Enable with `features = ["tokio"]`
+- **smol** - Enable with `features = ["smol"]`
 
 ## Installation
 
 ```toml
 [dependencies]
-agnostic-dns = "0.1"
+agnostic-dns = "0.3"
 ```
 
 - `tokio`
 
   ```toml
-  agnostic-dns = { version = "0.1", features = ["tokio"] }
+  agnostic-dns = { version = "0.3", features = ["tokio"] }
   ```
 
 - `smol`
 
   ```toml
-  agnostic-dns = { version = "0.1", features = ["smol"] }
+  agnostic-dns = { version = "0.3", features = ["smol"] }
   ```
 
-- `async-std`
+## Feature Matrix
 
-  ```toml
-  agnostic-dns = { version = "0.1", features = ["async-std"] }
-  ```
+| Feature | Description | Enable With |
+|---------|-------------|-------------|
+| **Core** | | |
+| `dns` | Basic DNS resolution | Default |
+| **Runtimes** | | |
+| `tokio` | Tokio runtime support | `features = ["tokio"]` |
+| `smol` | Smol runtime support | `features = ["smol"]` |
+| **Transport Protocols** | | |
+| `dns-over-rustls` | DNS over TLS with rustls | `features = ["dns-over-rustls"]` |
+| `dns-over-openssl` | DNS over TLS with OpenSSL | `features = ["dns-over-openssl"]` |
+| `dns-over-native-tls` | DNS over TLS with native-tls | `features = ["dns-over-native-tls"]` |
+| `dns-over-https-rustls` | DNS over HTTPS with rustls | `features = ["dns-over-https-rustls"]` |
+| `dns-over-quic` | DNS over QUIC (RFC 9250) | `features = ["dns-over-quic"]` |
+| `dns-over-h3` | DNS over HTTP/3 | `features = ["dns-over-h3"]` |
+| **Certificates** | | |
+| `dns-webpki-roots` | Use webpki root certificates | `features = ["dns-webpki-roots"]` |
+| `dns-native-certs` | Use OS native certificates | `features = ["dns-native-certs"]` |
+| **DNSSEC** | | |
+| `dnssec` | Basic DNSSEC validation | `features = ["dnssec"]` |
+| `dnssec-openssl` | DNSSEC with OpenSSL crypto | `features = ["dnssec-openssl"]` |
+| `dnssec-ring` | DNSSEC with ring crypto | `features = ["dnssec-ring"]` |
+| **Other** | | |
+| `tracing` | Distributed tracing support | `features = ["tracing"]` |
 
 #### License
 

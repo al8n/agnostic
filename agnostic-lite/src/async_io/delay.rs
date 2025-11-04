@@ -1,7 +1,6 @@
-/// Alias for [`Delay`](crate::time::Delay) using [`smol`] or [`async-std`] runtime.
+/// Alias for [`Delay`](crate::time::Delay) using [`smol`] runtime.
 ///
 /// [`smol`]: https://docs.rs/smol
-/// [`async-std`]: https://docs.rs/async-std
 pub type AsyncIoDelay<F> = crate::time::Delay<F, super::AsyncIoSleep>;
 
 #[cfg(test)]

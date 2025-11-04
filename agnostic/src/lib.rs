@@ -18,8 +18,8 @@ pub use runtime::*;
 mod runtime {
   pub use agnostic_lite::{
     AfterHandle, AfterHandleError, AsyncAfterSpawner, AsyncBlockingSpawner, AsyncLocalSpawner,
-    AsyncSpawner, JoinHandle, LocalJoinHandle, RuntimeLite, Yielder, cfg_async_std, cfg_linux,
-    cfg_smol, cfg_tokio, cfg_unix, cfg_windows, time,
+    AsyncSpawner, JoinHandle, LocalJoinHandle, RuntimeLite, Yielder, cfg_linux, cfg_smol,
+    cfg_tokio, cfg_unix, cfg_windows, time,
   };
 
   /// Runtime trait
@@ -55,13 +55,6 @@ pub use agnostic_io as io;
 #[cfg(feature = "tokio")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
 pub mod tokio;
-
-/// [`async_std`] runtime adapter
-///
-/// [`async_std`]: https://docs.rs/async-std
-#[cfg(feature = "async-std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
-pub mod async_std;
 
 /// [`smol`] runtime adapter
 ///

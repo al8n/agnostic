@@ -25,16 +25,125 @@ If you want a light weight crate, see `agnostic-lite`.
 
 ## Introduction
 
-An agnostic abstraction layer for any async runtime.
+`agnostic` is a comprehensive, runtime-agnostic abstraction layer for async Rust. It provides a unified API for task spawning, networking, DNS resolution, process management, and QUIC protocol support - all working seamlessly with tokio, or smol.
 
-If you want a light weight crate, see `agnostic-lite`.
+**Looking for a lightweight option?** Check out [`agnostic-lite`](../agnostic-lite/) for a minimal, `no_std`-compatible core.
+
+## Features
+
+- **Task Management**: Spawn tasks globally or locally
+- **Time Operations**: Sleep, intervals, timeouts, and delays
+- **Networking**: TCP listeners/streams and UDP sockets
+- **DNS Resolution**: Multiple transports (DoH, DoT, DoQ, DoH3) with DNSSEC
+- **Process Management**: Spawn and manage subprocesses
+- **QUIC Support**: Quinn protocol integration
+- **Runtime Agnostic**: Switch runtimes with a single feature flag
+- **Zero-Cost**: Compiles to runtime-specific code
 
 ## Installation
 
 ```toml
 [dependencies]
-agnostic = "0.7"
+agnostic = "0.8"
 ```
+
+### Runtime Selection
+
+Choose one runtime feature:
+
+```toml
+# For tokio
+agnostic = { version = "0.8", features = ["tokio"] }
+
+# For smol
+agnostic = { version = "0.8", features = ["smol"] }
+```
+
+### Optional Features
+
+```toml
+# Enable networking
+agnostic = { version = "0.8", features = ["tokio", "net"] }
+
+# Enable DNS resolution
+agnostic = { version = "0.8", features = ["tokio", "dns"] }
+
+# Enable DNS over HTTPS with rustls
+agnostic = { version = "0.8", features = ["tokio", "dns-over-https-rustls"] }
+
+# Enable DNS over QUIC
+agnostic = { version = "0.8", features = ["tokio", "dns-over-quic"] }
+
+# Enable DNSSEC
+agnostic = { version = "0.8", features = ["tokio", "dnssec-ring"] }
+
+# Enable process management
+agnostic = { version = "0.8", features = ["tokio", "process"] }
+
+# Enable Quinn QUIC
+agnostic = { version = "0.8", features = ["tokio", "quinn"] }
+```
+
+## Feature Flags
+
+### Core Features
+
+- `std` (default): Standard library support
+- `alloc`: Allocation support
+
+### Runtime Features (choose one)
+
+- `tokio`: Tokio runtime support
+- `smol`: Smol runtime support
+
+### Component Features
+
+- `net`: Network abstractions (TCP, UDP)
+- `dns`: DNS resolution support
+- `process`: Process spawning and management
+- `quinn`: Quinn QUIC protocol support
+- `tokio-io`: Tokio I/O trait compatibility
+
+### DNS Transport Features
+
+- `dns-over-quic`: DNS over QUIC (RFC 9250)
+- `dns-over-h3`: DNS over HTTP/3
+- `dns-over-https-rustls`: DNS over HTTPS with rustls
+- `dns-over-rustls`: DNS over TLS with rustls
+- `dns-over-openssl`: DNS over TLS with OpenSSL
+- `dns-over-native-tls`: DNS over TLS with native-tls
+- `dns-webpki-roots`: Use webpki root certificates
+- `dns-native-certs`: Use OS native certificates
+
+### DNSSEC Features
+
+- `dnssec`: Basic DNSSEC support
+- `dnssec-openssl`: DNSSEC with OpenSSL
+- `dnssec-ring`: DNSSEC with ring crypto library
+
+## Comparison: agnostic vs agnostic-lite
+
+| Feature | agnostic | agnostic-lite |
+|---------|----------|---------------|
+| Task spawning | ✅ | ✅ |
+| Time operations | ✅ | ✅ |
+| Networking | ✅ | ❌ |
+| DNS resolution | ✅ | ❌ |
+| Process management | ✅ | ❌ |
+| QUIC support | ✅ | ❌ |
+| `no_std` support | ❌ | ✅ |
+| Alloc-free | ❌ | ✅ |
+| No unsafe code | ❌ | ✅ |
+
+Use `agnostic-lite` when:
+- You need `no_std` or embedded support
+- You want minimal dependencies
+- You only need basic async primitives
+
+Use `agnostic` when:
+- You need networking, DNS, or process capabilities
+- You're building standard applications
+- You want a batteries-included experience
 
 #### License
 

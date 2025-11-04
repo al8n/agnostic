@@ -37,24 +37,6 @@ cfg_time_with_docsrs!(
   pub mod time;
 );
 
-/// Macro to conditionally compile items for `async-std` feature
-#[macro_export]
-macro_rules! cfg_async_std {
-  ($($item:item)*) => {
-    $(
-      #[cfg(feature = "async-std")]
-      #[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
-      $item
-    )*
-  };
-  (@no_doc_cfg $($item:item)*) => {
-    $(
-      #[cfg(feature = "async-std")]
-      $item
-    )*
-  };
-}
-
 /// Macro to conditionally compile items for `tokio` feature
 #[macro_export]
 macro_rules! cfg_tokio {
@@ -155,13 +137,6 @@ mod spawner;
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
 pub mod tokio;
 
-/// Concrete runtime implementations based on [`async-std`] runtime.
-///
-/// [`async-std`]: https://docs.rs/async-std
-#[cfg(feature = "async-std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
-pub mod async_std;
-
 /// Concrete runtime implementations based on [`smol`] runtime.
 ///
 /// [`smol`]: https://docs.rs/smol
@@ -176,10 +151,9 @@ pub mod smol;
 #[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
 pub mod wasm;
 
-/// Time related traits concrete implementations for runtime based on [`async-io`](::async_io), e.g. [`async-std`], [`smol`].
+/// Time related traits concrete implementations for runtime based on [`async-io`](::async_io), e.g. [`smol`].
 ///
 /// [`smol`]: https://docs.rs/smol
-/// [`async-std`]: https://docs.rs/async-std
 #[cfg(feature = "async-io")]
 #[cfg_attr(docsrs, doc(cfg(feature = "async-io")))]
 pub mod async_io;

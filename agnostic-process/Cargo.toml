@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-process"
-version = "0.2.2"
+version = "0.3.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -16,7 +16,6 @@ default = []
 tokio = ["dep:tokio", "tokio-io"]
 tokio-io = ["agnostic-io/tokio"]
 smol = ["dep:smol", "async-process"]
-async-std = ["dep:async-std", "async-process"]
 
 [dependencies]
 agnostic-io.workspace = true
@@ -26,7 +25,6 @@ paste = "1"
 async-process = { version = "2", optional = true }
 tokio = { workspace = true, default-features = false, optional = true, features = ["process"] }
 smol = { workspace = true, default-features = false, optional = true }
-async-std = { workspace = true, default-features = false, optional = true, features = ["unstable"] }
 
 [target.'cfg(windows)'.dev-dependencies.windows-sys]
 version = "0.61"
@@ -39,4 +37,4 @@ features = [
 [dev-dependencies]
 tokio = { workspace = true, default-features = false, features = ["process", "rt"] }
 smol = { workspace = true, features = ["default"] }
-async-std = { workspace = true, features = ["default"] }
+

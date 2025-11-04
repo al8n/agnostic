@@ -1,6 +1,6 @@
 [package]
 name = "agnostic-net"
-version = "0.2.3"
+version = "0.3.0"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -33,13 +33,6 @@ tokio = [
   "tokio/time",
   "tokio-io",
 ]
-async-std = [
-  "std",
-  "dep:async-std",
-  "agnostic-lite/async-std",
-  "async-io",
-  "pin-project-lite",
-]
 smol = ["std", "dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
 
 [target.'cfg(unix)'.dependencies]
@@ -47,7 +40,7 @@ rustix = { version = "1", features = ["net"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Networking_WinSock"] }
-socket2 = "0.5"
+socket2 = "0.6"
 
 [dependencies]
 agnostic-lite = { workspace = true, features = ["time", "std"] }
@@ -61,10 +54,6 @@ tokio-stream = { version = "0.1", default-features = false, optional = true, fea
   "time",
 ] }
 
-async-std = { workspace = true, optional = true, features = [
-  "unstable",
-  "default",
-] }
 async-io = { workspace = true, optional = true }
 paste = "1"
 pin-project-lite = { workspace = true, optional = true }

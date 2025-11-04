@@ -52,7 +52,7 @@ jobs:
       - name: Run Coverage and Generate Report
         run: |
           mkdir -p coverage/${{ matrix.os }}/${{matrix.crate}}
-          cargo tarpaulin --run-types Doctests --run-types Tests --run-types Lib --features tokio,async-std,smol --out xml --output-dir coverage/${{ matrix.os }}/${{matrix.crate}} -j 1
+          cargo tarpaulin --run-types Doctests --run-types Tests --run-types Lib --features tokio,smol --out xml --output-dir coverage/${{ matrix.os }}/${{matrix.crate}} -j 1
         working-directory: ${{matrix.crate}}
         continue-on-error: true
       - name: Upload Coverage Report as Artifact

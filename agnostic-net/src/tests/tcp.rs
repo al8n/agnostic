@@ -78,9 +78,6 @@ macro_rules! test_suites {
   };
 }
 
-#[cfg(feature = "async-std")]
-mod async_std;
-
 #[cfg(feature = "smol")]
 mod smol;
 
