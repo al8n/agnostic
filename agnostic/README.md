@@ -44,7 +44,7 @@ If you want a light weight crate, see `agnostic-lite`.
 
 ```toml
 [dependencies]
-agnostic = "0.7"
+agnostic = "0.8"
 ```
 
 ### Runtime Selection
@@ -53,35 +53,35 @@ Choose one runtime feature:
 
 ```toml
 # For tokio
-agnostic = { version = "0.7", features = ["tokio"] }
+agnostic = { version = "0.8", features = ["tokio"] }
 
 # For smol
-agnostic = { version = "0.7", features = ["smol"] }
+agnostic = { version = "0.8", features = ["smol"] }
 ```
 
 ### Optional Features
 
 ```toml
 # Enable networking
-agnostic = { version = "0.7", features = ["tokio", "net"] }
+agnostic = { version = "0.8", features = ["tokio", "net"] }
 
 # Enable DNS resolution
-agnostic = { version = "0.7", features = ["tokio", "dns"] }
+agnostic = { version = "0.8", features = ["tokio", "dns"] }
 
 # Enable DNS over HTTPS with rustls
-agnostic = { version = "0.7", features = ["tokio", "dns-over-https-rustls"] }
+agnostic = { version = "0.8", features = ["tokio", "dns-over-https-rustls"] }
 
 # Enable DNS over QUIC
-agnostic = { version = "0.7", features = ["tokio", "dns-over-quic"] }
+agnostic = { version = "0.8", features = ["tokio", "dns-over-quic"] }
 
 # Enable DNSSEC
-agnostic = { version = "0.7", features = ["tokio", "dnssec-ring"] }
+agnostic = { version = "0.8", features = ["tokio", "dnssec-ring"] }
 
 # Enable process management
-agnostic = { version = "0.7", features = ["tokio", "process"] }
+agnostic = { version = "0.8", features = ["tokio", "process"] }
 
 # Enable Quinn QUIC
-agnostic = { version = "0.7", features = ["tokio", "quinn"] }
+agnostic = { version = "0.8", features = ["tokio", "quinn"] }
 ```
 
 ## Feature Flags

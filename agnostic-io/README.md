@@ -52,7 +52,7 @@ This approach makes your code:
 
 ```toml
 [dependencies]
-agnostic-io = "0.1"
+agnostic-io = "0.2"
 ```
 
 ### Feature Flags

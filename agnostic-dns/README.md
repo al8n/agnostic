@@ -47,19 +47,19 @@
 
 ```toml
 [dependencies]
-agnostic-dns = "0.2"
+agnostic-dns = "0.3"
 ```
 
 - `tokio`
 
   ```toml
-  agnostic-dns = { version = "0.2", features = ["tokio"] }
+  agnostic-dns = { version = "0.3", features = ["tokio"] }
   ```
 
 - `smol`
 
   ```toml
-  agnostic-dns = { version = "0.2", features = ["smol"] }
+  agnostic-dns = { version = "0.3", features = ["smol"] }
   ```
 
 ## Feature Matrix

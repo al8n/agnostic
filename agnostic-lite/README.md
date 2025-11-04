@@ -76,7 +76,7 @@ Choose `agnostic` when:
 
 ```toml
 [dependencies]
-agnostic-lite = "0.5"
+agnostic-lite = "0.6"
 ```
 
 ### Runtime Selection
@@ -85,20 +85,20 @@ Choose one runtime feature:
 
 ```toml
 # With tokio
-agnostic-lite = { version = "0.5", features = ["tokio"] }
+agnostic-lite = { version = "0.6", features = ["tokio"] }
 
 # With smol
-agnostic-lite = { version = "0.5", features = ["smol"] }
+agnostic-lite = { version = "0.6", features = ["smol"] }
 
 # With WASM
-agnostic-lite = { version = "0.5", features = ["wasm"] }
+agnostic-lite = { version = "0.6", features = ["wasm"] }
 ```
 
 ### no_std Usage
 
 ```toml
 # Disable default features for no_std
-agnostic-lite = { version = "0.5", default-features = false, features = ["tokio"] }
+agnostic-lite = { version = "0.6", default-features = false, features = ["tokio"] }
 ```
 
 ## Feature Flags

@@ -34,19 +34,19 @@ Builtin supports runtimes:
 
 ```toml
 [dependencies]
-agnostic-process = "0.2"
+agnostic-process = "0.3"
 ```
 
 - `tokio`
 
   ```toml
-  agnostic-process = { version = "0.2", features = ["tokio"] }
+  agnostic-process = { version = "0.3", features = ["tokio"] }
   ```
 
 - `smol`
 
   ```toml
-  agnostic-process = { version = "0.2", features = ["smol"] }
+  agnostic-process = { version = "0.3", features = ["smol"] }
   ```
 
 #### License

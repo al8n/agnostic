@@ -41,6 +41,7 @@ macro_rules! join_handle {
   };
 }
 
+#[cfg(any(feature = "smol", feature = "wasm"))]
 pub(crate) mod handle {
   /// Task failed to execute to completion.
   ///

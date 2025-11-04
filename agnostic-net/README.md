@@ -43,19 +43,19 @@ Agnostic abstraction layer of `std::net` for any async runtime.
 
 ```toml
 [dependencies]
-agnostic-net = "0.2"
+agnostic-net = "0.3"
 ```
 
 - `tokio`
 
   ```toml
-  agnostic-net = { version = "0.2", features = ["tokio"] }
+  agnostic-net = { version = "0.3", features = ["tokio"] }
   ```
 
 - `smol`
 
   ```toml
-  agnostic-net = { version = "0.2", features = ["smol"] }
+  agnostic-net = { version = "0.3", features = ["smol"] }
   ```
 
 ## Platform Support
