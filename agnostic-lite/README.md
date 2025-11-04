@@ -27,26 +27,51 @@ In addition, this crate is not only `no_std`, but also alloc-free. This means th
 
 ## Introduction
 
-`agnostic-lite` is an agnostic abstraction layer for any async runtime.
+`agnostic-lite` is a lightweight, `no_std`-compatible, allocation-free abstraction layer for async runtimes. It provides the essential async primitives you need to write runtime-agnostic code that works in any environment - from standard applications to embedded systems.
 
-In order to make it trivial for others to build implementations of any async runtime, this crate provides an abstraction layer implementation.
+### Key Features
 
-In addition, this crate is not only `no_std`, but also alloc-free. This means that it can be used in environments where alloc is not available, such as embedded systems. It also has no unsafe code.
+- **`no_std` Compatible**: Works without the standard library
+- **Allocation-Free**: No heap allocations required
+- **No Unsafe Code**: `#![forbid(unsafe_code)]` ensures memory safety
+- **Modular Traits**: Small, focused traits instead of one monolithic Runtime trait
+- **Zero-Cost**: Compiles to runtime-specific code
+- **WASM Support**: Works in WebAssembly environments
 
-`agnostic-lite` splits the big `Runtime` trait in `agnostic` in multiple small traits:
+### Core Traits
 
-- `AsyncSpawner`: trait for spawning tasks
-- `AsyncLocalSpawner`: trait for spawning local tasks
-- `AsyncSleep`: trait for sleep functionality
-- `AsyncInterval`: trait for interval functionality
-- `AsyncTimeout`: trait for timeout functionality
+`agnostic-lite` provides focused traits for specific async operations:
 
-Builtin supports runtimes:
+- **`AsyncSpawner`**: Spawn tasks globally
+- **`AsyncLocalSpawner`**: Spawn thread-local tasks
+- **`AsyncSleep`**: Sleep for a duration
+- **`AsyncInterval`**: Create periodic intervals
+- **`AsyncTimeout`**: Apply timeouts to operations
+- **`RuntimeLite`**: Combines all traits for convenience
+- **`Yielder`**: Yield control back to the runtime
 
-- `tokio`
-- `async-std`
-- `smol`
-- `wasm-bindgen-futures`
+### Supported Runtimes
+
+- **tokio** - Enable with `features = ["tokio"]`
+- **async-std** - Enable with `features = ["async-std"]`
+- **smol** - Enable with `features = ["smol"]`
+- **wasm-bindgen-futures** - Enable with `features = ["wasm"]`
+
+## Why agnostic-lite?
+
+Choose `agnostic-lite` over `agnostic` when:
+
+- ✅ You need `no_std` support for embedded systems
+- ✅ You want minimal dependencies and compile times
+- ✅ You only need basic async primitives (spawning, time)
+- ✅ You're building a library and want minimal footprint
+- ✅ You need guaranteed memory safety (no unsafe code)
+
+Choose `agnostic` when:
+
+- You need networking, DNS, or process management
+- You're building standard applications with `std`
+- You want a batteries-included experience
 
 ## Installation
 
@@ -54,6 +79,356 @@ Builtin supports runtimes:
 [dependencies]
 agnostic-lite = "0.5"
 ```
+
+### Runtime Selection
+
+Choose one runtime feature:
+
+```toml
+# With tokio
+agnostic-lite = { version = "0.5", features = ["tokio"] }
+
+# With async-std
+agnostic-lite = { version = "0.5", features = ["async-std"] }
+
+# With smol
+agnostic-lite = { version = "0.5", features = ["smol"] }
+
+# With WASM
+agnostic-lite = { version = "0.5", features = ["wasm"] }
+```
+
+### no_std Usage
+
+```toml
+# Disable default features for no_std
+agnostic-lite = { version = "0.5", default-features = false, features = ["tokio"] }
+```
+
+## Quick Start
+
+### Spawning Tasks
+
+```rust
+use agnostic_lite::AsyncSpawner;
+
+#[tokio::main]
+async fn main() {
+    // Spawn using the trait directly
+    let handle = tokio::task::spawn(async {
+        println!("Hello from spawned task!");
+        42
+    });
+
+    let result = handle.await.unwrap();
+    println!("Task returned: {}", result);
+}
+```
+
+### Sleep
+
+```rust
+use agnostic_lite::{AsyncSleep, RuntimeLite};
+
+#[tokio::main]
+async fn main() {
+    println!("Starting...");
+
+    // Sleep for 1 second
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    println!("Done!");
+}
+```
+
+### Intervals
+
+```rust
+use agnostic_lite::{AsyncInterval, RuntimeLite};
+use std::time::Duration;
+
+#[tokio::main]
+async fn main() {
+    let mut interval = tokio::time::interval(Duration::from_secs(1));
+
+    for i in 0..5 {
+        interval.tick().await;
+        println!("Tick {}", i);
+    }
+}
+```
+
+### Timeouts
+
+```rust
+use agnostic_lite::{AsyncTimeout, RuntimeLite};
+use std::time::Duration;
+
+#[tokio::main]
+async fn main() {
+    let result = tokio::time::timeout(
+        Duration::from_secs(2),
+        async {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            "completed"
+        }
+    ).await;
+
+    match result {
+        Ok(val) => println!("Operation completed: {}", val),
+        Err(_) => println!("Operation timed out"),
+    }
+}
+```
+
+### Using RuntimeLite for Generic Code
+
+The `RuntimeLite` trait combines all capabilities:
+
+```rust
+use agnostic_lite::RuntimeLite;
+use std::time::Duration;
+
+// Generic function that works with any runtime
+async fn do_work<R: RuntimeLite>() {
+    println!("Starting work...");
+
+    // Sleep
+    R::sleep(Duration::from_secs(1)).await;
+
+    // Spawn a task
+    let handle = R::spawn(async {
+        println!("Background task running");
+    });
+
+    handle.await.unwrap();
+
+    println!("Work complete!");
+}
+
+#[tokio::main]
+async fn main() {
+    // Works with tokio
+    do_work::<tokio::runtime::Runtime>().await;
+}
+```
+
+### Local Task Spawning
+
+```rust
+use agnostic_lite::AsyncLocalSpawner;
+
+#[tokio::main]
+async fn main() {
+    // Create a LocalSet for tokio
+    let local = tokio::task::LocalSet::new();
+
+    local.run_until(async {
+        let handle = tokio::task::spawn_local(async {
+            println!("Local task running");
+        });
+
+        handle.await.unwrap();
+    }).await;
+}
+```
+
+## Runtime-Agnostic Library Example
+
+Here's how to write a library that works with any runtime:
+
+```rust
+use agnostic_lite::RuntimeLite;
+use core::time::Duration;
+
+pub async fn my_library_function<R: RuntimeLite>() -> Result<String, ()> {
+    // Your logic here
+    R::sleep(Duration::from_millis(100)).await;
+
+    let handle = R::spawn(async {
+        // Do some work
+        "result".to_string()
+    });
+
+    handle.await.map_err(|_| ())
+}
+
+// Users can call with any runtime:
+#[tokio::main]
+async fn main() {
+    let result = my_library_function::<tokio::runtime::Runtime>().await;
+    println!("{:?}", result);
+}
+```
+
+## no_std Example
+
+```rust
+#![no_std]
+
+use agnostic_lite::{AsyncSpawner, AsyncSleep};
+use core::time::Duration;
+
+// In a no_std environment with an executor
+async fn embedded_main() {
+    // Sleep without allocations
+    embedded_runtime::sleep(Duration::from_millis(1000)).await;
+
+    // Spawn without heap
+    let handle = embedded_runtime::spawn(async {
+        // Your task logic
+    });
+
+    let _ = handle.await;
+}
+```
+
+## WASM Example
+
+```rust
+use agnostic_lite::RuntimeLite;
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+pub async fn run_in_browser() {
+    // Sleep in WASM
+    wasm_bindgen_futures::JsFuture::from(
+        js_sys::Promise::new(&mut |resolve, _| {
+            web_sys::window()
+                .unwrap()
+                .set_timeout_with_callback_and_timeout_and_arguments_0(
+                    &resolve,
+                    1000,
+                )
+                .unwrap();
+        })
+    ).await.unwrap();
+
+    web_sys::console::log_1(&"Task completed!".into());
+}
+```
+
+## Feature Flags
+
+### Core Features
+
+- `std` (default): Standard library support
+- `alloc`: Allocation support (without std)
+- `time`: Time-related traits and types
+
+### Runtime Features (choose one)
+
+- `tokio`: Tokio runtime implementations
+- `async-io`: async-io backend (used by smol/async-std)
+- `smol`: Smol runtime implementations
+- `async-std`: Async-std runtime implementations
+- `wasm`: WebAssembly support via wasm-bindgen-futures
+
+## Trait Reference
+
+### AsyncSpawner
+
+```rust
+pub trait AsyncSpawner {
+    type JoinHandle<T>: Future<Output = Result<T, JoinError>>;
+
+    fn spawn<F, T>(future: F) -> Self::JoinHandle<T>
+    where
+        F: Future<Output = T> + Send + 'static,
+        T: Send + 'static;
+}
+```
+
+### AsyncLocalSpawner
+
+```rust
+pub trait AsyncLocalSpawner {
+    type JoinHandle<T>: Future<Output = Result<T, JoinError>>;
+
+    fn spawn_local<F, T>(future: F) -> Self::JoinHandle<T>
+    where
+        F: Future<Output = T> + 'static,
+        T: 'static;
+}
+```
+
+### AsyncSleep
+
+```rust
+pub trait AsyncSleep {
+    type Sleep: Future<Output = ()>;
+
+    fn sleep(duration: Duration) -> Self::Sleep;
+}
+```
+
+### AsyncInterval
+
+```rust
+pub trait AsyncInterval {
+    type Interval: Stream<Item = Instant>;
+
+    fn interval(period: Duration) -> Self::Interval;
+}
+```
+
+### AsyncTimeout
+
+```rust
+pub trait AsyncTimeout {
+    fn timeout<F, T>(duration: Duration, future: F) -> TimeoutFuture<F>
+    where
+        F: Future<Output = T>;
+}
+```
+
+### RuntimeLite
+
+Combines all traits for convenience:
+
+```rust
+pub trait RuntimeLite:
+    AsyncSpawner +
+    AsyncLocalSpawner +
+    AsyncSleep +
+    AsyncInterval +
+    AsyncTimeout +
+    Yielder
+{
+    // All trait methods available
+}
+```
+
+## Conditional Compilation Helpers
+
+`agnostic-lite` provides macros for conditional compilation:
+
+```rust
+use agnostic_lite::{cfg_tokio, cfg_async_std, cfg_smol};
+
+cfg_tokio! {
+    // This code only compiles when tokio feature is enabled
+    use tokio::task;
+}
+
+cfg_async_std! {
+    // This code only compiles when async-std feature is enabled
+    use async_std::task;
+}
+
+cfg_smol! {
+    // This code only compiles when smol feature is enabled
+    use smol::Task;
+}
+```
+
+## Performance
+
+`agnostic-lite` has zero runtime overhead. All trait methods are inlined and compile to the same code as using the runtime directly:
+
+- **No allocations**: Works without heap allocations
+- **No dynamic dispatch**: All trait calls are statically resolved
+- **Zero-cost abstractions**: Compiles to identical assembly as direct runtime usage
 
 #### License
 

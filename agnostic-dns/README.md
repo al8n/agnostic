@@ -23,38 +23,462 @@
 
 ## Introduction
 
-`agnostic-dns` is an async runtime agnostic layer over [`hickory-dns`](https://github.com/hickory-dns/hickory-dns).
+`agnostic-dns` provides runtime-agnostic DNS resolution built on [`hickory-dns`](https://github.com/hickory-dns/hickory-dns). It supports multiple transport protocols (UDP, TCP, DoT, DoH, DoQ, DoH3) and DNSSEC validation - all working seamlessly across tokio, async-std, and smol runtimes.
 
-Builtin supports runtimes:
+### Key Features
 
-- `tokio`
-- `async-std`
-- `smol`
+- **Multiple Transport Protocols**:
+  - DNS over UDP/TCP (standard)
+  - DNS over TLS (DoT)
+  - DNS over HTTPS (DoH)
+  - DNS over QUIC (DoQ)
+  - DNS over HTTP/3 (DoH3)
+- **DNSSEC Support**: Validate DNS responses with OpenSSL or ring
+- **Runtime Agnostic**: Works with tokio, async-std, and smol
+- **Flexible Configuration**: Use system settings or custom resolvers
+- **Comprehensive**: Built on the mature hickory-dns library
+
+### Supported Runtimes
+
+- **tokio** - Enable with `features = ["tokio"]`
+- **async-std** - Enable with `features = ["async-std"]`
+- **smol** - Enable with `features = ["smol"]`
 
 ## Installation
 
 ```toml
 [dependencies]
-agnostic-dns = "0.1"
+agnostic-dns = "0.2"
 ```
 
 - `tokio`
 
   ```toml
-  agnostic-dns = { version = "0.1", features = ["tokio"] }
+  agnostic-dns = { version = "0.2", features = ["tokio"] }
   ```
 
 - `smol`
 
   ```toml
-  agnostic-dns = { version = "0.1", features = ["smol"] }
+  agnostic-dns = { version = "0.2", features = ["smol"] }
   ```
 
 - `async-std`
 
   ```toml
-  agnostic-dns = { version = "0.1", features = ["async-std"] }
+  agnostic-dns = { version = "0.2", features = ["async-std"] }
   ```
+
+## Feature Matrix
+
+| Feature | Description | Enable With |
+|---------|-------------|-------------|
+| **Core** | | |
+| `dns` | Basic DNS resolution | Default |
+| **Runtimes** | | |
+| `tokio` | Tokio runtime support | `features = ["tokio"]` |
+| `async-std` | Async-std support | `features = ["async-std"]` |
+| `smol` | Smol runtime support | `features = ["smol"]` |
+| **Transport Protocols** | | |
+| `dns-over-rustls` | DNS over TLS with rustls | `features = ["dns-over-rustls"]` |
+| `dns-over-openssl` | DNS over TLS with OpenSSL | `features = ["dns-over-openssl"]` |
+| `dns-over-native-tls` | DNS over TLS with native-tls | `features = ["dns-over-native-tls"]` |
+| `dns-over-https-rustls` | DNS over HTTPS with rustls | `features = ["dns-over-https-rustls"]` |
+| `dns-over-quic` | DNS over QUIC (RFC 9250) | `features = ["dns-over-quic"]` |
+| `dns-over-h3` | DNS over HTTP/3 | `features = ["dns-over-h3"]` |
+| **Certificates** | | |
+| `dns-webpki-roots` | Use webpki root certificates | `features = ["dns-webpki-roots"]` |
+| `dns-native-certs` | Use OS native certificates | `features = ["dns-native-certs"]` |
+| **DNSSEC** | | |
+| `dnssec` | Basic DNSSEC validation | `features = ["dnssec"]` |
+| `dnssec-openssl` | DNSSEC with OpenSSL crypto | `features = ["dnssec-openssl"]` |
+| `dnssec-ring` | DNSSEC with ring crypto | `features = ["dnssec-ring"]` |
+| **Other** | | |
+| `tracing` | Distributed tracing support | `features = ["tracing"]` |
+
+## Quick Start
+
+### Basic DNS Resolution
+
+```rust
+use agnostic_dns::{Dns, ResolverConfig, ResolverOpts};
+use agnostic_net::Net;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create DNS resolver with default config
+    let dns = Dns::<Net>::new(
+        ResolverConfig::default(),
+        ResolverOpts::default()
+    )?;
+
+    // Lookup IP addresses
+    let response = dns.lookup_ip("example.com").await?;
+
+    for ip in response.iter() {
+        println!("IP: {}", ip);
+    }
+
+    Ok(())
+}
+```
+
+### Using System Configuration
+
+```rust
+use agnostic_dns::{Dns, system_conf};
+use agnostic_net::Net;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Use system's DNS configuration
+    let (config, opts) = system_conf::read_system_conf()?;
+    let dns = Dns::<Net>::new(config, opts)?;
+
+    let response = dns.lookup_ip("github.com").await?;
+
+    for ip in response.iter() {
+        println!("GitHub IP: {}", ip);
+    }
+
+    Ok(())
+}
+```
+
+### Custom DNS Server
+
+```rust
+use agnostic_dns::{Dns, ResolverConfig, ResolverOpts, Name, NameServerConfig};
+use agnostic_net::Net;
+use std::net::{SocketAddr, IpAddr, Ipv4Addr};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Use Google DNS (8.8.8.8)
+    let mut config = ResolverConfig::new();
+    let nameserver = NameServerConfig {
+        socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
+        protocol: hickory_proto::rr::dnssec::Protocol::Udp,
+        tls_dns_name: None,
+        trust_nx_responses: false,
+        bind_addr: None,
+    };
+    config.add_name_server(nameserver);
+
+    let dns = Dns::<Net>::new(config, ResolverOpts::default())?;
+
+    let response = dns.lookup_ip("cloudflare.com").await?;
+
+    for ip in response.iter() {
+        println!("IP: {}", ip);
+    }
+
+    Ok(())
+}
+```
+
+## DNS over HTTPS (DoH)
+
+Enable with `features = ["dns-over-https-rustls", "dns-webpki-roots"]`:
+
+```rust
+use agnostic_dns::{Dns, ResolverConfig, ResolverOpts, Name, NameServerConfig};
+use agnostic_net::Net;
+use std::net::SocketAddr;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = ResolverConfig::new();
+
+    // Cloudflare DoH
+    let nameserver = NameServerConfig {
+        socket_addr: "1.1.1.1:443".parse()?,
+        protocol: hickory_proto::rr::dnssec::Protocol::Https,
+        tls_dns_name: Some("cloudflare-dns.com".to_string()),
+        trust_nx_responses: true,
+        bind_addr: None,
+    };
+    config.add_name_server(nameserver);
+
+    let dns = Dns::<Net>::new(config, ResolverOpts::default())?;
+
+    let response = dns.lookup_ip("example.com").await?;
+
+    println!("DoH Resolution:");
+    for ip in response.iter() {
+        println!("  IP: {}", ip);
+    }
+
+    Ok(())
+}
+```
+
+## DNS over TLS (DoT)
+
+Enable with `features = ["dns-over-rustls", "dns-webpki-roots"]`:
+
+```rust
+use agnostic_dns::{Dns, ResolverConfig, ResolverOpts, NameServerConfig};
+use agnostic_net::Net;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = ResolverConfig::new();
+
+    // Cloudflare DoT
+    let nameserver = NameServerConfig {
+        socket_addr: "1.1.1.1:853".parse()?,
+        protocol: hickory_proto::rr::dnssec::Protocol::Tls,
+        tls_dns_name: Some("cloudflare-dns.com".to_string()),
+        trust_nx_responses: true,
+        bind_addr: None,
+    };
+    config.add_name_server(nameserver);
+
+    let dns = Dns::<Net>::new(config, ResolverOpts::default())?;
+
+    let response = dns.lookup_ip("example.com").await?;
+
+    println!("DoT Resolution:");
+    for ip in response.iter() {
+        println!("  IP: {}", ip);
+    }
+
+    Ok(())
+}
+```
+
+## DNS over QUIC (DoQ)
+
+Enable with `features = ["dns-over-quic"]`:
+
+```rust
+use agnostic_dns::{Dns, ResolverConfig, ResolverOpts, NameServerConfig};
+use agnostic_net::Net;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = ResolverConfig::new();
+
+    // AdGuard DoQ
+    let nameserver = NameServerConfig {
+        socket_addr: "94.140.14.14:853".parse()?,
+        protocol: hickory_proto::rr::dnssec::Protocol::Quic,
+        tls_dns_name: Some("dns.adguard.com".to_string()),
+        trust_nx_responses: true,
+        bind_addr: None,
+    };
+    config.add_name_server(nameserver);
+
+    let dns = Dns::<Net>::new(config, ResolverOpts::default())?;
+
+    let response = dns.lookup_ip("example.com").await?;
+
+    println!("DoQ Resolution:");
+    for ip in response.iter() {
+        println!("  IP: {}", ip);
+    }
+
+    Ok(())
+}
+```
+
+## DNSSEC Validation
+
+Enable with `features = ["dnssec-ring"]`:
+
+```rust
+use agnostic_dns::{Dns, ResolverConfig, ResolverOpts};
+use agnostic_net::Net;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut opts = ResolverOpts::default();
+    opts.validate = true; // Enable DNSSEC validation
+
+    let dns = Dns::<Net>::new(
+        ResolverConfig::default(),
+        opts
+    )?;
+
+    // Query a DNSSEC-signed domain
+    let response = dns.lookup_ip("cloudflare.com").await?;
+
+    println!("DNSSEC-validated IPs:");
+    for ip in response.iter() {
+        println!("  {}", ip);
+    }
+
+    Ok(())
+}
+```
+
+## Advanced Usage
+
+### Multiple Record Types
+
+```rust
+use agnostic_dns::{Dns, Name, RecordType};
+use agnostic_net::Net;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let dns = Dns::<Net>::system_conf()?;
+
+    // A records
+    let a_records = dns.lookup(
+        Name::from_utf8("example.com")?,
+        RecordType::A
+    ).await?;
+
+    // AAAA records (IPv6)
+    let aaaa_records = dns.lookup(
+        Name::from_utf8("example.com")?,
+        RecordType::AAAA
+    ).await?;
+
+    // MX records (mail servers)
+    let mx_records = dns.lookup(
+        Name::from_utf8("example.com")?,
+        RecordType::MX
+    ).await?;
+
+    // TXT records
+    let txt_records = dns.lookup(
+        Name::from_utf8("example.com")?,
+        RecordType::TXT
+    ).await?;
+
+    Ok(())
+}
+```
+
+### Reverse DNS Lookup
+
+```rust
+use agnostic_dns::Dns;
+use agnostic_net::Net;
+use std::net::IpAddr;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let dns = Dns::<Net>::system_conf()?;
+
+    let ip: IpAddr = "8.8.8.8".parse()?;
+    let response = dns.reverse_lookup(ip).await?;
+
+    println!("Reverse DNS for {}:", ip);
+    for name in response.iter() {
+        println!("  {}", name);
+    }
+
+    Ok(())
+}
+```
+
+### Caching
+
+```rust
+use agnostic_dns::{Dns, ResolverOpts};
+use agnostic_net::Net;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut opts = ResolverOpts::default();
+    opts.cache_size = 1024; // Cache 1024 entries
+    opts.positive_min_ttl = Some(std::time::Duration::from_secs(60));
+    opts.negative_min_ttl = Some(std::time::Duration::from_secs(10));
+
+    let dns = Dns::<Net>::new(
+        ResolverConfig::default(),
+        opts
+    )?;
+
+    // First lookup (not cached)
+    let start = std::time::Instant::now();
+    dns.lookup_ip("example.com").await?;
+    println!("First lookup: {:?}", start.elapsed());
+
+    // Second lookup (cached)
+    let start = std::time::Instant::now();
+    dns.lookup_ip("example.com").await?;
+    println!("Cached lookup: {:?}", start.elapsed());
+
+    Ok(())
+}
+```
+
+## Popular DNS Providers
+
+### Cloudflare (1.1.1.1)
+
+```toml
+# For DoH
+agnostic-dns = { version = "0.2", features = ["tokio", "dns-over-https-rustls", "dns-webpki-roots"] }
+```
+
+- UDP/TCP: `1.1.1.1:53`
+- DoT: `1.1.1.1:853` (cloudflare-dns.com)
+- DoH: `1.1.1.1:443` (cloudflare-dns.com/dns-query)
+
+### Google Public DNS (8.8.8.8)
+
+- UDP/TCP: `8.8.8.8:53` / `8.8.4.4:53`
+- DoT: `8.8.8.8:853` (dns.google)
+- DoH: `8.8.8.8:443` (dns.google/dns-query)
+
+### Quad9 (9.9.9.9)
+
+- UDP/TCP: `9.9.9.9:53`
+- DoT: `9.9.9.9:853` (dns.quad9.net)
+- DoH: `9.9.9.9:443` (dns.quad9.net/dns-query)
+
+## Performance Tips
+
+1. **Enable caching** for frequently queried domains
+2. **Use DoH/DoT** for privacy, but note the overhead
+3. **Configure timeouts** appropriately for your use case
+4. **Reuse resolver instances** - they're designed for long-term use
+5. **Use system configuration** when possible for optimal defaults
+
+## Switching Runtimes
+
+Your DNS code remains the same across runtimes:
+
+```rust
+use agnostic_dns::Dns;
+use agnostic_net::Net;
+
+async fn resolve_domain(domain: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let dns = Dns::<Net>::system_conf()?;
+    let response = dns.lookup_ip(domain).await?;
+
+    for ip in response.iter() {
+        println!("{}", ip);
+    }
+
+    Ok(())
+}
+
+// Just change the runtime:
+
+// Tokio:
+#[tokio::main]
+async fn main() {
+    resolve_domain("example.com").await.unwrap();
+}
+
+// Async-std:
+#[async_std::main]
+async fn main() {
+    resolve_domain("example.com").await.unwrap();
+}
+
+// Smol:
+fn main() {
+    smol::block_on(resolve_domain("example.com")).unwrap();
+}
+```
 
 #### License
 

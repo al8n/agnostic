@@ -23,7 +23,29 @@
 
 ## Introduction
 
-`agnostic-io` defines I/O traits in [Sans-I/O] style for any async runtime.
+`agnostic-io` provides runtime-agnostic I/O traits following the [Sans-I/O] design philosophy. It defines standardized async I/O interfaces that work across tokio, async-std, smol, and other runtimes without coupling your protocol implementations to specific I/O primitives.
+
+### What is Sans-I/O?
+
+[Sans-I/O] (French for "without I/O") is a design pattern that **separates protocol logic from I/O implementation**. Instead of tightly coupling your code to specific I/O libraries, you:
+
+1. Define abstract I/O traits (what `agnostic-io` provides)
+2. Implement your protocol logic against these traits
+3. Let runtime-specific implementations handle the actual I/O
+
+This approach makes your code:
+- **Testable**: Mock I/O without real sockets
+- **Portable**: Works with any async runtime
+- **Reusable**: Protocol implementations work everywhere
+- **Maintainable**: Changes to I/O layer don't affect protocol logic
+
+### Key Features
+
+- **Runtime Agnostic**: Works with tokio, async-std, smol, and more
+- **`no_std` Compatible**: Can be used in embedded environments
+- **Zero-Cost**: Trait-based design compiles away
+- **Comprehensive**: AsyncRead, AsyncWrite, AsyncSeek, and more
+- **Tokio Compatible**: Optional compatibility layer for tokio traits
 
 ## Installation
 
@@ -32,11 +54,417 @@
 agnostic-io = "0.1"
 ```
 
-- `tokio::io` compat
+### Feature Flags
 
-  ```toml
-  agnostic-io = { version = "0.1", features = ["tokio"] }
-  ```
+```toml
+# Standard library support (default)
+agnostic-io = { version = "0.1", features = ["std"] }
+
+# Allocation support without std
+agnostic-io = { version = "0.1", default-features = false, features = ["alloc"] }
+
+# Tokio I/O trait compatibility
+agnostic-io = { version = "0.1", features = ["tokio"] }
+
+# no_std without allocations
+agnostic-io = { version = "0.1", default-features = false }
+```
+
+## Core Traits
+
+### AsyncRead
+
+Async reading of byte streams:
+
+```rust
+pub trait AsyncRead {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>>;
+}
+```
+
+### AsyncWrite
+
+Async writing of byte streams:
+
+```rust
+pub trait AsyncWrite {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>>;
+
+    fn poll_flush(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>>;
+
+    fn poll_close(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>>;
+}
+```
+
+### AsyncBufRead
+
+Buffered async reading:
+
+```rust
+pub trait AsyncBufRead: AsyncRead {
+    fn poll_fill_buf(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<&[u8]>>;
+
+    fn consume(self: Pin<&mut Self>, amt: usize);
+}
+```
+
+## Quick Start
+
+### Using AsyncRead
+
+```rust
+use agnostic_io::AsyncReadExt;
+
+async fn read_data<R: agnostic_io::AsyncRead + Unpin>(
+    reader: &mut R
+) -> std::io::Result<Vec<u8>> {
+    let mut buffer = vec![0u8; 1024];
+    let n = reader.read(&mut buffer).await?;
+    buffer.truncate(n);
+    Ok(buffer)
+}
+
+// Works with any runtime's TCP stream:
+#[tokio::main]
+async fn main() {
+    let mut stream = tokio::net::TcpStream::connect("127.0.0.1:8080")
+        .await
+        .unwrap();
+
+    let data = read_data(&mut stream).await.unwrap();
+    println!("Read {} bytes", data.len());
+}
+```
+
+### Using AsyncWrite
+
+```rust
+use agnostic_io::AsyncWriteExt;
+
+async fn write_data<W: agnostic_io::AsyncWrite + Unpin>(
+    writer: &mut W,
+    data: &[u8],
+) -> std::io::Result<()> {
+    writer.write_all(data).await?;
+    writer.flush().await?;
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() {
+    let mut stream = tokio::net::TcpStream::connect("127.0.0.1:8080")
+        .await
+        .unwrap();
+
+    write_data(&mut stream, b"Hello, world!").await.unwrap();
+}
+```
+
+### Building a Protocol
+
+Here's how to build a runtime-agnostic protocol:
+
+```rust
+use agnostic_io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
+
+// A simple framing protocol
+pub struct FrameCodec<T> {
+    inner: T,
+}
+
+impl<T> FrameCodec<T>
+where
+    T: AsyncRead + AsyncWrite + Unpin,
+{
+    pub fn new(inner: T) -> Self {
+        Self { inner }
+    }
+
+    // Read a length-prefixed frame
+    pub async fn read_frame(&mut self) -> std::io::Result<Vec<u8>> {
+        // Read 4-byte length prefix
+        let mut len_buf = [0u8; 4];
+        self.inner.read_exact(&mut len_buf).await?;
+        let len = u32::from_be_bytes(len_buf) as usize;
+
+        // Read frame data
+        let mut frame = vec![0u8; len];
+        self.inner.read_exact(&mut frame).await?;
+
+        Ok(frame)
+    }
+
+    // Write a length-prefixed frame
+    pub async fn write_frame(&mut self, data: &[u8]) -> std::io::Result<()> {
+        // Write length prefix
+        let len = (data.len() as u32).to_be_bytes();
+        self.inner.write_all(&len).await?;
+
+        // Write frame data
+        self.inner.write_all(data).await?;
+        self.inner.flush().await?;
+
+        Ok(())
+    }
+}
+
+// Usage with any runtime:
+#[tokio::main]
+async fn main() -> std::io::Result<()> {
+    let stream = tokio::net::TcpStream::connect("127.0.0.1:8080").await?;
+    let mut codec = FrameCodec::new(stream);
+
+    // Send a frame
+    codec.write_frame(b"Hello").await?;
+
+    // Receive a frame
+    let response = codec.read_frame().await?;
+    println!("Received: {:?}", response);
+
+    Ok(())
+}
+```
+
+## Extension Traits
+
+`agnostic-io` provides convenient extension traits:
+
+### AsyncReadExt
+
+```rust
+use agnostic_io::AsyncReadExt;
+
+async fn example<R: agnostic_io::AsyncRead + Unpin>(reader: &mut R) {
+    // Read exact number of bytes
+    let mut buf = [0u8; 10];
+    reader.read_exact(&mut buf).await.unwrap();
+
+    // Read to end
+    let mut data = Vec::new();
+    reader.read_to_end(&mut data).await.unwrap();
+
+    // Read to string
+    let mut text = String::new();
+    reader.read_to_string(&mut text).await.unwrap();
+
+    // Take (limit reading)
+    let mut limited = reader.take(100);
+    limited.read_to_end(&mut data).await.unwrap();
+
+    // Chain readers
+    let reader2 = std::io::Cursor::new(b"more data");
+    let mut chained = reader.chain(reader2);
+}
+```
+
+### AsyncWriteExt
+
+```rust
+use agnostic_io::AsyncWriteExt;
+
+async fn example<W: agnostic_io::AsyncWrite + Unpin>(writer: &mut W) {
+    // Write all bytes
+    writer.write_all(b"Hello").await.unwrap();
+
+    // Write formatted data
+    writer.write_fmt(format_args!("Number: {}", 42)).await.unwrap();
+
+    // Flush buffered data
+    writer.flush().await.unwrap();
+
+    // Close the writer
+    writer.close().await.unwrap();
+}
+```
+
+### AsyncBufReadExt
+
+```rust
+use agnostic_io::AsyncBufReadExt;
+
+async fn example<R: agnostic_io::AsyncBufRead + Unpin>(reader: &mut R) {
+    // Read lines
+    let mut lines = reader.lines();
+    while let Some(line) = lines.next_line().await.unwrap() {
+        println!("Line: {}", line);
+    }
+
+    // Read until delimiter
+    let mut buf = Vec::new();
+    reader.read_until(b'\n', &mut buf).await.unwrap();
+
+    // Split on delimiter
+    let mut split = reader.split(b',');
+    while let Some(chunk) = split.next_segment().await.unwrap() {
+        println!("Chunk: {:?}", chunk);
+    }
+}
+```
+
+## Testing with Sans-I/O
+
+The Sans-I/O approach makes testing trivial:
+
+```rust
+use agnostic_io::{AsyncRead, AsyncWrite};
+use std::io::Cursor;
+
+#[tokio::test]
+async fn test_protocol() {
+    // Mock I/O with Cursor (implements AsyncRead/AsyncWrite)
+    let mock_data = b"test data";
+    let mut reader = Cursor::new(mock_data);
+
+    let mut output = Vec::new();
+    let mut writer = Cursor::new(&mut output);
+
+    // Test your protocol without real I/O
+    my_protocol_handler(&mut reader, &mut writer).await.unwrap();
+
+    assert_eq!(output, b"expected output");
+}
+
+async fn my_protocol_handler<R, W>(
+    reader: &mut R,
+    writer: &mut W,
+) -> std::io::Result<()>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
+    // Your protocol logic here
+    Ok(())
+}
+```
+
+## Implementing Custom I/O Types
+
+You can implement `agnostic-io` traits for your own types:
+
+```rust
+use agnostic_io::AsyncRead;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
+struct MyReader {
+    data: Vec<u8>,
+    pos: usize,
+}
+
+impl AsyncRead for MyReader {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<std::io::Result<usize>> {
+        let remaining = &self.data[self.pos..];
+        let to_read = remaining.len().min(buf.len());
+
+        buf[..to_read].copy_from_slice(&remaining[..to_read]);
+        self.pos += to_read;
+
+        Poll::Ready(Ok(to_read))
+    }
+}
+```
+
+## Tokio Compatibility
+
+When using the `tokio` feature, `agnostic-io` provides compatibility with `tokio::io` traits:
+
+```toml
+[dependencies]
+agnostic-io = { version = "0.1", features = ["tokio"] }
+```
+
+```rust
+use agnostic_io::AsyncReadExt;
+use tokio::io::AsyncRead as TokioAsyncRead;
+
+async fn works_with_tokio<R: TokioAsyncRead + Unpin>(reader: &mut R) {
+    // Can use agnostic-io extension methods with tokio types
+    let mut buf = Vec::new();
+    reader.read_to_end(&mut buf).await.unwrap();
+}
+```
+
+## Benefits of Sans-I/O
+
+### 1. Runtime Independence
+
+Your protocol works with any runtime:
+
+```rust
+// Same code works with tokio, async-std, or smol
+async fn my_protocol<S>(stream: S) -> std::io::Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    // Protocol implementation
+    Ok(())
+}
+```
+
+### 2. Easy Testing
+
+No need for real sockets:
+
+```rust
+#[test]
+fn test_without_io() {
+    let mock = Cursor::new(vec![]);
+    // Test your protocol
+}
+```
+
+### 3. Composability
+
+Build complex I/O from simple parts:
+
+```rust
+let reader = TcpStream::connect("...").await?;
+let buffered = BufReader::new(reader);
+let limited = buffered.take(1024);
+let codec = FrameCodec::new(limited);
+```
+
+### 4. Clear Separation
+
+Protocol logic is separate from I/O:
+
+```rust
+// Protocol layer - pure logic
+fn parse_message(data: &[u8]) -> Result<Message, Error> { ... }
+
+// I/O layer - runtime specific
+async fn read_message<R: AsyncRead>(reader: &mut R) -> Result<Message, Error> {
+    let data = read_frame(reader).await?;
+    parse_message(&data)
+}
+```
+
+## Feature Flags
+
+- `std` (default): Standard library support
+- `alloc`: Allocation support without std
+- `tokio`: Compatibility with tokio::io traits
 
 #### License
 
