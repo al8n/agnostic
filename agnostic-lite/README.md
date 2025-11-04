@@ -27,33 +27,195 @@ In addition, this crate is not only `no_std`, but also alloc-free. This means th
 
 ## Introduction
 
-`agnostic-lite` is an agnostic abstraction layer for any async runtime.
+`agnostic-lite` is a lightweight, `no_std`-compatible, allocation-free abstraction layer for async runtimes. It provides the essential async primitives you need to write runtime-agnostic code that works in any environment - from standard applications to embedded systems.
 
-In order to make it trivial for others to build implementations of any async runtime, this crate provides an abstraction layer implementation.
+### Key Features
 
-In addition, this crate is not only `no_std`, but also alloc-free. This means that it can be used in environments where alloc is not available, such as embedded systems. It also has no unsafe code.
+- **`no_std` Compatible**: Works without the standard library
+- **Allocation-Free**: No heap allocations required
+- **No Unsafe Code**: `#![forbid(unsafe_code)]` ensures memory safety
+- **Modular Traits**: Small, focused traits instead of one monolithic Runtime trait
+- **Zero-Cost**: Compiles to runtime-specific code
+- **WASM Support**: Works in WebAssembly environments
 
-`agnostic-lite` splits the big `Runtime` trait in `agnostic` in multiple small traits:
+### Core Traits
 
-- `AsyncSpawner`: trait for spawning tasks
-- `AsyncLocalSpawner`: trait for spawning local tasks
-- `AsyncSleep`: trait for sleep functionality
-- `AsyncInterval`: trait for interval functionality
-- `AsyncTimeout`: trait for timeout functionality
+`agnostic-lite` provides focused traits for specific async operations:
 
-Builtin supports runtimes:
+- **`AsyncSpawner`**: Spawn tasks globally
+- **`AsyncLocalSpawner`**: Spawn thread-local tasks
+- **`AsyncSleep`**: Sleep for a duration
+- **`AsyncInterval`**: Create periodic intervals
+- **`AsyncTimeout`**: Apply timeouts to operations
+- **`RuntimeLite`**: Combines all traits for convenience
+- **`Yielder`**: Yield control back to the runtime
 
-- `tokio`
-- `async-std`
-- `smol`
-- `wasm-bindgen-futures`
+### Supported Runtimes
+
+- **tokio** - Enable with `features = ["tokio"]`
+- **smol** - Enable with `features = ["smol"]`
+- **wasm-bindgen-futures** - Enable with `features = ["wasm"]`
+
+## Why agnostic-lite?
+
+Choose `agnostic-lite` over `agnostic` when:
+
+- ✅ You need `no_std` support for embedded systems
+- ✅ You want minimal dependencies and compile times
+- ✅ You only need basic async primitives (spawning, time)
+- ✅ You're building a library and want minimal footprint
+- ✅ You need guaranteed memory safety (no unsafe code)
+
+Choose `agnostic` when:
+
+- You need networking, DNS, or process management
+- You're building standard applications with `std`
+- You want a batteries-included experience
 
 ## Installation
 
 ```toml
 [dependencies]
-agnostic-lite = "0.5"
+agnostic-lite = "0.6"
 ```
+
+### Runtime Selection
+
+Choose one runtime feature:
+
+```toml
+# With tokio
+agnostic-lite = { version = "0.6", features = ["tokio"] }
+
+# With smol
+agnostic-lite = { version = "0.6", features = ["smol"] }
+
+# With WASM
+agnostic-lite = { version = "0.6", features = ["wasm"] }
+```
+
+### no_std Usage
+
+```toml
+# Disable default features for no_std
+agnostic-lite = { version = "0.6", default-features = false, features = ["tokio"] }
+```
+
+## Feature Flags
+
+### Core Features
+
+- `std` (default): Standard library support
+- `alloc`: Allocation support (without std)
+- `time`: Time-related traits and types
+
+### Runtime Features (choose one)
+
+- `tokio`: Tokio runtime implementations
+- `async-io`: async-io backend (used by smol)
+- `smol`: Smol runtime implementations
+- `wasm`: WebAssembly support via wasm-bindgen-futures
+
+## Trait Reference
+
+### AsyncSpawner
+
+```rust
+pub trait AsyncSpawner {
+    type JoinHandle<T>: Future<Output = Result<T, JoinError>>;
+
+    fn spawn<F, T>(future: F) -> Self::JoinHandle<T>
+    where
+        F: Future<Output = T> + Send + 'static,
+        T: Send + 'static;
+}
+```
+
+### AsyncLocalSpawner
+
+```rust
+pub trait AsyncLocalSpawner {
+    type JoinHandle<T>: Future<Output = Result<T, JoinError>>;
+
+    fn spawn_local<F, T>(future: F) -> Self::JoinHandle<T>
+    where
+        F: Future<Output = T> + 'static,
+        T: 'static;
+}
+```
+
+### AsyncSleep
+
+```rust
+pub trait AsyncSleep {
+    type Sleep: Future<Output = ()>;
+
+    fn sleep(duration: Duration) -> Self::Sleep;
+}
+```
+
+### AsyncInterval
+
+```rust
+pub trait AsyncInterval {
+    type Interval: Stream<Item = Instant>;
+
+    fn interval(period: Duration) -> Self::Interval;
+}
+```
+
+### AsyncTimeout
+
+```rust
+pub trait AsyncTimeout {
+    fn timeout<F, T>(duration: Duration, future: F) -> TimeoutFuture<F>
+    where
+        F: Future<Output = T>;
+}
+```
+
+### RuntimeLite
+
+Combines all traits for convenience:
+
+```rust
+pub trait RuntimeLite:
+    AsyncSpawner +
+    AsyncLocalSpawner +
+    AsyncSleep +
+    AsyncInterval +
+    AsyncTimeout +
+    Yielder
+{
+    // All trait methods available
+}
+```
+
+## Conditional Compilation Helpers
+
+`agnostic-lite` provides macros for conditional compilation:
+
+```rust
+use agnostic_lite::{cfg_tokio, cfg_smol};
+
+cfg_tokio! {
+    // This code only compiles when tokio feature is enabled
+    use tokio::task;
+}
+
+cfg_smol! {
+    // This code only compiles when smol feature is enabled
+    use smol::Task;
+}
+```
+
+## Performance
+
+`agnostic-lite` has zero runtime overhead. All trait methods are inlined and compile to the same code as using the runtime directly:
+
+- **No allocations**: Works without heap allocations
+- **No dynamic dispatch**: All trait calls are statically resolved
+- **Zero-cost abstractions**: Compiles to identical assembly as direct runtime usage
 
 #### License
 

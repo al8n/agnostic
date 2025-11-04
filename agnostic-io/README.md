@@ -23,20 +23,68 @@
 
 ## Introduction
 
-`agnostic-io` defines I/O traits in [Sans-I/O] style for any async runtime.
+`agnostic-io` provides runtime-agnostic I/O traits following the [Sans-I/O] design philosophy. It defines standardized async I/O interfaces that work across tokio, smol, and other runtimes without coupling your protocol implementations to specific I/O primitives.
+
+### What is Sans-I/O?
+
+[Sans-I/O] (French for "without I/O") is a design pattern that **separates protocol logic from I/O implementation**. Instead of tightly coupling your code to specific I/O libraries, you:
+
+1. Define abstract I/O traits (what `agnostic-io` provides)
+2. Implement your protocol logic against these traits
+3. Let runtime-specific implementations handle the actual I/O
+
+This approach makes your code:
+
+- **Testable**: Mock I/O without real sockets
+- **Portable**: Works with any async runtime
+- **Reusable**: Protocol implementations work everywhere
+- **Maintainable**: Changes to I/O layer don't affect protocol logic
+
+### Key Features
+
+- **Runtime Agnostic**: Works with tokio, smol, and more
+- **`no_std` Compatible**: Can be used in embedded environments
+- **Zero-Cost**: Trait-based design compiles away
+- **Comprehensive**: AsyncRead, AsyncWrite, AsyncSeek, and more
+- **Tokio Compatible**: Optional compatibility layer for tokio traits
 
 ## Installation
 
 ```toml
 [dependencies]
-agnostic-io = "0.1"
+agnostic-io = "0.2"
 ```
 
-- `tokio::io` compat
+### Feature Flags
 
-  ```toml
-  agnostic-io = { version = "0.1", features = ["tokio"] }
-  ```
+```toml
+# Standard library support (default)
+agnostic-io = { version = "0.1", features = ["std"] }
+
+# Allocation support without std
+agnostic-io = { version = "0.1", default-features = false, features = ["alloc"] }
+
+# Tokio I/O trait compatibility
+agnostic-io = { version = "0.1", features = ["tokio"] }
+
+# no_std without allocations
+agnostic-io = { version = "0.1", default-features = false }
+```
+
+## Tokio Compatibility
+
+When using the `tokio` feature, `agnostic-io` provides compatibility with `tokio::io` traits:
+
+```toml
+[dependencies]
+agnostic-io = { version = "0.1", features = ["tokio"] }
+```
+
+## Feature Flags
+
+- `std` (default): Standard library support
+- `alloc`: Allocation support without std
+- `tokio`: Compatibility with tokio::io traits
 
 #### License
 

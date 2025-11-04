@@ -3,7 +3,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
-use agnostic_lite::{RuntimeLite, cfg_async_std, cfg_smol, cfg_tokio};
+use agnostic_lite::{RuntimeLite, cfg_smol, cfg_tokio};
 use futures_util::Future;
 use std::net::SocketAddr;
 
@@ -15,7 +15,7 @@ pub use agnostic_lite as runtime;
 #[cfg_attr(not(any(unix, windows)), path = "unknown.rs")]
 pub mod os;
 
-#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
+#[cfg(any(feature = "smol", feature = "tokio"))]
 macro_rules! impl_as_raw_fd {
   ($name:ident.$field:ident) => {
     #[cfg(unix)]
@@ -61,7 +61,7 @@ macro_rules! impl_as {
   };
 }
 
-#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
+#[cfg(any(feature = "smol", feature = "tokio"))]
 macro_rules! call {
   ($this:ident.$field:ident.$method:ident($buf:ident)) => {{
     paste::paste! {
@@ -99,7 +99,7 @@ mod udp;
 pub use tcp::*;
 pub use udp::*;
 
-#[cfg(any(feature = "smol", feature = "async-std"))]
+#[cfg(feature = "smol")]
 #[macro_use]
 mod async_io;
 
@@ -115,13 +115,6 @@ cfg_smol!(
   ///
   /// [`smol`]: https://docs.rs/smol
   pub mod smol;
-);
-
-cfg_async_std!(
-  /// Network abstractions for [`async-std`] runtime
-  ///
-  /// [`async-std`]: https://docs.rs/async-std
-  pub mod async_std;
 );
 
 #[doc(hidden)]

@@ -165,7 +165,7 @@ macro_rules! converter {
 
     cfg_unix!(
       impl std::os::fd::AsFd for $outer<$inner> {
-        fn as_fd(&self) -> std::os::fd::BorrowedFd {
+        fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
           self.0.as_fd()
         }
       }
@@ -177,7 +177,7 @@ macro_rules! converter {
       }
 
       impl std::os::fd::AsFd for $outer<&mut $inner> {
-        fn as_fd(&self) -> std::os::fd::BorrowedFd {
+        fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
           self.0.as_fd()
         }
       }
@@ -189,7 +189,7 @@ macro_rules! converter {
       }
 
       impl std::os::fd::AsFd for $outer<&$inner> {
-        fn as_fd(&self) -> std::os::fd::BorrowedFd {
+        fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
           self.0.as_fd()
         }
       }
@@ -524,11 +524,6 @@ pub trait Process {
 
 #[cfg(feature = "async-process")]
 mod async_process_impl;
-
-/// Async process related implementations for `async-std` runtime.
-#[cfg(feature = "async-std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "async-std")))]
-pub mod async_std;
 
 /// Async process related implementations for `tokio` runtime.
 #[cfg(feature = "tokio")]

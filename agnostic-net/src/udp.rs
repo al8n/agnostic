@@ -9,7 +9,7 @@ use agnostic_lite::RuntimeLite;
 
 use super::{Fd, ToSocketAddrs};
 
-#[cfg(any(feature = "async-std", feature = "smol", feature = "tokio"))]
+#[cfg(any(feature = "smol", feature = "tokio"))]
 macro_rules! udp_common_methods_impl {
   ($ty:ident.$field:ident) => {
     async fn bind<A: $crate::ToSocketAddrs<Self::Runtime>>(addr: A) -> io::Result<Self>

@@ -6,22 +6,22 @@ permissions:
 on:
   pull_request:
     paths:
-      - 'net/src/**'
-      - 'net/tests/**'
-      - 'net/Cargo.toml'
-      - 'lite/src/**'
-      - 'lite/tests/**'
-      - 'lite/Cargo.toml'
+      - "net/src/**"
+      - "net/tests/**"
+      - "net/Cargo.toml"
+      - "lite/src/**"
+      - "lite/tests/**"
+      - "lite/Cargo.toml"
   push:
     branches:
       - main
     paths:
-      - 'net/src/**'
-      - 'net/tests/**'
-      - 'net/Cargo.toml'
-      - 'lite/src/**'
-      - 'lite/tests/**'
-      - 'lite/Cargo.toml'
+      - "net/src/**"
+      - "net/tests/**"
+      - "net/Cargo.toml"
+      - "lite/src/**"
+      - "lite/tests/**"
+      - "lite/Cargo.toml"
   schedule: [cron: "0 1 */7 * *"]
   workflow_dispatch:
 
@@ -48,7 +48,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         rust: [nightly, beta, stable]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
         run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
@@ -60,7 +60,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         run: rustup update stable
       - run: cargo clippy --all-features --all-targets -p agnostic-net
@@ -69,7 +69,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         run: rustup update stable
       - run: cargo fmt --all --check -p agnostic-net

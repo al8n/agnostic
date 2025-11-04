@@ -9,7 +9,7 @@ use futures_util::FutureExt;
 
 use crate::time::{AsyncLocalInterval, AsyncLocalIntervalExt};
 
-/// The [`AsyncInterval`](crate::time::AsyncInterval) implementation for any runtime based on [`async-io`](async_io), e.g. `async-std` and `smol`.
+/// The [`AsyncInterval`](crate::time::AsyncInterval) implementation for any runtime based on [`async-io`](async_io), e.g. `smol`.
 pub type AsyncIoInterval = Timer;
 
 impl AsyncLocalInterval for Timer {
