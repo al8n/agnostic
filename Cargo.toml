@@ -20,7 +20,7 @@ homepage = "https://github.com/al8n/agnostic"
 keywords = ["async", "runtime", "agnostic", "sansio", "sans"]
 
 [workspace.dependencies]
-atomic-time = "0.1"
+atomic-time = {version = "0.1", default-features = false}
 async-io = "2"
 
 futures-util = { version = "0.3", default-features = false }
