@@ -29,7 +29,7 @@ on:
       - "agnostic-lite/tests/**"
       - "agnostic-lite/Cargo.toml"
   schedule: 
-    - cron: "0 1 */30 * *"
+    - cron: "0 1 1 * *"
   workflow_dispatch:
 
 env:

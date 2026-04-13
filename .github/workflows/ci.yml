@@ -22,7 +22,7 @@ on:
       - "**.txt"
   workflow_dispatch:
   schedule: 
-    - cron: "0 1 */30 * *"
+    - cron: "0 1 1 * *"
 
 env:
   CARGO_TERM_COLOR: always

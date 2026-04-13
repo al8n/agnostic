@@ -21,7 +21,7 @@ pub use agnostic_net as net;
 #[cfg(test)]
 mod tests;
 
-/// Agnostic aysnc DNS resolver
+/// Agnostic async DNS resolver
 pub type Dns<N> = Resolver<AsyncConnectionProvider<N>>;
 
 /// Async spawner
