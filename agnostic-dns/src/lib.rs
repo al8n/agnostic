@@ -8,11 +8,12 @@ use agnostic_net::{Net, UdpSocket, runtime::RuntimeLite};
 use futures_util::future::FutureExt;
 use std::{future::Future, io, marker::PhantomData, net::SocketAddr, pin::Pin, time::Duration};
 
-use hickory_proto::Time;
+use hickory_proto::runtime::{RuntimeProvider, Spawn, Time};
+pub use hickory_proto::xfer::Protocol;
 pub use hickory_resolver::config::*;
 use hickory_resolver::{
-  AsyncResolver,
-  name_server::{ConnectionProvider, GenericConnector, RuntimeProvider, Spawn},
+  Resolver,
+  name_server::{ConnectionProvider, GenericConnector},
 };
 
 pub use agnostic_net as net;
@@ -20,8 +21,8 @@ pub use agnostic_net as net;
 #[cfg(test)]
 mod tests;
 
-/// Agnostic aysnc DNS resolver
-pub type Dns<N> = AsyncResolver<AsyncConnectionProvider<N>>;
+/// Agnostic async DNS resolver
+pub type Dns<N> = Resolver<AsyncConnectionProvider<N>>;
 
 /// Async spawner
 #[derive(Debug, Default)]
@@ -41,7 +42,7 @@ impl<N> Copy for AsyncSpawn<N> {}
 impl<N: Net> Spawn for AsyncSpawn<N> {
   fn spawn_bg<F>(&mut self, future: F)
   where
-    F: Future<Output = Result<(), hickory_proto::error::ProtoError>> + Send + 'static,
+    F: Future<Output = Result<(), hickory_proto::ProtoError>> + Send + 'static,
   {
     <N::Runtime as RuntimeLite>::spawn_detach(future);
   }
@@ -199,13 +200,6 @@ impl<N: Net> hickory_proto::udp::DnsUdpSocket for AsyncDnsUdp<N> {
   }
 }
 
-#[cfg(any(feature = "dns-over-quic", feature = "dns-over-h3"))]
-impl<N: Net> hickory_proto::udp::QuicLocalAddr for AsyncDnsUdp<N> {
-  fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
-    <N::UdpSocket as UdpSocket>::local_addr(&self.0)
-  }
-}
-
 impl<N: Net> RuntimeProvider for AsyncRuntimeProvider<N> {
   type Handle = AsyncSpawn<N>;
 
@@ -221,9 +215,20 @@ impl<N: Net> RuntimeProvider for AsyncRuntimeProvider<N> {
 
   fn connect_tcp(
     &self,
-    addr: SocketAddr,
+    server_addr: SocketAddr,
+    _bind_addr: Option<SocketAddr>,
+    timeout: Option<Duration>,
   ) -> std::pin::Pin<Box<dyn Send + Future<Output = io::Result<Self::Tcp>>>> {
-    AsyncDnsTcp::connect(addr).boxed()
+    async move {
+      let connect_future = AsyncDnsTcp::connect(server_addr);
+      match timeout {
+        Some(duration) => <N::Runtime as RuntimeLite>::timeout(duration, connect_future)
+          .await
+          .map_err(|e| io::Error::new(io::ErrorKind::TimedOut, e))?,
+        None => connect_future.await,
+      }
+    }
+    .boxed()
   }
 
   fn bind_udp(
@@ -275,7 +280,7 @@ impl<N: Net> ConnectionProvider for AsyncConnectionProvider<N> {
     &self,
     config: &hickory_resolver::config::NameServerConfig,
     options: &hickory_resolver::config::ResolverOpts,
-  ) -> Self::FutureConn {
+  ) -> Result<Self::FutureConn, io::Error> {
     self.connection_provider.new_connection(config, options)
   }
 }

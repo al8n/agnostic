@@ -2,11 +2,8 @@ use super::*;
 
 #[cfg(any(feature = "tokio", feature = "smol"))]
 async fn resolve<N: net::Net>() {
-  let dns = Dns::<N>::new(
-    Default::default(),
-    Default::default(),
-    AsyncConnectionProvider::new(),
-  );
+  let dns =
+    Dns::<N>::builder_with_config(Default::default(), AsyncConnectionProvider::new()).build();
   let res = dns.lookup_ip("google.com.").await.unwrap();
   for ip in res {
     println!("{}", ip);

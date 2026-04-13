@@ -20,7 +20,7 @@ homepage = "https://github.com/al8n/agnostic"
 keywords = ["async", "runtime", "agnostic", "sansio", "sans"]
 
 [workspace.dependencies]
-atomic-time = {version = "0.1", default-features = false}
+atomic-time = {version = "0.2", default-features = false}
 async-io = "2"
 
 futures-util = { version = "0.3", default-features = false }
@@ -28,7 +28,7 @@ futures-io = { version = "0.3", default-features = false }
 futures-channel = "0.3"
 pin-project-lite = "0.2"
 
-agnostic-dns = { path = "./agnostic-dns", version = "0.3" }
+agnostic-dns = { path = "./agnostic-dns", version = "0.4" }
 agnostic-io = { path = "./agnostic-io", version = "0.2" }
 agnostic-lite = { path = "./agnostic-lite", default-features = false, version = "0.6" }
 agnostic-net = { path = "./agnostic-net", version = "0.3" }

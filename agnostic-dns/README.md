@@ -33,7 +33,7 @@
   - DNS over HTTPS (DoH)
   - DNS over QUIC (DoQ)
   - DNS over HTTP/3 (DoH3)
-- **DNSSEC Support**: Validate DNS responses with OpenSSL or ring
+- **DNSSEC Support**: Validate DNS responses with ring or aws-lc-rs
 - **Runtime Agnostic**: Works with tokio, and smol
 - **Flexible Configuration**: Use system settings or custom resolvers
 - **Comprehensive**: Built on the mature hickory-dns library
@@ -47,44 +47,43 @@
 
 ```toml
 [dependencies]
-agnostic-dns = "0.3"
+agnostic-dns = "0.4"
 ```
 
 - `tokio`
 
   ```toml
-  agnostic-dns = { version = "0.3", features = ["tokio"] }
+  agnostic-dns = { version = "0.4", features = ["tokio"] }
   ```
 
 - `smol`
 
   ```toml
-  agnostic-dns = { version = "0.3", features = ["smol"] }
+  agnostic-dns = { version = "0.4", features = ["smol"] }
   ```
 
 ## Feature Matrix
 
 | Feature | Description | Enable With |
 |---------|-------------|-------------|
-| **Core** | | |
-| `dns` | Basic DNS resolution | Default |
 | **Runtimes** | | |
 | `tokio` | Tokio runtime support | `features = ["tokio"]` |
 | `smol` | Smol runtime support | `features = ["smol"]` |
 | **Transport Protocols** | | |
-| `dns-over-rustls` | DNS over TLS with rustls | `features = ["dns-over-rustls"]` |
-| `dns-over-openssl` | DNS over TLS with OpenSSL | `features = ["dns-over-openssl"]` |
-| `dns-over-native-tls` | DNS over TLS with native-tls | `features = ["dns-over-native-tls"]` |
-| `dns-over-https-rustls` | DNS over HTTPS with rustls | `features = ["dns-over-https-rustls"]` |
-| `dns-over-quic` | DNS over QUIC (RFC 9250) | `features = ["dns-over-quic"]` |
-| `dns-over-h3` | DNS over HTTP/3 | `features = ["dns-over-h3"]` |
+| `tls-ring` | DNS over TLS (ring crypto) | `features = ["tls-ring"]` |
+| `tls-aws-lc-rs` | DNS over TLS (aws-lc-rs crypto) | `features = ["tls-aws-lc-rs"]` |
+| `https-ring` | DNS over HTTPS (ring crypto) | `features = ["https-ring"]` |
+| `https-aws-lc-rs` | DNS over HTTPS (aws-lc-rs crypto) | `features = ["https-aws-lc-rs"]` |
+| `quic-ring` | DNS over QUIC (ring crypto) | `features = ["quic-ring"]` |
+| `quic-aws-lc-rs` | DNS over QUIC (aws-lc-rs crypto) | `features = ["quic-aws-lc-rs"]` |
+| `h3-ring` | DNS over HTTP/3 (ring crypto) | `features = ["h3-ring"]` |
+| `h3-aws-lc-rs` | DNS over HTTP/3 (aws-lc-rs crypto) | `features = ["h3-aws-lc-rs"]` |
 | **Certificates** | | |
-| `dns-webpki-roots` | Use webpki root certificates | `features = ["dns-webpki-roots"]` |
-| `dns-native-certs` | Use OS native certificates | `features = ["dns-native-certs"]` |
+| `webpki-roots` | Use webpki root certificates | `features = ["webpki-roots"]` |
+| `rustls-platform-verifier` | Use platform certificate verifier | `features = ["rustls-platform-verifier"]` |
 | **DNSSEC** | | |
-| `dnssec` | Basic DNSSEC validation | `features = ["dnssec"]` |
-| `dnssec-openssl` | DNSSEC with OpenSSL crypto | `features = ["dnssec-openssl"]` |
 | `dnssec-ring` | DNSSEC with ring crypto | `features = ["dnssec-ring"]` |
+| `dnssec-aws-lc-rs` | DNSSEC with aws-lc-rs crypto | `features = ["dnssec-aws-lc-rs"]` |
 | **Other** | | |
 | `tracing` | Distributed tracing support | `features = ["tracing"]` |
 

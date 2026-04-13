@@ -21,7 +21,8 @@ on:
       - "**.md"
       - "**.txt"
   workflow_dispatch:
-  schedule: [cron: "40 1 * * *"]
+  schedule: 
+    - cron: "0 1 1 * *"
 
 env:
   CARGO_TERM_COLOR: always
@@ -39,7 +40,7 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
         run: rustup update --no-self-update && rustup default nightly && rustup component add rustfmt
@@ -57,18 +58,14 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
         run: rustup update stable --no-self-update && rustup default stable
       - name: Install cargo-hack
         run: cargo install cargo-hack
-      - name: Apply clippy lints (unix)
+      - name: Apply clippy lints
         run: cargo hack clippy --each-feature
-        if: matrix.os != 'windows-latest'
-      - name: Apply clippy lints (windows)
-        run: cargo hack clippy --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
-        if: matrix.os == 'windows-latest'
 
   build:
     name: build
@@ -80,32 +77,22 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
         run: rustup update stable --no-self-update && rustup default stable
       - name: Install cargo-hack
         run: cargo install cargo-hack
-      - name: Install OpenSSL (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: powershell
-        run: |
-          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-          vcpkg install openssl:x64-windows-static-md
-      - name: Build (unix)
+      - name: Build
         run: cargo hack build --each-feature
-        if: matrix.os != 'windows-latest'
-      - name: Build (windows)
-        run: cargo hack build --each-feature --exclude-features dns-over-openssl,dnssec-openssl,dns-native-certs,dns-over-native-tls
-        if: matrix.os == 'windows-latest'
 
   # docs:
   #   name: docs
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v5
+  #     - uses: actions/checkout@v6
   #     - name: Cache cargo build and registry
-  #       uses: actions/cache@v4
+  #       uses: actions/cache@v5
   #       with:
   #         path: |
   #           ~/.cargo/registry

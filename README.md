@@ -59,12 +59,12 @@ agnostic (facade - full-featured)
 
 | Crate | Version | Description | Use When |
 |-------|---------|-------------|----------|
-| [`agnostic`](./agnostic/) | 0.8.0 | Full-featured facade with networking, DNS, process management, QUIC | You need comprehensive async abstractions |
-| [`agnostic-lite`](./agnostic-lite/) | 0.6.0 | Lightweight core (no_std, alloc-free, no unsafe code) | You need minimal abstractions or embedded/no_std support |
-| [`agnostic-io`](./agnostic-io/) | 0.2.0 | Sans-I/O trait definitions | You're building protocol implementations |
-| [`agnostic-net`](./agnostic-net/) | 0.3.0 | TCP/UDP networking abstractions | You need runtime-agnostic networking |
-| [`agnostic-dns`](./agnostic-dns/) | 0.3.0 | DNS resolution with DoH, DoT, DoQ, DNSSEC | You need advanced DNS capabilities |
-| [`agnostic-process`](./agnostic-process/) | 0.3.0 | Subprocess spawning and management | You need to spawn external processes |
+| [`agnostic`](./agnostic/) | 0.9 | Full-featured facade with networking, DNS, process management, QUIC | You need comprehensive async abstractions |
+| [`agnostic-lite`](./agnostic-lite/) | 0.6 | Lightweight core (no_std, alloc-free, no unsafe code) | You need minimal abstractions or embedded/no_std support |
+| [`agnostic-io`](./agnostic-io/) | 0.2 | Sans-I/O trait definitions | You're building protocol implementations |
+| [`agnostic-net`](./agnostic-net/) | 0.3 | TCP/UDP networking abstractions | You need runtime-agnostic networking |
+| [`agnostic-dns`](./agnostic-dns/) | 0.4 | DNS resolution with DoH, DoT, DoQ, DNSSEC | You need advanced DNS capabilities |
+| [`agnostic-process`](./agnostic-process/) | 0.3 | Subprocess spawning and management | You need to spawn external processes |
 
 ## Decision Guide
 

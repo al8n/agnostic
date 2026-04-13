@@ -79,10 +79,6 @@ pub mod dns {
     read_system_conf,
   };
 
-  #[cfg(feature = "dns-over-rustls")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
-  pub use agnostic_dns::TlsClientConfig;
-
   #[cfg(unix)]
   #[cfg_attr(docsrs, doc(cfg(unix)))]
   pub use agnostic_dns::{parse_resolv_conf, read_resolv_conf};
