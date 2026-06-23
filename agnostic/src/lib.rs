@@ -74,13 +74,19 @@ pub mod net;
 pub mod dns {
   pub use agnostic_dns::{
     AgnosticTime, AsyncConnectionProvider, AsyncDnsUdp, AsyncRuntimeProvider, AsyncSpawn,
-    CLOUDFLARE_IPS, Dns, GOOGLE_IPS, LookupIpStrategy, NameServerConfig, NameServerConfigGroup,
-    Protocol, QUAD9_IPS, ResolverConfig, ResolverOpts, ServerOrderingStrategy, Timer,
-    read_system_conf,
+    CLOUDFLARE, Dns, GOOGLE, LookupIpStrategy, NameServerConfig, ProtocolConfig, QUAD9,
+    ResolverConfig, ResolverOpts, ServerGroup, ServerOrderingStrategy, Timer,
   };
 
-  #[cfg(unix)]
-  #[cfg_attr(docsrs, doc(cfg(unix)))]
+  #[cfg(any(unix, windows))]
+  #[cfg_attr(docsrs, doc(cfg(any(unix, windows))))]
+  pub use agnostic_dns::read_system_conf;
+
+  #[cfg(all(unix, not(target_os = "android"), not(target_vendor = "apple")))]
+  #[cfg_attr(
+    docsrs,
+    doc(cfg(all(unix, not(target_os = "android"), not(target_vendor = "apple"))))
+  )]
   pub use agnostic_dns::{parse_resolv_conf, read_resolv_conf};
 }
 
