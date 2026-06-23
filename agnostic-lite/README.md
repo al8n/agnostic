@@ -11,7 +11,7 @@
 
 In order to make it trivial for others to build implementations of any async runtime, this crate provides an abstraction layer implementation.
 
-In addition, this crate is not only `no_std`, but also alloc-free. This means that it can be used in environments where alloc is not available, such as embedded systems. It also has no unsafe code.
+In addition, the abstraction layer itself is `no_std` and alloc-free, so the traits can be used in environments where `alloc` is not available. It also has no unsafe code. Concrete runtime backends have their own requirements: `tokio`, `smol`, and `wasm` require `std`, while the `embassy` backend is `no_std` but requires `alloc`.
 
 [<img alt="github" src="https://img.shields.io/badge/github-al8n/agnostic--lite-8da0cb?style=for-the-badge&logo=Github" height="22">][Github-url]
 <img alt="LoC" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fal8n%2F327b2a8aef9003246e45c6e47fe63937%2Fraw%2Fagnostic-lite" height="22">
@@ -52,9 +52,10 @@ In addition, this crate is not only `no_std`, but also alloc-free. This means th
 
 ### Supported Runtimes
 
-- **tokio** - Enable with `features = ["tokio"]`
-- **smol** - Enable with `features = ["smol"]`
-- **wasm-bindgen-futures** - Enable with `features = ["wasm"]`
+- **tokio** - Enable with `features = ["tokio"]` (requires `std`)
+- **smol** - Enable with `features = ["smol"]` (requires `std`)
+- **wasm-bindgen-futures** - Enable with `features = ["wasm"]` (requires `std`)
+- **embassy** - Enable with `features = ["embassy"]`; the `no_std` runtime for embedded targets (requires `alloc`)
 
 ## Why agnostic-lite?
 
@@ -94,12 +95,21 @@ agnostic-lite = { version = "0.6", features = ["smol"] }
 agnostic-lite = { version = "0.6", features = ["wasm"] }
 ```
 
-### no_std Usage
+### `no_std` Usage
+
+The `tokio`, `smol`, and `wasm` runtimes all pull in `std`. For a real `no_std` runtime, use the
+`embassy` backend, which targets [`embassy-executor`] and only requires `alloc`:
 
 ```toml
-# Disable default features for no_std
-agnostic-lite = { version = "0.6", default-features = false, features = ["tokio"] }
+# no_std (with alloc), for embedded targets running on embassy-executor
+agnostic-lite = { version = "0.6", default-features = false, features = ["embassy"] }
 ```
+
+The `embassy` backend has caveats (a one-time spawner `init`, a bounded task pool, a busy-polling
+`block_on`, and panicking `spawn_blocking`/local spawning) — see the [`embassy`] module docs.
+
+[`embassy-executor`]: https://docs.rs/embassy-executor
+[`embassy`]: https://docs.rs/agnostic-lite/latest/agnostic_lite/embassy/index.html
 
 ## Feature Flags
 
@@ -111,83 +121,102 @@ agnostic-lite = { version = "0.6", default-features = false, features = ["tokio"
 
 ### Runtime Features (choose one)
 
-- `tokio`: Tokio runtime implementations
-- `async-io`: async-io backend (used by smol)
-- `smol`: Smol runtime implementations
-- `wasm`: WebAssembly support via wasm-bindgen-futures
+- `tokio`: Tokio runtime implementations (requires `std`)
+- `async-io`: async-io backend (used by smol, requires `std`)
+- `smol`: Smol runtime implementations (requires `std`)
+- `wasm`: WebAssembly support via wasm-bindgen-futures (requires `std`)
+- `embassy`: `no_std` runtime for embedded targets via embassy-executor (requires `alloc`)
 
 ## Trait Reference
 
+The signatures below are simplified sketches for orientation; see [docs.rs](https://docs.rs/agnostic-lite) for the authoritative definitions.
+
 ### AsyncSpawner
 
-```rust
-pub trait AsyncSpawner {
-    type JoinHandle<T>: Future<Output = Result<T, JoinError>>;
-
-    fn spawn<F, T>(future: F) -> Self::JoinHandle<T>
+```rust,ignore
+pub trait AsyncSpawner: Yielder + Copy + Send + Sync + 'static {
+    type JoinHandle<O>: JoinHandle<O> + Send + Sync + 'static
     where
-        F: Future<Output = T> + Send + 'static,
-        T: Send + 'static;
+        O: Send + 'static;
+
+    fn spawn<F>(future: F) -> Self::JoinHandle<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static;
 }
 ```
 
 ### AsyncLocalSpawner
 
-```rust
-pub trait AsyncLocalSpawner {
-    type JoinHandle<T>: Future<Output = Result<T, JoinError>>;
-
-    fn spawn_local<F, T>(future: F) -> Self::JoinHandle<T>
+```rust,ignore
+pub trait AsyncLocalSpawner: Yielder + Copy + 'static {
+    type JoinHandle<O>: LocalJoinHandle<O> + 'static
     where
-        F: Future<Output = T> + 'static,
-        T: 'static;
+        O: 'static;
+
+    fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
+    where
+        F: Future + 'static,
+        F::Output: 'static;
 }
 ```
 
 ### AsyncSleep
 
-```rust
-pub trait AsyncSleep {
-    type Sleep: Future<Output = ()>;
+```rust,ignore
+pub trait AsyncSleep: Future<Output = Self::Instant> + Send {
+    type Instant: Instant;
 
-    fn sleep(duration: Duration) -> Self::Sleep;
+    fn reset(self: Pin<&mut Self>, deadline: Self::Instant);
 }
 ```
 
 ### AsyncInterval
 
-```rust
-pub trait AsyncInterval {
-    type Interval: Stream<Item = Instant>;
+```rust,ignore
+pub trait AsyncInterval: Stream<Item = Self::Instant> + Send + Unpin {
+    type Instant: Instant;
 
-    fn interval(period: Duration) -> Self::Interval;
+    fn reset(&mut self, interval: Duration);
+    fn reset_at(&mut self, instant: Self::Instant);
+    fn poll_tick(&mut self, cx: &mut Context<'_>) -> Poll<Self::Instant>;
 }
 ```
 
 ### AsyncTimeout
 
-```rust
-pub trait AsyncTimeout {
-    fn timeout<F, T>(duration: Duration, future: F) -> TimeoutFuture<F>
-    where
-        F: Future<Output = T>;
+```rust,ignore
+pub trait AsyncTimeout<F>: Future<Output = Result<F::Output, Elapsed>> + Send
+where
+    F: Future + Send,
+{
+    type Instant: Instant;
+
+    fn timeout(timeout: Duration, fut: F) -> Self;
+    fn timeout_at(deadline: Self::Instant, fut: F) -> Self;
 }
 ```
 
 ### RuntimeLite
 
-Combines all traits for convenience:
+Brings the spawner and time traits together behind a single runtime type: each is exposed as an
+associated type, alongside convenience methods. This is a trimmed sketch — the real trait also
+carries the `Local*`/`Blocking` spawner and time variants:
 
-```rust
-pub trait RuntimeLite:
-    AsyncSpawner +
-    AsyncLocalSpawner +
-    AsyncSleep +
-    AsyncInterval +
-    AsyncTimeout +
-    Yielder
-{
-    // All trait methods available
+```rust,ignore
+pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
+    type Spawner: AsyncSpawner;
+    type LocalSpawner: AsyncLocalSpawner;
+    type BlockingSpawner: AsyncBlockingSpawner;
+    // with the `time` feature: Instant, AfterSpawner, Sleep, Interval, Timeout, Delay, ...
+
+    fn spawn<F>(future: F) -> <Self::Spawner as AsyncSpawner>::JoinHandle<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static;
+
+    fn block_on<F: Future>(f: F) -> F::Output;
+    // ... plus sleep / timeout / interval / spawn_after and more
 }
 ```
 
