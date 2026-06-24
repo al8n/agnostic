@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### agnostic [0.10.0] - 2026-06-24
+
+#### Changed
+- **Breaking:** track hickory-dns 0.26 in the `dns` re-exports — `Protocol` is now `ProtocolConfig`, the `{GOOGLE,CLOUDFLARE,QUAD9}_IPS` constants are now `{GOOGLE,CLOUDFLARE,QUAD9}`, and `NameServerConfigGroup` is now `ServerGroup`.
+
+### agnostic-lite [0.6.2] - 2026-06-24
+
+#### Added
+- `embassy` feature: an [`embassy-executor`](https://docs.rs/embassy-executor) backend (`EmbassyRuntime`) for true `no_std` async on bare-metal targets, with time primitives backed by `embassy-time`.
+
+#### Fixed
+- Corrected the `no_std` documentation — the tokio backend requires `std`; use the new `embassy` backend for genuine `no_std` environments.
+
+### agnostic-net [0.3.1] - 2026-06-24
+
+#### Fixed
+- The smol `UdpSocket::poll_recv_from`/`poll_send_to` now poll the underlying `Async` source's readiness rather than recreating a future on every poll, which could otherwise stall a receive forever when the socket is polled directly (e.g. by hickory-dns 0.26's UDP client).
+
+### agnostic-dns [0.5.0] - 2026-06-24
+
+#### Changed
+- **Breaking:** updated to hickory-dns 0.26. Provider traits now come from `hickory-resolver::net`, `AsyncConnectionProvider` is an alias for `AsyncRuntimeProvider` (hickory now blanket-implements `ConnectionProvider` for every `RuntimeProvider`), `hickory-proto` is no longer a direct dependency, and the transport features map 1:1 to `hickory-resolver`.
+
 ### agnostic [0.8.0] - 2025-11-04
 
 #### Added
