@@ -41,7 +41,7 @@ macro_rules! join_handle {
   };
 }
 
-#[cfg(any(feature = "smol", feature = "wasm"))]
+#[cfg(any(feature = "smol", feature = "wasm", feature = "embassy"))]
 pub(crate) mod handle {
   /// Task failed to execute to completion.
   ///
@@ -53,7 +53,7 @@ pub(crate) mod handle {
   impl JoinError {
     /// Create a new `JoinError`.
     #[inline]
-    #[cfg(feature = "wasm")]
+    #[cfg(any(feature = "wasm", feature = "embassy"))]
     pub(crate) const fn new() -> Self {
       Self(())
     }
@@ -188,13 +188,23 @@ pub trait AsyncBlockingSpawner: Yielder + Copy + 'static {
 #[derive(Debug, Clone, Copy)]
 #[cfg(all(
   feature = "time",
-  any(feature = "tokio", feature = "smol", feature = "wasm")
+  any(
+    feature = "tokio",
+    feature = "smol",
+    feature = "wasm",
+    feature = "embassy"
+  )
 ))]
 pub(crate) struct Canceled;
 
 #[cfg(all(
   feature = "time",
-  any(feature = "tokio", feature = "smol", feature = "wasm")
+  any(
+    feature = "tokio",
+    feature = "smol",
+    feature = "wasm",
+    feature = "embassy"
+  )
 ))]
 impl core::fmt::Display for Canceled {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -204,7 +214,12 @@ impl core::fmt::Display for Canceled {
 
 #[cfg(all(
   feature = "time",
-  any(feature = "tokio", feature = "smol", feature = "wasm")
+  any(
+    feature = "tokio",
+    feature = "smol",
+    feature = "wasm",
+    feature = "embassy"
+  )
 ))]
 impl core::error::Error for Canceled {}
 
@@ -244,7 +259,12 @@ impl<E: core::error::Error + Send + Sync + 'static> From<AfterHandleError<E>> fo
 
 #[cfg(all(
   feature = "time",
-  any(feature = "tokio", feature = "smol", feature = "wasm")
+  any(
+    feature = "tokio",
+    feature = "smol",
+    feature = "wasm",
+    feature = "embassy"
+  )
 ))]
 pub(crate) struct AfterHandleSignals {
   finished: core::sync::atomic::AtomicBool,
@@ -253,7 +273,12 @@ pub(crate) struct AfterHandleSignals {
 
 #[cfg(all(
   feature = "time",
-  any(feature = "tokio", feature = "smol", feature = "wasm")
+  any(
+    feature = "tokio",
+    feature = "smol",
+    feature = "wasm",
+    feature = "embassy"
+  )
 ))]
 impl AfterHandleSignals {
   #[inline]

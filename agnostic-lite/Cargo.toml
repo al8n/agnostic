@@ -48,6 +48,19 @@ wasm = [
   "futures-util/std",
 ]
 
+embassy = [
+  "alloc",
+  "time",
+  "dep:embassy-executor",
+  "dep:embassy-time",
+  "dep:embassy-futures",
+  "dep:embassy-sync",
+  "dep:futures-channel",
+  "futures-channel/alloc",
+  "futures-util/async-await",
+  "futures-util/async-await-macro",
+]
+
 test = ["time"]
 
 [target.'cfg(target_family = "wasm")'.dependencies]
@@ -70,9 +83,23 @@ async-io = { workspace = true, optional = true }
 smol = { workspace = true, optional = true }
 paste = { version = "1", optional = true }
 
+embassy-executor = { version = "0.10", optional = true, default-features = false }
+embassy-time = { version = "0.5", optional = true, default-features = false }
+embassy-futures = { version = "0.1", optional = true, default-features = false }
+embassy-sync = { version = "0.8", optional = true, default-features = false }
+futures-channel = { version = "0.3", optional = true, default-features = false, features = [
+  "alloc",
+] }
+
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3"
 
 [dev-dependencies]
 futures = { version = "0.3", features = ["executor"] }
 tokio = { workspace = true, features = ["full"] }
+embassy-executor = { version = "0.10", features = [
+  "executor-thread",
+  "platform-std",
+] }
+embassy-time = { version = "0.5", features = ["std", "generic-queue-64"] }
+critical-section = { version = "1", features = ["std"] }

@@ -151,6 +151,27 @@ pub mod smol;
 #[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
 pub mod wasm;
 
+/// Concrete runtime implementations based on the [`embassy-executor`] runtime.
+///
+/// This is the only `no_std` runtime backend. It requires `alloc` (futures are boxed) and a
+/// running [`embassy-executor`] executor. Because [`embassy-executor`] allocates task storage
+/// statically and spawns through a `Send` spawner, this backend is necessarily a degraded fit for
+/// the [`RuntimeLite`] contract:
+///
+/// - You **must** call [`embassy::init`] once, from within a running executor, to install the
+///   global spawner before spawning anything.
+/// - The number of concurrently-alive spawned tasks is bounded by [`embassy::TASK_POOL_SIZE`];
+///   exceeding it makes the returned handle resolve to an error.
+/// - [`block_on`](embassy::block_on) busy-polls (it does not sleep the CPU).
+/// - [`spawn_blocking`](RuntimeLite::spawn_blocking) and local spawning
+///   ([`spawn_local`](RuntimeLite::spawn_local)) **panic**: the global spawner is `Send`-only, so
+///   `!Send` local tasks cannot be spawned through it.
+///
+/// [`embassy-executor`]: https://docs.rs/embassy-executor
+#[cfg(feature = "embassy")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embassy")))]
+pub mod embassy;
+
 /// Time related traits concrete implementations for runtime based on [`async-io`](::async_io), e.g. [`smol`].
 ///
 /// [`smol`]: https://docs.rs/smol
@@ -423,8 +444,10 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
 }
 
 /// Unit test for the [`RuntimeLite`]
-#[cfg(all(any(test, feature = "test"), feature = "std"))]
-#[cfg_attr(docsrs, doc(cfg(any(test, feature = "test"))))]
+///
+/// These helpers exercise the time-related runtime methods, so they require the `time` feature.
+#[cfg(all(any(test, feature = "test"), feature = "std", feature = "time"))]
+#[cfg_attr(docsrs, doc(cfg(all(any(test, feature = "test"), feature = "time"))))]
 pub mod tests {
   use core::sync::atomic::{AtomicUsize, Ordering};
 
