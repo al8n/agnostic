@@ -18,71 +18,28 @@ smol = ["agnostic-net/smol"]
 
 tracing = ["dep:tracing"]
 
-quic-ring = [
-  "hickory-resolver/quic-ring",
-  "hickory-proto/quic-ring",
-  "tls-ring",
-]
-quic-aws-lc-rs = [
-  "hickory-resolver/quic-aws-lc-rs",
-  "hickory-proto/quic-aws-lc-rs",
-  "tls-aws-lc-rs",
-]
-h3-ring = [
-  "hickory-resolver/h3-ring",
-  "hickory-proto/h3-ring",
-  "tls-ring",
-]
-h3-aws-lc-rs = [
-  "hickory-resolver/h3-aws-lc-rs",
-  "hickory-proto/h3-aws-lc-rs",
-  "tls-aws-lc-rs",
-]
-https-ring = [
-  "hickory-resolver/https-ring",
-  "hickory-proto/https-ring",
-  "tls-ring",
-]
-https-aws-lc-rs = [
-  "hickory-resolver/https-aws-lc-rs",
-  "hickory-proto/https-aws-lc-rs",
-  "tls-aws-lc-rs",
-]
-tls-ring = [
-  "hickory-resolver/tls-ring",
-  "hickory-proto/tls-ring",
-]
-tls-aws-lc-rs = [
-  "hickory-resolver/tls-aws-lc-rs",
-  "hickory-proto/tls-aws-lc-rs",
-]
-webpki-roots = [
-  "hickory-proto/webpki-roots",
-  "hickory-resolver/webpki-roots",
-]
-rustls-platform-verifier = [
-  "hickory-proto/rustls-platform-verifier",
-  "hickory-resolver/rustls-platform-verifier",
-]
-dnssec-aws-lc-rs = [
-  "hickory-proto/dnssec-aws-lc-rs",
-  "hickory-resolver/dnssec-aws-lc-rs",
-]
-dnssec-ring = [
-  "hickory-proto/dnssec-ring",
-  "hickory-resolver/dnssec-ring",
-]
-
-[target.'cfg(target_family = "wasm")'.dependencies]
-hickory-resolver = { version = "0.25", default-features = false, optional = true }
+# hickory 0.26 cascades these internally (https/quic -> tls, h3 -> quic -> tls via its
+# `__https`/`__quic`/`__h3` features), so each maps 1:1 to the hickory feature.
+tls-ring = ["hickory-resolver/tls-ring"]
+tls-aws-lc-rs = ["hickory-resolver/tls-aws-lc-rs"]
+quic-ring = ["hickory-resolver/quic-ring"]
+quic-aws-lc-rs = ["hickory-resolver/quic-aws-lc-rs"]
+https-ring = ["hickory-resolver/https-ring"]
+https-aws-lc-rs = ["hickory-resolver/https-aws-lc-rs"]
+h3-ring = ["hickory-resolver/h3-ring"]
+h3-aws-lc-rs = ["hickory-resolver/h3-aws-lc-rs"]
+webpki-roots = ["hickory-resolver/webpki-roots"]
+rustls-platform-verifier = ["hickory-resolver/rustls-platform-verifier"]
+dnssec-aws-lc-rs = ["hickory-resolver/dnssec-aws-lc-rs"]
+dnssec-ring = ["hickory-resolver/dnssec-ring"]
 
 [target.'cfg(unix)'.dependencies]
-hickory-resolver = { version = "0.25", default-features = false, features = [
+hickory-resolver = { version = "0.26", default-features = false, features = [
   "system-config",
 ] }
 
 [target.'cfg(windows)'.dependencies]
-hickory-resolver = { version = "0.25", default-features = false, features = [
+hickory-resolver = { version = "0.26", default-features = false, features = [
   "system-config",
 ] }
 
@@ -90,7 +47,7 @@ hickory-resolver = { version = "0.25", default-features = false, features = [
 async-trait = "0.1"
 agnostic-net.workspace = true
 futures-util.workspace = true
-hickory-proto = { version = "0.25", default-features = false }
+hickory-resolver = { version = "0.26", default-features = false }
 tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]

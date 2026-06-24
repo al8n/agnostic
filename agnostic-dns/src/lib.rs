@@ -8,12 +8,10 @@ use agnostic_net::{Net, UdpSocket, runtime::RuntimeLite};
 use futures_util::future::FutureExt;
 use std::{future::Future, io, marker::PhantomData, net::SocketAddr, pin::Pin, time::Duration};
 
-use hickory_proto::runtime::{RuntimeProvider, Spawn, Time};
-pub use hickory_proto::xfer::Protocol;
 pub use hickory_resolver::config::*;
 use hickory_resolver::{
   Resolver,
-  name_server::{ConnectionProvider, GenericConnector},
+  net::runtime::{DnsTcpStream, DnsUdpSocket, RuntimeProvider, Spawn, Time},
 };
 
 pub use agnostic_net as net;
@@ -40,10 +38,7 @@ impl<N> Clone for AsyncSpawn<N> {
 impl<N> Copy for AsyncSpawn<N> {}
 
 impl<N: Net> Spawn for AsyncSpawn<N> {
-  fn spawn_bg<F>(&mut self, future: F)
-  where
-    F: Future<Output = Result<(), hickory_proto::ProtoError>> + Send + 'static,
-  {
+  fn spawn_bg(&mut self, future: impl Future<Output = ()> + Send + 'static) {
     <N::Runtime as RuntimeLite>::spawn_detach(future);
   }
 }
@@ -124,7 +119,7 @@ where
 #[doc(hidden)]
 pub struct AsyncDnsTcp<N: Net>(N::TcpStream);
 
-impl<N: Net> hickory_proto::tcp::DnsTcpStream for AsyncDnsTcp<N> {
+impl<N: Net> DnsTcpStream for AsyncDnsTcp<N> {
   type Time = AgnosticTime<N>;
 }
 
@@ -179,7 +174,7 @@ impl<N: Net> AsyncDnsUdp<N> {
   }
 }
 
-impl<N: Net> hickory_proto::udp::DnsUdpSocket for AsyncDnsUdp<N> {
+impl<N: Net> DnsUdpSocket for AsyncDnsUdp<N> {
   type Time = AgnosticTime<N>;
 
   fn poll_recv_from(
@@ -240,59 +235,22 @@ impl<N: Net> RuntimeProvider for AsyncRuntimeProvider<N> {
   }
 }
 
-/// Create `DnsHandle` with the help of `AsyncRuntimeProvider`.
-pub struct AsyncConnectionProvider<N: Net> {
-  runtime_provider: AsyncRuntimeProvider<N>,
-  connection_provider: GenericConnector<AsyncRuntimeProvider<N>>,
-}
+/// Creates DNS connections with the help of [`AsyncRuntimeProvider`].
+///
+/// Since hickory 0.26 every [`RuntimeProvider`] is also a
+/// [`ConnectionProvider`](hickory_resolver::ConnectionProvider), so this is an alias for
+/// [`AsyncRuntimeProvider`].
+pub type AsyncConnectionProvider<N> = AsyncRuntimeProvider<N>;
 
-impl<N: Net> Default for AsyncConnectionProvider<N> {
-  fn default() -> Self {
-    Self::new()
-  }
-}
-
-impl<N: Net> AsyncConnectionProvider<N> {
-  /// Create a new `AsyncConnectionProvider`.
-  pub fn new() -> Self {
-    Self {
-      runtime_provider: AsyncRuntimeProvider::new(),
-      connection_provider: GenericConnector::new(AsyncRuntimeProvider::new()),
-    }
-  }
-}
-
-impl<N: Net> Clone for AsyncConnectionProvider<N> {
-  fn clone(&self) -> Self {
-    Self {
-      runtime_provider: self.runtime_provider,
-      connection_provider: self.connection_provider.clone(),
-    }
-  }
-}
-
-impl<N: Net> ConnectionProvider for AsyncConnectionProvider<N> {
-  type Conn = <GenericConnector<AsyncRuntimeProvider<N>> as ConnectionProvider>::Conn;
-  type FutureConn = <GenericConnector<AsyncRuntimeProvider<N>> as ConnectionProvider>::FutureConn;
-  type RuntimeProvider = AsyncRuntimeProvider<N>;
-
-  fn new_connection(
-    &self,
-    config: &hickory_resolver::config::NameServerConfig,
-    options: &hickory_resolver::config::ResolverOpts,
-  ) -> Result<Self::FutureConn, io::Error> {
-    self.connection_provider.new_connection(config, options)
-  }
-}
-
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "android"), not(target_vendor = "apple")))]
 pub use dns_util::read_resolv_conf;
 
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "android"), not(target_vendor = "apple")))]
 pub use hickory_resolver::system_conf::parse_resolv_conf;
+#[cfg(any(unix, windows))]
 pub use hickory_resolver::system_conf::read_system_conf;
 
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "android"), not(target_vendor = "apple")))]
 mod dns_util {
   use std::{io, path::Path};
 
