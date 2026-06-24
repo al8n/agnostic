@@ -25,7 +25,7 @@ Write once, run on any async runtime.
 - **Runtime Independence**: Switch between tokio, smol with a single feature flag
 - **Zero-Cost Abstractions**: Generic implementations compile to specialized code per runtime
 - **Incremental Adoption**: Use lightweight `agnostic-lite` or the full-featured `agnostic` crate
-- **no_std Support**: Core abstractions work in embedded and constrained environments
+- **no_std Support**: Core abstractions are `no_std`; the `embassy` backend adds a true bare-metal async runtime (tokio and smol require `std`)
 - **Memory Safe**: No unsafe code in core abstractions (`agnostic-lite`)
 - **Comprehensive**: Covers spawning, networking, DNS, process management, and more
 
@@ -38,7 +38,7 @@ agnostic (facade - full-featured)
 ├── agnostic-lite (core - no_std, alloc-free)
 │   ├── Task spawning (AsyncSpawner, AsyncLocalSpawner)
 │   ├── Time abstractions (AsyncSleep, AsyncInterval, AsyncTimeout)
-│   └── Runtime implementations (tokio, smol, wasm)
+│   └── Runtime implementations (tokio, smol, wasm, embassy)
 ├── agnostic-io (Sans-I/O trait definitions)
 │   └── AsyncRead, AsyncWrite, etc.
 ├── agnostic-net (networking)
@@ -59,11 +59,11 @@ agnostic (facade - full-featured)
 
 | Crate | Version | Description | Use When |
 |-------|---------|-------------|----------|
-| [`agnostic`](./agnostic/) | 0.9 | Full-featured facade with networking, DNS, process management, QUIC | You need comprehensive async abstractions |
+| [`agnostic`](./agnostic/) | 0.10 | Full-featured facade with networking, DNS, process management, QUIC | You need comprehensive async abstractions |
 | [`agnostic-lite`](./agnostic-lite/) | 0.6 | Lightweight core (no_std, alloc-free, no unsafe code) | You need minimal abstractions or embedded/no_std support |
 | [`agnostic-io`](./agnostic-io/) | 0.2 | Sans-I/O trait definitions | You're building protocol implementations |
 | [`agnostic-net`](./agnostic-net/) | 0.3 | TCP/UDP networking abstractions | You need runtime-agnostic networking |
-| [`agnostic-dns`](./agnostic-dns/) | 0.4 | DNS resolution with DoH, DoT, DoQ, DNSSEC | You need advanced DNS capabilities |
+| [`agnostic-dns`](./agnostic-dns/) | 0.5 | DNS resolution with DoH, DoT, DoQ, DNSSEC (hickory-dns 0.26) | You need advanced DNS capabilities |
 | [`agnostic-process`](./agnostic-process/) | 0.3 | Subprocess spawning and management | You need to spawn external processes |
 
 ## Decision Guide
@@ -93,9 +93,10 @@ agnostic (facade - full-featured)
 
 Choose your runtime based on your needs:
 
-- **tokio**: Mature, widely used, excellent ecosystem
-- **smol**: Lightweight, minimal dependencies
-- **wasm-bindgen-futures**: WebAssembly support
+- **tokio**: Mature, widely used, excellent ecosystem (`std`)
+- **smol**: Lightweight, minimal dependencies (`std`)
+- **wasm-bindgen-futures**: WebAssembly support (`agnostic-lite` only)
+- **embassy**: Bare-metal `no_std` async via `embassy-executor` (`agnostic-lite` only)
 
 All runtimes work identically with Agnostic abstractions.
 
@@ -104,13 +105,14 @@ All runtimes work identically with Agnostic abstractions.
 - **tokio** - Enable with `features = ["tokio"]`
 - **smol** - Enable with `features = ["smol"]`
 - **wasm-bindgen-futures** - Enable with `features = ["wasm"]` (agnostic-lite only)
+- **embassy** - Enable with `features = ["embassy"]` (agnostic-lite only, `no_std`)
 
 ## Platform Support
 
 - **Unix/Linux**: Full support via `rustix`
 - **Windows**: Full support via `windows-sys`
 - **WebAssembly**: Supported via `wasm-bindgen-futures` (agnostic-lite)
-- **Embedded**: Supported via `no_std` (agnostic-lite)
+- **Embedded / bare-metal**: Supported via `no_std` with the `embassy` backend (agnostic-lite)
 
 #### License
 

@@ -7,9 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### agnostic [0.8.0] - 2025-11-04
+## agnostic [0.10.0] - 2026-06-24
 
-#### Added
+### Changed
+- **Breaking:** track hickory-dns 0.26 in the `dns` re-exports — `Protocol` is now `ProtocolConfig`, the `{GOOGLE,CLOUDFLARE,QUAD9}_IPS` constants are now `{GOOGLE,CLOUDFLARE,QUAD9}`, and `NameServerConfigGroup` is now `ServerGroup`.
+
+## agnostic-lite [0.6.2] - 2026-06-24
+
+### Added
+- `embassy` feature: an [`embassy-executor`](https://docs.rs/embassy-executor) backend (`EmbassyRuntime`) for true `no_std` async on bare-metal targets, with time primitives backed by `embassy-time`.
+
+### Fixed
+- Corrected the `no_std` documentation — the tokio backend requires `std`; use the new `embassy` backend for genuine `no_std` environments.
+
+## agnostic-net [0.3.1] - 2026-06-24
+
+### Fixed
+- The smol `UdpSocket::poll_recv_from`/`poll_send_to` now poll the underlying `Async` source's readiness rather than recreating a future on every poll, which could otherwise stall a receive forever when the socket is polled directly (e.g. by hickory-dns 0.26's UDP client).
+
+## agnostic-dns [0.5.0] - 2026-06-24
+
+### Changed
+- **Breaking:** updated to hickory-dns 0.26. Provider traits now come from `hickory-resolver::net`, `AsyncConnectionProvider` is an alias for `AsyncRuntimeProvider` (hickory now blanket-implements `ConnectionProvider` for every `RuntimeProvider`), `hickory-proto` is no longer a direct dependency, and the transport features map 1:1 to `hickory-resolver`.
+
+## agnostic [0.8.0] - 2025-11-04
+
+### Added
 - Quick start examples for: task spawning, sleep/timeouts, TCP server/client, UDP, DNS resolution, process spawning, intervals
 - Complete feature flags reference with descriptions for all 20+ features
 - Runtime switching guide with examples for tokio, async-std, and smol
@@ -18,13 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Installation instructions for all feature combinations
 - "Why Agnostic?" section explaining benefits and use cases
 
-#### Changed
+### Changed
 - Improved introduction with clearer value proposition
 - Enhanced feature categorization (Core, Runtime, Component, DNS Transport, DNSSEC)
 
-### agnostic-lite [0.6.0] - 2025-11-04
+## agnostic-lite [0.6.0] - 2025-11-04
 
-#### Added
+### Added
 - WASM/WebAssembly usage example with wasm-bindgen
 - Embedded systems example for no_std environments
 - Runtime-agnostic library example showing generic code patterns
@@ -34,14 +57,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples for: spawning tasks, sleep, intervals, timeouts, local tasks, generic code
 - "Why agnostic-lite?" decision guide comparing with agnostic
 
-#### Changed
+### Changed
 - Clarified the distinction between agnostic-lite and agnostic
 - Improved feature flags documentation
 - Enhanced embedded and no_std documentation
 
-### agnostic-io [0.2.0] - 2025-11-04
+## agnostic-io [0.2.0] - 2025-11-04
 
-#### Added
+### Added
 - Comprehensive Sans-I/O philosophy explanation with detailed benefits
 - "What is Sans-I/O?" section explaining the design pattern
 - Complete protocol implementation example (FrameCodec with length-prefixed framing)
@@ -50,56 +73,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples for: reading data, writing data, building protocols, testing, composability
 - Tokio compatibility layer documentation
 
-#### Changed
+### Changed
 - Reorganized documentation to emphasize Sans-I/O benefits
 - Enhanced feature flags explanation
 - Improved API reference with trait signatures
 
-### agnostic-net [0.3.0] - 2025-11-04
+## agnostic-net [0.3.0] - 2025-11-04
 
-#### Added
+### Added
 
 - Complete API reference for TcpListener, TcpStream, and UdpSocket
 - Platform support details (Unix/Linux, Windows, macOS, BSD)
 - Performance considerations section
 
-#### Changed
+### Changed
 
 - Improved introduction with clearer feature list
 - Enhanced key features section
 
-### agnostic-dns [0.3.0] - 2025-11-04
+## agnostic-dns [0.3.0] - 2025-11-04
 
-#### Added
+### Added
 
 - Feature matrix table documenting all 18+ features
 - Performance tips for production use
 
-#### Changed
+### Changed
 - Reorganized features into clear categories (Core, Runtimes, Transport Protocols, Certificates, DNSSEC, Other)
 - Improved introduction with clearer feature list
 
-#### Fixed
+### Fixed
 - Corrected version numbers in installation instructions
 
-### agnostic-process [0.3.0] - 2025-11-04
+## agnostic-process [0.3.0] - 2025-11-04
 
-#### Added
+### Added
 
 - API reference for Command, Child, and Process trait
 - Runtime switching guide
 
-#### Changed
+### Changed
 
 - Improved introduction with clearer feature list
 
-#### Fixed
+### Fixed
 
 - Corrected version numbers in installation instructions
 
-### Project-wide Changes
+## Project-wide Changes - 2025-11-04
 
-#### Added
+### Added
 
 - Main project README with:
   - Architecture diagram showing crate relationships
@@ -111,12 +134,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CHANGELOG.md with complete version history
 - Migration guide for async-std removal
 
-#### Changed
+### Changed
 
 - Consistent README structure across all crates
 - Comprehensive documentation coverage (7 READMEs enhanced)
 
-#### Fixed
+### Fixed
 
 - Version numbers corrected across all crate READMEs
 
