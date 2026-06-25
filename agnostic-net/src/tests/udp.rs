@@ -38,7 +38,12 @@ async fn bind_error<N: Net>() {
   }
 }
 
-async fn socket_smoke_test_ip4<N: Net>() {
+async fn socket_smoke_test_ip4<N: Net>()
+where
+  N::UdpSocket: Send,
+  for<'a> <N::UdpSocket as UdpSocket>::Bind<&'a SocketAddr>: Send,
+  for<'a, 'b> <N::UdpSocket as UdpSocket>::SendTo<'a, &'b SocketAddr>: Send,
+{
   each_ip(&mut |server_ip, client_ip| async move {
     let (tx1, rx1) = unbounded();
     let (tx2, rx2) = unbounded();
@@ -83,7 +88,12 @@ async fn socket_peer<N: Net>() {
   .await
 }
 
-async fn udp_clone_smoke<N: Net>() {
+async fn udp_clone_smoke<N: Net>()
+where
+  N::UdpSocket: Send,
+  for<'a> <N::UdpSocket as UdpSocket>::RecvFrom<'a>: Send,
+  for<'a, 'b> <N::UdpSocket as UdpSocket>::SendTo<'a, &'b SocketAddr>: Send,
+{
   each_ip(&mut |addr1, addr2| async move {
     let sock1 = t!(<N::UdpSocket as UdpSocket>::bind(&addr1).await);
     let sock2 = t!(<N::UdpSocket as UdpSocket>::bind(&addr2).await);
@@ -112,7 +122,12 @@ async fn udp_clone_smoke<N: Net>() {
   .await
 }
 
-async fn udp_clone_two_read<N: Net>() {
+async fn udp_clone_two_read<N: Net>()
+where
+  N::UdpSocket: Send,
+  for<'a> <N::UdpSocket as UdpSocket>::RecvFrom<'a>: Send,
+  for<'a, 'b> <N::UdpSocket as UdpSocket>::SendTo<'a, &'b SocketAddr>: Send,
+{
   each_ip(&mut |addr1, addr2| async move {
     let sock1 = t!(<N::UdpSocket as UdpSocket>::bind(&addr1).await);
     let sock2 = t!(<N::UdpSocket as UdpSocket>::bind(&addr2).await);
@@ -144,7 +159,12 @@ async fn udp_clone_two_read<N: Net>() {
   .await
 }
 
-async fn udp_clone_two_write<N: Net>() {
+async fn udp_clone_two_write<N: Net>()
+where
+  N::UdpSocket: Send,
+  for<'a> <N::UdpSocket as UdpSocket>::RecvFrom<'a>: Send,
+  for<'a, 'b> <N::UdpSocket as UdpSocket>::SendTo<'a, &'b SocketAddr>: Send,
+{
   each_ip(&mut |addr1, addr2| async move {
     let sock1 = t!(<N::UdpSocket as UdpSocket>::bind(&addr1).await);
     let sock2 = t!(<N::UdpSocket as UdpSocket>::bind(&addr2).await);

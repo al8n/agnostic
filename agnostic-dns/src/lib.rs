@@ -4,7 +4,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
-use agnostic_net::{Net, UdpSocket, runtime::RuntimeLite};
+use agnostic_net::{Net, TcpStream, UdpSocket, runtime::RuntimeLite};
 use futures_util::future::FutureExt;
 use std::{future::Future, io, marker::PhantomData, net::SocketAddr, pin::Pin, time::Duration};
 
@@ -119,7 +119,10 @@ where
 #[doc(hidden)]
 pub struct AsyncDnsTcp<N: Net>(N::TcpStream);
 
-impl<N: Net> DnsTcpStream for AsyncDnsTcp<N> {
+impl<N: Net> DnsTcpStream for AsyncDnsTcp<N>
+where
+  N::TcpStream: Send + Sync,
+{
   type Time = AgnosticTime<N>;
 }
 
@@ -174,7 +177,10 @@ impl<N: Net> AsyncDnsUdp<N> {
   }
 }
 
-impl<N: Net> DnsUdpSocket for AsyncDnsUdp<N> {
+impl<N: Net> DnsUdpSocket for AsyncDnsUdp<N>
+where
+  N::UdpSocket: Send + Sync,
+{
   type Time = AgnosticTime<N>;
 
   fn poll_recv_from(
@@ -195,7 +201,13 @@ impl<N: Net> DnsUdpSocket for AsyncDnsUdp<N> {
   }
 }
 
-impl<N: Net> RuntimeProvider for AsyncRuntimeProvider<N> {
+impl<N: Net> RuntimeProvider for AsyncRuntimeProvider<N>
+where
+  N::UdpSocket: Send + Sync,
+  <N::UdpSocket as UdpSocket>::Bind<SocketAddr>: Send,
+  N::TcpStream: Send + Sync,
+  <N::TcpStream as TcpStream>::Connect<SocketAddr>: Send,
+{
   type Handle = AsyncSpawn<N>;
 
   type Timer = Timer<N>;

@@ -1,10 +1,16 @@
-use std::io;
+use std::{
+  io,
+  net::SocketAddr,
+  sync::Arc,
+  task::{Context, Poll},
+};
 
 use agnostic_lite::smol::SmolRuntime;
+use async_io::Async;
 use smol::net::TcpListener as SmolTcpListener;
 
 /// The [`TcpListener`](crate::TcpListener) implementation for [`smol`] runtime
-/// 
+///
 /// [`smol`]: https://docs.rs/smol
 #[derive(Debug)]
 #[repr(transparent)]
@@ -32,17 +38,15 @@ impl_as!(TcpListener.ln);
 impl crate::TcpListener for TcpListener {
   type Runtime = SmolRuntime;
   type Stream = super::TcpStream;
-  type Incoming<'a> = Incoming<'a>;
+  type Incoming<'a> = crate::tcp::Incoming<'a, Self>;
+  type IntoIncoming = crate::tcp::IntoIncoming<Self>;
 
   fn incoming(&self) -> Self::Incoming<'_> {
-    self.ln.incoming().into()
+    crate::tcp::Incoming::new(self)
   }
 
-  fn into_incoming(self) -> impl ::futures_util::stream::Stream<Item = ::std::io::Result<Self::Stream>> + ::core::marker::Send {
-    ::futures_util::stream::unfold(self, |listener| async move {
-      let res = listener.accept().await.map(|(stream, _)| stream);
-      ::core::option::Option::Some((res, listener))
-    })
+  fn into_incoming(self) -> Self::IntoIncoming {
+    crate::tcp::IntoIncoming::new(self)
   }
 
   fn set_ttl(&self, ttl: u32) -> io::Result<()> {
@@ -53,7 +57,27 @@ impl crate::TcpListener for TcpListener {
     self.ln.ttl()
   }
 
+  fn poll_accept(&self, cx: &mut Context<'_>) -> Poll<io::Result<(Self::Stream, SocketAddr)>> {
+    // Mirror the UDP `poll_recv_from` strategy: drive readiness on the persistent `Async` source
+    // and run the accept as a non-blocking syscall, since re-creating an `async` future per poll
+    // does not reliably deliver readiness wakeups when polled directly.
+    let inner: Arc<Async<std::net::TcpListener>> = self.ln.clone().into();
+    loop {
+      match inner.get_ref().accept() {
+        Err(e) if e.kind() == io::ErrorKind::WouldBlock => match inner.poll_readable(cx) {
+          Poll::Ready(Ok(())) => continue,
+          Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+          Poll::Pending => return Poll::Pending,
+        },
+        Ok((stream, addr)) => {
+          // `try_from` registers the accepted (blocking) socket with the reactor and switches it to
+          // non-blocking mode.
+          return Poll::Ready(Self::Stream::try_from(stream).map(|stream| (stream, addr)));
+        }
+        Err(e) => return Poll::Ready(Err(e)),
+      }
+    }
+  }
+
   tcp_listener_common_methods!(SmolTcpListener.ln);
 }
-
-tcp_listener_incoming!(smol::net::Incoming<'a> => super::TcpStream);

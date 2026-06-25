@@ -62,6 +62,43 @@ impl super::super::UdpSocket for UdpSocket {
     }
   }
 
+  fn poll_peek_from(
+    &self,
+    cx: &mut Context<'_>,
+    buf: &mut [u8],
+  ) -> Poll<io::Result<(usize, SocketAddr)>> {
+    // Mirror `poll_recv_from`: poll readiness on the persistent `Async` source and run the peek as
+    // a non-blocking syscall, since re-creating an `async` future per poll does not reliably
+    // deliver readiness wakeups when the socket is polled directly.
+    let inner: Arc<Async<std::net::UdpSocket>> = self.socket.clone().into();
+    loop {
+      match inner.get_ref().peek_from(buf) {
+        Err(e) if e.kind() == io::ErrorKind::WouldBlock => match inner.poll_readable(cx) {
+          Poll::Ready(Ok(())) => continue,
+          Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+          Poll::Pending => return Poll::Pending,
+        },
+        res => return Poll::Ready(res),
+      }
+    }
+  }
+
+  fn poll_send(&self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    // Connected send: a plain `send` on the inner (non-blocking) socket, polling writability on the
+    // persistent `Async` source — mirroring `poll_send_to` but without an explicit address.
+    let inner: Arc<Async<std::net::UdpSocket>> = self.socket.clone().into();
+    loop {
+      match inner.get_ref().send(buf) {
+        Err(e) if e.kind() == io::ErrorKind::WouldBlock => match inner.poll_writable(cx) {
+          Poll::Ready(Ok(())) => continue,
+          Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+          Poll::Pending => return Poll::Pending,
+        },
+        res => return Poll::Ready(res),
+      }
+    }
+  }
+
   fn poll_send_to(
     &self,
     cx: &mut Context<'_>,
