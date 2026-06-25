@@ -5,6 +5,8 @@ async fn resolve<N: net::Net>()
 where
   N::UdpSocket: Send + Sync,
   <N::UdpSocket as UdpSocket>::Bind<std::net::SocketAddr>: Send,
+  N::TcpStream: Send + Sync,
+  <N::TcpStream as TcpStream>::Connect<std::net::SocketAddr>: Send,
 {
   // Pin to IPv4 Google DNS: CI runners frequently lack IPv6 connectivity, so an IPv6 nameserver
   // would never respond.

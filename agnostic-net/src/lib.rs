@@ -70,12 +70,12 @@ mod to_socket_addrs;
 mod tests;
 
 #[macro_use]
-mod tcp;
+pub mod tcp;
 #[macro_use]
-mod udp;
+pub mod udp;
 
-pub use tcp::*;
-pub use udp::*;
+pub use tcp::{OwnedReadHalf, OwnedWriteHalf, ReuniteError, TcpListener, TcpStream};
+pub use udp::UdpSocket;
 
 #[cfg(feature = "smol")]
 #[macro_use]

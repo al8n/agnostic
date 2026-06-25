@@ -1,3 +1,5 @@
+//! [`UdpSocket`] and the named future types returned by its async methods.
+
 use std::{
   future::Future,
   io,

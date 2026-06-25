@@ -104,7 +104,7 @@ impl super::super::TcpStream for TcpStream {
   type OwnedWriteHalf = OwnedWriteHalf;
   type ReuniteError = ::tokio::net::tcp::ReuniteError;
 
-  tcp_stream_common_methods!("tokio"::stream);
+  tcp_stream_common_methods!(stream);
 
   fn into_split(self) -> (Self::OwnedReadHalf, Self::OwnedWriteHalf) {
     let (read, write) = self.stream.into_split();
@@ -122,6 +122,15 @@ impl super::super::TcpStream for TcpStream {
       .stream
       .reunite(write.stream)
       .map(Self::from)
+  }
+
+  fn poll_peek(&self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+    let mut buf = ::tokio::io::ReadBuf::new(buf);
+    self.stream.poll_peek(cx, &mut buf)
+  }
+
+  fn poll_write_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    self.stream.poll_write_ready(cx)
   }
 }
 
