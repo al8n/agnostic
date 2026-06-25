@@ -1,7 +1,11 @@
 use super::*;
 
 #[cfg(any(feature = "tokio", feature = "smol"))]
-async fn resolve<N: net::Net>() {
+async fn resolve<N: net::Net>()
+where
+  N::UdpSocket: Send + Sync,
+  <N::UdpSocket as UdpSocket>::Bind<std::net::SocketAddr>: Send,
+{
   // Pin to IPv4 Google DNS: CI runners frequently lack IPv6 connectivity, so an IPv6 nameserver
   // would never respond.
   use std::net::{IpAddr, Ipv4Addr};

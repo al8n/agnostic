@@ -174,7 +174,10 @@ impl<N: Net> AsyncDnsUdp<N> {
   }
 }
 
-impl<N: Net> DnsUdpSocket for AsyncDnsUdp<N> {
+impl<N: Net> DnsUdpSocket for AsyncDnsUdp<N>
+where
+  N::UdpSocket: Send + Sync,
+{
   type Time = AgnosticTime<N>;
 
   fn poll_recv_from(
@@ -195,7 +198,11 @@ impl<N: Net> DnsUdpSocket for AsyncDnsUdp<N> {
   }
 }
 
-impl<N: Net> RuntimeProvider for AsyncRuntimeProvider<N> {
+impl<N: Net> RuntimeProvider for AsyncRuntimeProvider<N>
+where
+  N::UdpSocket: Send + Sync,
+  <N::UdpSocket as UdpSocket>::Bind<SocketAddr>: Send,
+{
   type Handle = AsyncSpawn<N>;
 
   type Timer = Timer<N>;

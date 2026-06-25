@@ -61,28 +61,6 @@ macro_rules! impl_as {
   };
 }
 
-#[cfg(any(feature = "smol", feature = "tokio"))]
-macro_rules! call {
-  ($this:ident.$field:ident.$method:ident($buf:ident)) => {{
-    paste::paste! {
-      $this.$field.$method($buf).await
-    }
-  }};
-  (@send_to $this:ident.$field:ident($buf:ident, $target:ident)) => {{
-    paste::paste! {
-      let mut addrs = $crate::ToSocketAddrs::<Self::Runtime>::to_socket_addrs(&$target).await?;
-      if let ::core::option::Option::Some(addr) = addrs.next() {
-        $this.$field.send_to($buf, addr).await
-      } else {
-        return ::core::result::Result::Err(::std::io::Error::new(
-          ::std::io::ErrorKind::InvalidInput,
-          "invalid socket address",
-        ));
-      }
-    }
-  }};
-}
-
 /// Traits, helpers, and type definitions for asynchronous I/O functionality.
 pub use agnostic_io as io;
 
