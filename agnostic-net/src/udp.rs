@@ -220,6 +220,7 @@ where
   S: UdpSocket,
   A: ToSocketAddrs<S::Runtime>,
 {
+  #[cfg(any(feature = "tokio", feature = "smol"))]
   #[inline]
   pub(crate) fn new(addr: A) -> Self {
     Self {
@@ -304,6 +305,7 @@ where
   S: UdpSocket,
   A: ToSocketAddrs<S::Runtime>,
 {
+  #[cfg(any(feature = "tokio", feature = "smol"))]
   #[inline]
   pub(crate) fn new(socket: &'a S, addr: A) -> Self {
     Self {
@@ -361,6 +363,7 @@ impl<'a, S> RecvFrom<'a, S>
 where
   S: UdpSocket,
 {
+  #[cfg(any(feature = "tokio", feature = "smol"))]
   #[inline]
   pub(crate) fn new(socket: &'a S, buf: &'a mut [u8]) -> Self {
     Self { socket, buf }
@@ -388,6 +391,7 @@ impl<'a, S> Recv<'a, S>
 where
   S: UdpSocket,
 {
+  #[cfg(any(feature = "tokio", feature = "smol"))]
   #[inline]
   pub(crate) fn new(socket: &'a S, buf: &'a mut [u8]) -> Self {
     Self {
@@ -418,6 +422,7 @@ impl<'a, S> PeekFrom<'a, S>
 where
   S: UdpSocket,
 {
+  #[cfg(any(feature = "tokio", feature = "smol"))]
   #[inline]
   pub(crate) fn new(socket: &'a S, buf: &'a mut [u8]) -> Self {
     Self { socket, buf }
@@ -445,6 +450,7 @@ impl<'a, S> Peek<'a, S>
 where
   S: UdpSocket,
 {
+  #[cfg(any(feature = "tokio", feature = "smol"))]
   #[inline]
   pub(crate) fn new(socket: &'a S, buf: &'a mut [u8]) -> Self {
     Self {
@@ -478,6 +484,7 @@ impl<'a, S> Send_<'a, S>
 where
   S: UdpSocket,
 {
+  #[cfg(any(feature = "tokio", feature = "smol"))]
   #[inline]
   pub(crate) fn new(socket: &'a S, buf: &'a [u8]) -> Self {
     Self {
@@ -547,6 +554,7 @@ where
   S: UdpSocket,
   A: ToSocketAddrs<S::Runtime>,
 {
+  #[cfg(any(feature = "tokio", feature = "smol"))]
   #[inline]
   pub(crate) fn new(socket: &'a S, buf: &'a [u8], target: A) -> Self {
     Self {
