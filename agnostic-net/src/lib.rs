@@ -1,15 +1,22 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![deny(warnings, missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 
-use agnostic_lite::{RuntimeLite, cfg_smol, cfg_tokio};
-use futures_util::Future;
+use agnostic_lite::{cfg_smol, cfg_tokio};
+
+#[cfg(feature = "std")]
+use agnostic_lite::RuntimeLite;
+#[cfg(feature = "std")]
+use core::future::Future;
+#[cfg(feature = "std")]
 use std::net::SocketAddr;
 
 pub use agnostic_lite as runtime;
 
 /// Operating system specific types and traits.
+#[cfg(feature = "std")]
 #[cfg_attr(windows, path = "windows.rs")]
 #[cfg_attr(unix, path = "unix.rs")]
 #[cfg_attr(not(any(unix, windows)), path = "unknown.rs")]
@@ -64,17 +71,22 @@ macro_rules! impl_as {
 /// Traits, helpers, and type definitions for asynchronous I/O functionality.
 pub use agnostic_io as io;
 
+#[cfg(feature = "std")]
 mod to_socket_addrs;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests;
 
+#[cfg(feature = "std")]
 #[macro_use]
 pub mod tcp;
+#[cfg(feature = "std")]
 #[macro_use]
 pub mod udp;
 
+#[cfg(feature = "std")]
 pub use tcp::{OwnedReadHalf, OwnedWriteHalf, ReuniteError, TcpListener, TcpStream};
+#[cfg(feature = "std")]
 pub use udp::UdpSocket;
 
 #[cfg(feature = "smol")]
@@ -95,7 +107,12 @@ cfg_smol!(
   pub mod smol;
 );
 
+#[cfg(feature = "embassy")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embassy")))]
+pub mod embassy;
+
 #[doc(hidden)]
+#[cfg(feature = "std")]
 #[cfg(unix)]
 pub trait Fd: os::AsFd + os::AsRawFd {
   fn __as(&self) -> os::BorrowedFd<'_> {
@@ -107,10 +124,12 @@ pub trait Fd: os::AsFd + os::AsRawFd {
   }
 }
 
+#[cfg(feature = "std")]
 #[cfg(unix)]
 impl<T> Fd for T where T: os::AsFd + os::AsRawFd {}
 
 #[doc(hidden)]
+#[cfg(feature = "std")]
 #[cfg(windows)]
 pub trait Fd: os::AsRawSocket + os::AsSocket {
   fn __as(&self) -> os::BorrowedSocket<'_> {
@@ -122,12 +141,15 @@ pub trait Fd: os::AsRawSocket + os::AsSocket {
   }
 }
 
+#[cfg(feature = "std")]
 #[cfg(windows)]
 impl<T> Fd for T where T: os::AsRawSocket + os::AsSocket {}
 
+#[cfg(feature = "std")]
 #[cfg(not(any(unix, windows)))]
 pub trait Fd {}
 
+#[cfg(feature = "std")]
 #[cfg(not(any(unix, windows)))]
 impl<T> Fd for T {}
 
@@ -136,6 +158,7 @@ impl<T> Fd for T {}
 /// # DNS
 ///
 /// Implementations of `ToSocketAddrs<R>` for string types require a DNS lookup.
+#[cfg(feature = "std")]
 pub trait ToSocketAddrs<R>: Send + Sync {
   /// Returned iterator over socket addresses which this type may correspond to.
   type Iter: Iterator<Item = SocketAddr> + Send + 'static;
@@ -154,6 +177,7 @@ pub trait ToSocketAddrs<R>: Send + Sync {
 }
 
 /// An abstraction layer for the async runtime's network.
+#[cfg(feature = "std")]
 pub trait Net: Unpin + Send + Sync + 'static {
   /// The runtime type
   type Runtime: RuntimeLite;

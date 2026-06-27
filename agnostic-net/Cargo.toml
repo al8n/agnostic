@@ -1,6 +1,7 @@
 [package]
 name = "agnostic-net"
 version = "0.3.1"
+workspace = ".."
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -12,7 +13,8 @@ description = "Agnostic abstraction layer of `std::net` for any async runtime."
 
 [features]
 default = ["std"]
-std = []
+alloc = ["agnostic-io/alloc", "agnostic-lite/alloc"]
+std = ["alloc", "agnostic-io/std", "agnostic-lite/std", "dep:socket2"]
 
 # This feature must be used with net feature
 # by enable this feature, TcpStream will implement
@@ -33,6 +35,21 @@ tokio = [
   "tokio-io",
 ]
 smol = ["std", "dep:smol", "agnostic-lite/smol", "async-io"]
+embassy = ["alloc", "dep:embassy-net", "agnostic-lite/embassy"]
+embassy-defmt = ["embassy", "embassy-net/defmt"]
+embassy-dhcpv4 = ["embassy", "embassy-net/dhcpv4"]
+embassy-dhcpv4-hostname = ["embassy", "embassy-net/dhcpv4-hostname"]
+embassy-dns = ["embassy", "embassy-net/dns"]
+embassy-mdns = ["embassy", "embassy-net/mdns"]
+embassy-medium-ethernet = ["embassy", "embassy-net/medium-ethernet"]
+embassy-medium-ieee802154 = ["embassy", "embassy-net/medium-ieee802154"]
+embassy-medium-ip = ["embassy", "embassy-net/medium-ip"]
+embassy-multicast = ["embassy", "embassy-net/multicast"]
+embassy-proto-ipv4 = ["embassy", "embassy-net/proto-ipv4"]
+embassy-proto-ipv6 = ["embassy", "embassy-net/proto-ipv6"]
+embassy-raw = ["embassy", "embassy-net/raw"]
+embassy-tcp = ["embassy", "embassy-net/tcp"]
+embassy-udp = ["embassy", "embassy-net/udp"]
 
 [target.'cfg(unix)'.dependencies]
 rustix = { version = "1", features = ["net"] }
@@ -41,12 +58,12 @@ rustix = { version = "1", features = ["net"] }
 windows-sys = { version = "0.61", features = ["Win32_Networking_WinSock"] }
 
 [dependencies]
-agnostic-lite = { workspace = true, features = ["time", "std"] }
+agnostic-lite = { workspace = true, features = ["time"] }
 agnostic-io.workspace = true
 async-trait = "0.1"
 futures-util.workspace = true
-triomphe = "0.1"
-socket2 = "0.6"
+socket2 = { version = "0.6", optional = true }
+embassy-net = { version = "0.6", default-features = false, optional = true }
 
 tokio = { version = "1", default-features = false, optional = true, features = ["net", "io-std", "io-util"] }
 tokio-stream = { version = "0.1", default-features = false, optional = true, features = [
