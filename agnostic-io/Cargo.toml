@@ -1,6 +1,7 @@
 [package]
 name = "agnostic-io"
 version = "0.2.0"
+workspace = ".."
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -16,6 +17,7 @@ std = ["futures-util/io"]
 tokio = ["dep:tokio", "tokio-util", "std"]
 
 [dependencies]
+embedded-io-async = "0.6"
 futures-util = { workspace = true, optional = true }
 
 tokio = { workspace = true, default-features = false, optional = true }
