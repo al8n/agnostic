@@ -194,10 +194,16 @@ pub trait Yielder {
 /// blocking spawning, and the `!Send`-tolerant time family.
 ///
 /// This is everything a consumer needs to host futures on the **current
-/// thread**. A completion-based / thread-per-core runtime whose timers and
-/// join handles are deliberately `!Send` (e.g. `compio`) can implement this
-/// trait even though it can never satisfy [`RuntimeLite`]'s `Send` family —
-/// that family lives on [`RuntimeLite`], the extension of this trait.
+/// thread**. A thread-pinned host — a `LocalSet`-shaped executor, or any
+/// runtime whose timers and join handles are deliberately `!Send` — can
+/// implement this trait even though it can never satisfy [`RuntimeLite`]'s
+/// `Send` family; that family lives on [`RuntimeLite`], the extension of this
+/// trait.
+///
+/// Deliberately **out of scope**: completion-based (proactor) runtimes such
+/// as `compio`. Their I/O model wants a native driver integration of its own,
+/// not a reactor-shaped runtime abstraction wrapped around it — this crate
+/// does not target them, and the split does not promise them.
 ///
 /// The marker type itself is still `Send + Sync + Copy`: it is a zero-sized
 /// tag naming the runtime, not a value of it, so it stays thread-mobile even

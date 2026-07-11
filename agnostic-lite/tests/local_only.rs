@@ -1,10 +1,12 @@
 //! The acceptance proof for the `LocalRuntimeLite` / `RuntimeLite` split: a
-//! runtime whose timers and join handles are **deliberately `!Send`** (the
-//! `compio` shape — thread-per-core, completion-based) can implement the
-//! local core on stable Rust, even though it can never satisfy
+//! runtime whose timers and join handles are **deliberately `!Send`** (a
+//! thread-pinned, `LocalSet`-shaped host) can implement the local core on
+//! stable Rust, even though it can never satisfy
 //! [`RuntimeLite`](agnostic_lite::RuntimeLite)'s `Send` family. Before the
 //! split, `RuntimeLite`'s monolithic associated types made such a runtime
-//! unimplementable outright.
+//! unimplementable outright. (Completion-based runtimes are deliberately NOT
+//! targeted by this abstraction — they warrant native driver integrations —
+//! so this fixture proves a bound-shape claim, not a compio integration.)
 //!
 //! Every timer carrier here embeds `PhantomData<Rc<()>>`, so the language
 //! itself guarantees the types are `!Send` — a `Send` bound anywhere on the
@@ -156,7 +158,7 @@ impl<F: Future> AsyncLocalTimeout<F> for LocalTimeout<F> {
 }
 
 /// A spawner that panics on local spawn — the [`AsyncLocalSpawner`] contract
-/// note permits it, and it mirrors how a `block_on`-hosted (compio-shaped)
+/// note permits it, and it mirrors how a `block_on`-hosted, thread-pinned
 /// consumer uses the local core: the caller drives the future directly and
 /// never spawns. Blocking spawn is a plain thread.
 #[derive(Debug, Clone, Copy)]
@@ -263,7 +265,7 @@ impl AsyncBlockingSpawner for LocalOnlySpawner {
   }
 }
 
-/// The compio-shaped runtime marker: only the LOCAL core is implementable —
+/// The thread-pinned runtime marker: only the LOCAL core is implementable —
 /// and with the 0.7 split, only the local core is required.
 #[derive(Debug, Clone, Copy)]
 struct LocalOnlyRuntime;

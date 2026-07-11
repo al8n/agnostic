@@ -206,10 +206,13 @@ where
 
 Since 0.7 the runtime abstraction is two traits. `LocalRuntimeLite` is the
 thread-pinned core — everything a consumer needs to host futures on the
-current thread — and `RuntimeLite` is its `Send` extension. A completion-based
-/ thread-per-core runtime whose timers are deliberately `!Send` (e.g. compio)
-can implement the core alone; tokio/smol/wasm/embassy implement both. This is
-a trimmed sketch:
+current thread — and `RuntimeLite` is its `Send` extension. A thread-pinned
+host (a `LocalSet`-shaped executor, or any runtime whose timers are
+deliberately `!Send`) can implement the core alone; tokio/smol/wasm/embassy
+implement both. Completion-based (proactor) runtimes such as compio are
+deliberately out of scope: their I/O model warrants a native driver
+integration of its own, not this reactor-shaped abstraction wrapped around
+it. This is a trimmed sketch:
 
 ```rust,ignore
 pub trait LocalRuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
