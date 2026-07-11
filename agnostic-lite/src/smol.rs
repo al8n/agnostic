@@ -50,26 +50,42 @@ impl AsyncSpawner for SmolSpawner {
   }
 }
 
+/// # Panics
+///
+/// Both local-spawn methods **always panic**: smol has no ambient thread-local
+/// executor to target, so a correct local spawn needs a `smol::LocalExecutor`
+/// the caller owns and drives — spawn onto it directly instead. (Before 0.7
+/// these methods spawned onto a temporary `LocalExecutor` that dropped at the
+/// end of the statement, cancelling the task: a silent no-op for
+/// `spawn_local_detach`, and a "task polled after completion" panic on
+/// awaiting `spawn_local`'s handle. A loud, immediate panic replaces that
+/// silent loss.)
 impl AsyncLocalSpawner for SmolSpawner {
   type JoinHandle<O>
     = JoinHandle<O>
   where
     O: 'static;
 
-  fn spawn_local<F>(future: F) -> Self::JoinHandle<F::Output>
+  fn spawn_local<F>(_future: F) -> Self::JoinHandle<F::Output>
   where
     F::Output: 'static,
     F: Future + 'static,
   {
-    ::smol::LocalExecutor::new().spawn(future).into()
+    panic!(
+      "agnostic-lite: smol has no ambient thread-local executor to spawn onto; drive a \
+       smol::LocalExecutor yourself and spawn onto it directly"
+    )
   }
 
-  fn spawn_local_detach<F>(future: F)
+  fn spawn_local_detach<F>(_future: F)
   where
     F::Output: 'static,
     F: Future + 'static,
   {
-    ::smol::LocalExecutor::new().spawn(future).detach();
+    panic!(
+      "agnostic-lite: smol has no ambient thread-local executor to spawn onto; drive a \
+       smol::LocalExecutor yourself and spawn onto it directly"
+    )
   }
 }
 
@@ -130,30 +146,18 @@ impl core::fmt::Display for SmolRuntime {
   }
 }
 
-impl super::RuntimeLite for SmolRuntime {
-  type Spawner = SmolSpawner;
+impl super::LocalRuntimeLite for SmolRuntime {
   type LocalSpawner = SmolSpawner;
   type BlockingSpawner = SmolSpawner;
 
   cfg_time!(
     type Instant = Instant;
-    type AfterSpawner = SmolSpawner;
-    type Interval = AsyncIoInterval;
     type LocalInterval = AsyncIoInterval;
-    type Sleep = AsyncIoSleep;
     type LocalSleep = AsyncIoSleep;
-    type Delay<F>
-      = AsyncIoDelay<F>
-    where
-      F: Future + Send;
     type LocalDelay<F>
       = AsyncIoDelay<F>
     where
       F: Future;
-    type Timeout<F>
-      = AsyncIoTimeout<F>
-    where
-      F: Future + Send;
     type LocalTimeout<F>
       = AsyncIoTimeout<F>
     where
@@ -176,37 +180,13 @@ impl super::RuntimeLite for SmolRuntime {
     ::smol::block_on(f)
   }
 
-  async fn yield_now() {
-    ::smol::future::yield_now().await
-  }
-
   cfg_time!(
-    fn interval(interval: Duration) -> Self::Interval {
-      AsyncIoInterval::interval(interval)
-    }
-
-    fn interval_at(start: Instant, period: Duration) -> Self::Interval {
-      AsyncIoInterval::interval_at(start, period)
-    }
-
     fn interval_local(interval: Duration) -> Self::LocalInterval {
       AsyncIoInterval::interval(interval)
     }
 
     fn interval_local_at(start: Instant, period: Duration) -> Self::LocalInterval {
       AsyncIoInterval::interval_at(start, period)
-    }
-
-    fn sleep(duration: Duration) -> Self::Sleep {
-      use crate::time::AsyncSleepExt;
-
-      AsyncIoSleep::sleep(duration)
-    }
-
-    fn sleep_until(instant: Instant) -> Self::Sleep {
-      use crate::time::AsyncSleepExt;
-
-      AsyncIoSleep::sleep_until(instant)
     }
 
     fn sleep_local(duration: Duration) -> Self::LocalSleep {
@@ -221,15 +201,6 @@ impl super::RuntimeLite for SmolRuntime {
       AsyncIoSleep::sleep_until(instant)
     }
 
-    fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
-    where
-      F: Future + Send,
-    {
-      use crate::time::AsyncDelayExt;
-
-      <AsyncIoDelay<F> as AsyncDelayExt<F>>::delay(duration, fut)
-    }
-
     fn delay_local<F>(duration: Duration, fut: F) -> Self::LocalDelay<F>
     where
       F: Future,
@@ -239,15 +210,6 @@ impl super::RuntimeLite for SmolRuntime {
       <AsyncIoDelay<F> as AsyncLocalDelayExt<F>>::delay(duration, fut)
     }
 
-    fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
-    where
-      F: Future + Send,
-    {
-      use crate::time::AsyncDelayExt;
-
-      <AsyncIoDelay<F> as AsyncDelayExt<F>>::delay_at(deadline, fut)
-    }
-
     fn delay_local_at<F>(deadline: Instant, fut: F) -> Self::LocalDelay<F>
     where
       F: Future,
@@ -255,24 +217,6 @@ impl super::RuntimeLite for SmolRuntime {
       use crate::time::AsyncLocalDelayExt;
 
       <AsyncIoDelay<F> as AsyncLocalDelayExt<F>>::delay_at(deadline, fut)
-    }
-
-    fn timeout<F>(duration: Duration, future: F) -> Self::Timeout<F>
-    where
-      F: Future + Send,
-    {
-      use crate::time::AsyncTimeout;
-
-      <AsyncIoTimeout<F> as AsyncTimeout<F>>::timeout(duration, future)
-    }
-
-    fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
-    where
-      F: Future + Send,
-    {
-      use crate::time::AsyncTimeout;
-
-      <AsyncIoTimeout<F> as AsyncTimeout<F>>::timeout_at(deadline, future)
     }
 
     fn timeout_local<F>(duration: Duration, future: F) -> Self::LocalTimeout<F>
@@ -291,6 +235,86 @@ impl super::RuntimeLite for SmolRuntime {
       use crate::time::AsyncLocalTimeout;
 
       <AsyncIoTimeout<F> as AsyncLocalTimeout<F>>::timeout_local_at(deadline, future)
+    }
+  );
+}
+
+impl super::RuntimeLite for SmolRuntime {
+  type Spawner = SmolSpawner;
+
+  cfg_time!(
+    type AfterSpawner = SmolSpawner;
+    type Interval = AsyncIoInterval;
+    type Sleep = AsyncIoSleep;
+    type Delay<F>
+      = AsyncIoDelay<F>
+    where
+      F: Future + Send;
+    type Timeout<F>
+      = AsyncIoTimeout<F>
+    where
+      F: Future + Send;
+  );
+
+  async fn yield_now() {
+    ::smol::future::yield_now().await
+  }
+
+  cfg_time!(
+    fn interval(interval: Duration) -> Self::Interval {
+      AsyncIoInterval::interval(interval)
+    }
+
+    fn interval_at(start: Instant, period: Duration) -> Self::Interval {
+      AsyncIoInterval::interval_at(start, period)
+    }
+
+    fn sleep(duration: Duration) -> Self::Sleep {
+      use crate::time::AsyncSleepExt;
+
+      AsyncIoSleep::sleep(duration)
+    }
+
+    fn sleep_until(instant: Instant) -> Self::Sleep {
+      use crate::time::AsyncSleepExt;
+
+      AsyncIoSleep::sleep_until(instant)
+    }
+
+    fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncDelayExt;
+
+      <AsyncIoDelay<F> as AsyncDelayExt<F>>::delay(duration, fut)
+    }
+
+    fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncDelayExt;
+
+      <AsyncIoDelay<F> as AsyncDelayExt<F>>::delay_at(deadline, fut)
+    }
+
+    fn timeout<F>(duration: Duration, future: F) -> Self::Timeout<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncTimeout;
+
+      <AsyncIoTimeout<F> as AsyncTimeout<F>>::timeout(duration, future)
+    }
+
+    fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncTimeout;
+
+      <AsyncIoTimeout<F> as AsyncTimeout<F>>::timeout_at(deadline, future)
     }
   );
 }

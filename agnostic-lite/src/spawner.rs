@@ -139,6 +139,18 @@ pub trait AsyncSpawner: Yielder + Copy + Send + Sync + 'static {
 }
 
 /// A spawner trait for spawning futures.
+///
+/// # Local-executor context (contract note)
+///
+/// A local spawn needs a thread-local executor somebody drives, and not every
+/// runtime has an ambient one. An implementation **may panic** when the
+/// current thread has no local-executor context to target:
+///
+/// - `tokio`: panics outside a `LocalSet` or `LocalRuntime` (tokio's own
+///   documented `spawn_local` contract).
+/// - `smol`: **always panics** — smol has no ambient thread-local executor;
+///   drive a `smol::LocalExecutor` yourself and spawn onto it directly.
+/// - `embassy`: always panics — its global spawner is `Send`-only.
 pub trait AsyncLocalSpawner: Yielder + Copy + 'static {
   /// The handle returned by the spawner when a future is spawned.
   type JoinHandle<O>: LocalJoinHandle<O> + 'static
