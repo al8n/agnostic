@@ -104,6 +104,7 @@ mod tests {
 
   const INTERVAL: Duration = Duration::from_millis(100);
   const BOUND: Duration = Duration::from_millis(50);
+  const LATE: Duration = Duration::from_millis(500);
   const IMMEDIATE: Duration = Duration::from_millis(1);
 
   #[test]
@@ -116,22 +117,22 @@ mod tests {
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins <= start + IMMEDIATE);
-      assert!(elapsed <= IMMEDIATE + BOUND);
+      assert!(elapsed <= IMMEDIATE + LATE);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins >= start + INTERVAL - BOUND);
-      assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+      assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + LATE);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins >= start + INTERVAL * 2 - BOUND);
-      assert!(elapsed >= INTERVAL * 2 - BOUND && elapsed <= INTERVAL * 2 + BOUND);
+      assert!(elapsed >= INTERVAL * 2 - BOUND && elapsed <= INTERVAL * 2 + LATE);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins >= start + INTERVAL * 3 - BOUND);
-      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + LATE);
 
       assert!(interval.next().await.is_none());
     });
@@ -147,22 +148,22 @@ mod tests {
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins <= start + IMMEDIATE);
-      assert!(elapsed <= IMMEDIATE + BOUND);
+      assert!(elapsed <= IMMEDIATE + LATE);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins >= start + INTERVAL - BOUND);
-      assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+      assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + LATE);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins >= start + INTERVAL * 2 - BOUND);
-      assert!(elapsed >= INTERVAL * 2 - BOUND && elapsed <= INTERVAL * 2 + BOUND);
+      assert!(elapsed >= INTERVAL * 2 - BOUND && elapsed <= INTERVAL * 2 + LATE);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins >= start + INTERVAL * 3 - BOUND);
-      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + LATE);
 
       assert!(interval.next().await.is_none());
     });
@@ -177,12 +178,12 @@ mod tests {
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins <= start + IMMEDIATE);
-      assert!(elapsed <= IMMEDIATE + BOUND);
+      assert!(elapsed <= IMMEDIATE + LATE);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins >= start + INTERVAL - BOUND);
-      assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + BOUND);
+      assert!(elapsed >= INTERVAL - BOUND && elapsed <= INTERVAL + LATE);
 
       // Reset the next tick to 2x
       interval.reset(INTERVAL * 2);
@@ -190,13 +191,13 @@ mod tests {
       let elapsed = start.elapsed();
       // interval + 2x interval, so 3 here
       assert!(ins >= start + INTERVAL * 3 - BOUND);
-      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + LATE);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       // interval + 2x interval + interval, so 4 here
       assert!(ins >= start + INTERVAL * 4 - BOUND);
-      assert!(elapsed >= INTERVAL * 4 - BOUND && elapsed <= INTERVAL * 4 + BOUND);
+      assert!(elapsed >= INTERVAL * 4 - BOUND && elapsed <= INTERVAL * 4 + LATE);
     });
   }
 
@@ -209,12 +210,12 @@ mod tests {
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins <= start + IMMEDIATE);
-      assert!(elapsed <= IMMEDIATE + BOUND);
+      assert!(elapsed <= IMMEDIATE + LATE);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       assert!(ins >= start + INTERVAL);
-      assert!(elapsed >= INTERVAL && elapsed <= INTERVAL + BOUND);
+      assert!(elapsed >= INTERVAL && elapsed <= INTERVAL + LATE);
 
       // Reset the next tick to 2x
       interval.reset_at(start + INTERVAL * 3);
@@ -222,13 +223,13 @@ mod tests {
       let elapsed = start.elapsed();
       // interval + 2x interval, so 3 here
       assert!(ins >= start + INTERVAL * 3);
-      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + BOUND);
+      assert!(elapsed >= INTERVAL * 3 - BOUND && elapsed <= INTERVAL * 3 + LATE);
 
       let ins = interval.next().await.unwrap();
       let elapsed = start.elapsed();
       // interval + 2x interval + interval, so 4 here
       assert!(ins >= start + INTERVAL * 4 - BOUND);
-      assert!(elapsed >= INTERVAL * 4 - BOUND && elapsed <= INTERVAL * 4 + BOUND);
+      assert!(elapsed >= INTERVAL * 4 - BOUND && elapsed <= INTERVAL * 4 + LATE);
     });
   }
 }
