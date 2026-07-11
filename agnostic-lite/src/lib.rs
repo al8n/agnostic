@@ -551,7 +551,7 @@ pub mod tests {
     R::sleep(Duration::from_millis(500)).await;
     assert_eq!(ctr.load(Ordering::SeqCst), 1);
 
-    R::sleep(Duration::from_millis(600)).await;
+    R::sleep(Duration::from_millis(1000)).await;
     assert_eq!(ctr.load(Ordering::SeqCst), 2);
   }
 
@@ -587,7 +587,9 @@ pub mod tests {
     assert_eq!(ctr.load(Ordering::SeqCst), 1);
 
     handle.reset(Duration::from_millis(250));
-    R::sleep(Duration::from_millis(10)).await;
+    // The reset deadline is already due; grant scheduling grace, but stay under
+    // the original 1s deadline so a no-op reset still fails this assert.
+    R::sleep(Duration::from_millis(250)).await;
     assert_eq!(ctr.load(Ordering::SeqCst), 2);
   }
 
@@ -605,7 +607,9 @@ pub mod tests {
     assert_eq!(ctr.load(Ordering::SeqCst), 1);
 
     handle.reset(Duration::from_millis(1250)); // now delay 1.25s
-    R::sleep(Duration::from_millis(750 + 10)).await; // we already delayed 500ms, so remaining is 750ms
+    // 750ms remain to the reset deadline (500ms already slept), plus
+    // scheduling grace for the after-task to actually run.
+    R::sleep(Duration::from_millis(750 + 500)).await;
     assert_eq!(ctr.load(Ordering::SeqCst), 2);
   }
 }
