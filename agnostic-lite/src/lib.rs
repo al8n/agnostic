@@ -163,8 +163,8 @@ pub mod wasm;
 /// - The number of concurrently-alive spawned tasks is bounded by [`embassy::TASK_POOL_SIZE`];
 ///   exceeding it makes the returned handle resolve to an error.
 /// - [`block_on`](embassy::block_on) busy-polls (it does not sleep the CPU).
-/// - [`spawn_blocking`](RuntimeLite::spawn_blocking) and local spawning
-///   ([`spawn_local`](RuntimeLite::spawn_local)) **panic**: the global spawner is `Send`-only, so
+/// - [`spawn_blocking`](LocalRuntimeLite::spawn_blocking) and local spawning
+///   ([`spawn_local`](LocalRuntimeLite::spawn_local)) **panic**: the global spawner is `Send`-only, so
 ///   `!Send` local tasks cannot be spawned through it.
 ///
 /// [`embassy-executor`]: https://docs.rs/embassy-executor
@@ -190,11 +190,30 @@ pub trait Yielder {
   fn yield_now_local() -> impl Future<Output = ()>;
 }
 
-/// Runtime trait
-pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
-  /// The spawner type for this runtime
-  type Spawner: AsyncSpawner;
+/// The **thread-pinned half** of a runtime: construction, `block_on`, local and
+/// blocking spawning, and the `!Send`-tolerant time family.
+///
+/// This is everything a consumer needs to host futures on the **current
+/// thread**. A thread-pinned host — a `LocalSet`-shaped executor, or any
+/// runtime whose timers and join handles are deliberately `!Send` — can
+/// implement this trait even though it can never satisfy [`RuntimeLite`]'s
+/// `Send` family; that family lives on [`RuntimeLite`], the extension of this
+/// trait.
+///
+/// Deliberately **out of scope**: completion-based (proactor) runtimes such
+/// as `compio`. Their I/O model wants a native driver integration of its own,
+/// not a reactor-shaped runtime abstraction wrapped around it — this crate
+/// does not target them, and the split does not promise them.
+///
+/// The marker type itself is still `Send + Sync + Copy`: it is a zero-sized
+/// tag naming the runtime, not a value of it, so it stays thread-mobile even
+/// when everything it spawns is pinned.
+pub trait LocalRuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   /// The local spawner type for this runtime
+  ///
+  /// Note: an implementation may **panic** when the current thread has no
+  /// local-executor context to target — see [`AsyncLocalSpawner`]'s contract
+  /// note for the per-runtime behavior.
   type LocalSpawner: AsyncLocalSpawner;
   /// The blocking spawner type for this runtime
   type BlockingSpawner: AsyncBlockingSpawner;
@@ -203,35 +222,16 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     /// The instant type for this runtime
     type Instant: time::Instant;
 
-    /// The after spawner type for this runtime
-    type AfterSpawner: AsyncAfterSpawner<Instant = Self::Instant>;
-
-    /// The interval type for this runtime
-    type Interval: time::AsyncInterval<Instant = Self::Instant>;
-
     /// The local interval type for this runtime
     type LocalInterval: time::AsyncLocalInterval<Instant = Self::Instant>;
 
-    /// The sleep type for this runtime
-    type Sleep: time::AsyncSleep<Instant = Self::Instant>;
-
     /// The local sleep type for this runtime
     type LocalSleep: time::AsyncLocalSleep<Instant = Self::Instant>;
-
-    /// The delay type for this runtime
-    type Delay<F>: time::AsyncDelay<F, Instant = Self::Instant>
-    where
-      F: Future + Send;
 
     /// The local delay type for this runtime
     type LocalDelay<F>: time::AsyncLocalDelay<F, Instant = Self::Instant>
     where
       F: Future;
-
-    /// The timeout type for this runtime
-    type Timeout<F>: time::AsyncTimeout<F, Instant = Self::Instant>
-    where
-      F: Future + Send;
 
     /// The local timeout type for this runtime
     type LocalTimeout<F>: time::AsyncLocalTimeout<F, Instant = Self::Instant>
@@ -249,26 +249,8 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
 
   /// Returns the fully qualified name of the runtime
   ///
-  /// See also [`name`](RuntimeLite::name) of the runtime
+  /// See also [`name`](LocalRuntimeLite::name) of the runtime
   fn fqname() -> &'static str;
-
-  /// Spawn a future onto the runtime
-  fn spawn<F>(future: F) -> <Self::Spawner as AsyncSpawner>::JoinHandle<F::Output>
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    <Self::Spawner as AsyncSpawner>::spawn(future)
-  }
-
-  /// Spawn a future onto the runtime and detach it
-  fn spawn_detach<F>(future: F)
-  where
-    F::Output: Send + 'static,
-    F: Future + Send + 'static,
-  {
-    <Self::Spawner as AsyncSpawner>::spawn_detach(future);
-  }
 
   /// Spawn a future onto the local runtime
   fn spawn_local<F>(future: F) -> <Self::LocalSpawner as AsyncLocalSpawner>::JoinHandle<F::Output>
@@ -309,15 +291,135 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
   /// Block the current thread on the given future
   fn block_on<F: Future>(f: F) -> F::Output;
 
-  /// Yield the current task
-  fn yield_now() -> impl Future<Output = ()> + Send;
-
   cfg_time_with_docsrs!(
     /// Returns an instant corresponding to "now".
     fn now() -> Self::Instant {
       <Self::Instant as time::Instant>::now()
     }
 
+    /// Create a new interval that starts at the current time and
+    /// yields every `period` duration
+    fn interval_local(interval: core::time::Duration) -> Self::LocalInterval;
+
+    /// Create a new interval that starts at the given instant and
+    /// yields every `period` duration
+    fn interval_local_at(start: Self::Instant, period: core::time::Duration)
+    -> Self::LocalInterval;
+
+    /// Create a new sleep future that completes after the given duration
+    /// has elapsed
+    fn sleep_local(duration: core::time::Duration) -> Self::LocalSleep;
+
+    /// Create a new sleep future that completes at the given instant
+    /// has elapsed
+    fn sleep_local_until(instant: Self::Instant) -> Self::LocalSleep;
+
+    /// Like [`delay`](RuntimeLite::delay), but does not require the `fut` to be `Send`.
+    /// Create a new delay future that runs the `fut` after the given duration
+    /// has elapsed. The `Future` will never be polled until the duration has
+    /// elapsed.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn delay_local<F>(duration: core::time::Duration, fut: F) -> Self::LocalDelay<F>
+    where
+      F: Future;
+
+    /// Like [`delay_at`](RuntimeLite::delay_at), but does not require the `fut` to be `Send`.
+    /// Create a new timeout future that runs the `future` after the given deadline
+    /// The `Future` will never be polled until the deadline has reached.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn delay_local_at<F>(deadline: Self::Instant, fut: F) -> Self::LocalDelay<F>
+    where
+      F: Future;
+
+    /// Like [`timeout`](RuntimeLite::timeout), but does not requrie the `future` to be `Send`.
+    /// Requires a `Future` to complete before the specified duration has elapsed.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn timeout_local<F>(duration: core::time::Duration, future: F) -> Self::LocalTimeout<F>
+    where
+      F: Future;
+
+    /// Like [`timeout_at`](RuntimeLite::timeout_at), but does not requrie the `future` to be `Send`.
+    /// Requires a `Future` to complete before the specified duration has elapsed.
+    ///
+    /// The behavior of this function may different in different runtime implementations.
+    fn timeout_local_at<F>(deadline: Self::Instant, future: F) -> Self::LocalTimeout<F>
+    where
+      F: Future;
+  );
+}
+
+/// Runtime trait: the **`Send` extension** of [`LocalRuntimeLite`].
+///
+/// Split in 0.7: the thread-pinned half — construction, `block_on`, local and
+/// blocking spawning, and the `Local*` time family — lives on
+/// [`LocalRuntimeLite`]; this trait adds the multithread-spawnable family
+/// (`Send` futures, `Send` timers, the after-spawner).
+///
+/// # 0.7 source compatibility
+///
+/// **Generic** consumers are unaffected: with an `R: RuntimeLite` bound, every
+/// former item still resolves through the same `R::` paths via the supertrait.
+/// Two invocation forms ARE source-breaking and need a one-line migration:
+///
+/// - a **concrete-type** call of a moved member (`SmolRuntime::block_on(..)`)
+///   needs [`LocalRuntimeLite`] in scope — supertrait items do not come into
+///   scope by importing the subtrait;
+/// - a **UFCS** call through this trait (`<R as RuntimeLite>::name()`) must
+///   name the trait that now owns the member
+///   (`<R as LocalRuntimeLite>::name()`).
+///
+/// Implementors provide the two impl blocks separately. A runtime that can
+/// only pin work to the current thread implements [`LocalRuntimeLite`] alone.
+pub trait RuntimeLite: LocalRuntimeLite {
+  /// The spawner type for this runtime
+  type Spawner: AsyncSpawner;
+
+  cfg_time_with_docsrs!(
+    /// The after spawner type for this runtime
+    type AfterSpawner: AsyncAfterSpawner<Instant = Self::Instant>;
+
+    /// The interval type for this runtime
+    type Interval: time::AsyncInterval<Instant = Self::Instant>;
+
+    /// The sleep type for this runtime
+    type Sleep: time::AsyncSleep<Instant = Self::Instant>;
+
+    /// The delay type for this runtime
+    type Delay<F>: time::AsyncDelay<F, Instant = Self::Instant>
+    where
+      F: Future + Send;
+
+    /// The timeout type for this runtime
+    type Timeout<F>: time::AsyncTimeout<F, Instant = Self::Instant>
+    where
+      F: Future + Send;
+  );
+
+  /// Spawn a future onto the runtime
+  fn spawn<F>(future: F) -> <Self::Spawner as AsyncSpawner>::JoinHandle<F::Output>
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static,
+  {
+    <Self::Spawner as AsyncSpawner>::spawn(future)
+  }
+
+  /// Spawn a future onto the runtime and detach it
+  fn spawn_detach<F>(future: F)
+  where
+    F::Output: Send + 'static,
+    F: Future + Send + 'static,
+  {
+    <Self::Spawner as AsyncSpawner>::spawn_detach(future);
+  }
+
+  /// Yield the current task
+  fn yield_now() -> impl Future<Output = ()> + Send;
+
+  cfg_time_with_docsrs!(
     /// Spawn a future onto the runtime and run the given future after the given duration
     fn spawn_after<F>(
       duration: core::time::Duration,
@@ -350,15 +452,6 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     /// yields every `period` duration
     fn interval_at(start: Self::Instant, period: core::time::Duration) -> Self::Interval;
 
-    /// Create a new interval that starts at the current time and
-    /// yields every `period` duration
-    fn interval_local(interval: core::time::Duration) -> Self::LocalInterval;
-
-    /// Create a new interval that starts at the given instant and
-    /// yields every `period` duration
-    fn interval_local_at(start: Self::Instant, period: core::time::Duration)
-    -> Self::LocalInterval;
-
     /// Create a new sleep future that completes after the given duration
     /// has elapsed
     fn sleep(duration: core::time::Duration) -> Self::Sleep;
@@ -366,14 +459,6 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     /// Create a new sleep future that completes at the given instant
     /// has elapsed
     fn sleep_until(instant: Self::Instant) -> Self::Sleep;
-
-    /// Create a new sleep future that completes after the given duration
-    /// has elapsed
-    fn sleep_local(duration: core::time::Duration) -> Self::LocalSleep;
-
-    /// Create a new sleep future that completes at the given instant
-    /// has elapsed
-    fn sleep_local_until(instant: Self::Instant) -> Self::LocalSleep;
 
     /// Create a new delay future that runs the `fut` after the given duration
     /// has elapsed. The `Future` will never be polled until the duration has
@@ -384,16 +469,6 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     where
       F: Future + Send;
 
-    /// Like [`delay`](RuntimeLite::delay), but does not require the `fut` to be `Send`.
-    /// Create a new delay future that runs the `fut` after the given duration
-    /// has elapsed. The `Future` will never be polled until the duration has
-    /// elapsed.
-    ///
-    /// The behavior of this function may different in different runtime implementations.
-    fn delay_local<F>(duration: core::time::Duration, fut: F) -> Self::LocalDelay<F>
-    where
-      F: Future;
-
     /// Create a new timeout future that runs the `future` after the given deadline.
     /// The `Future` will never be polled until the deadline has reached.
     ///
@@ -401,15 +476,6 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     fn delay_at<F>(deadline: Self::Instant, fut: F) -> Self::Delay<F>
     where
       F: Future + Send;
-
-    /// Like [`delay_at`](RuntimeLite::delay_at), but does not require the `fut` to be `Send`.
-    /// Create a new timeout future that runs the `future` after the given deadline
-    /// The `Future` will never be polled until the deadline has reached.
-    ///
-    /// The behavior of this function may different in different runtime implementations.
-    fn delay_local_at<F>(deadline: Self::Instant, fut: F) -> Self::LocalDelay<F>
-    where
-      F: Future;
 
     /// Requires a `Future` to complete before the specified duration has elapsed.
     ///
@@ -424,22 +490,6 @@ pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     fn timeout_at<F>(deadline: Self::Instant, future: F) -> Self::Timeout<F>
     where
       F: Future + Send;
-
-    /// Like [`timeout`](RuntimeLite::timeout), but does not requrie the `future` to be `Send`.
-    /// Requires a `Future` to complete before the specified duration has elapsed.
-    ///
-    /// The behavior of this function may different in different runtime implementations.
-    fn timeout_local<F>(duration: core::time::Duration, future: F) -> Self::LocalTimeout<F>
-    where
-      F: Future;
-
-    /// Like [`timeout_at`](RuntimeLite::timeout_at), but does not requrie the `future` to be `Send`.
-    /// Requires a `Future` to complete before the specified duration has elapsed.
-    ///
-    /// The behavior of this function may different in different runtime implementations.
-    fn timeout_local_at<F>(deadline: Self::Instant, future: F) -> Self::LocalTimeout<F>
-    where
-      F: Future;
   );
 }
 

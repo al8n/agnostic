@@ -18,8 +18,8 @@ pub use runtime::*;
 mod runtime {
   pub use agnostic_lite::{
     AfterHandle, AfterHandleError, AsyncAfterSpawner, AsyncBlockingSpawner, AsyncLocalSpawner,
-    AsyncSpawner, JoinHandle, LocalJoinHandle, RuntimeLite, Yielder, cfg_linux, cfg_smol,
-    cfg_tokio, cfg_unix, cfg_windows, time,
+    AsyncSpawner, JoinHandle, LocalJoinHandle, LocalRuntimeLite, RuntimeLite, Yielder, cfg_linux,
+    cfg_smol, cfg_tokio, cfg_unix, cfg_windows, time,
   };
 
   /// Runtime trait

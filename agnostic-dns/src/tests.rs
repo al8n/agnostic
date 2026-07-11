@@ -52,5 +52,7 @@ fn tokio_resolve() {
 #[test]
 #[cfg(feature = "smol")]
 fn smol_resolve() {
+  use agnostic_net::runtime::LocalRuntimeLite;
+
   agnostic_net::runtime::smol::SmolRuntime::block_on(resolve::<agnostic_net::smol::Net>());
 }

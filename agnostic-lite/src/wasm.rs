@@ -193,37 +193,21 @@ impl core::fmt::Display for WasmRuntime {
   }
 }
 
-impl super::RuntimeLite for WasmRuntime {
-  type Spawner = WasmSpawner;
+impl super::LocalRuntimeLite for WasmRuntime {
   type LocalSpawner = WasmSpawner;
   type BlockingSpawner = WasmSpawner;
 
   cfg_time!(
     type Instant = Instant;
-    type AfterSpawner = WasmSpawner;
-
-    type Interval = WasmInterval;
 
     type LocalInterval = WasmInterval;
 
-    type Sleep = WasmSleep;
-
     type LocalSleep = WasmSleep;
-
-    type Delay<F>
-      = WasmDelay<F>
-    where
-      F: Future + Send;
 
     type LocalDelay<F>
       = WasmDelay<F>
     where
       F: Future;
-
-    type Timeout<F>
-      = WasmTimeout<F>
-    where
-      F: Future + Send;
 
     type LocalTimeout<F>
       = WasmTimeout<F>
@@ -244,26 +228,10 @@ impl super::RuntimeLite for WasmRuntime {
   }
 
   fn block_on<F: Future>(_f: F) -> F::Output {
-    panic!("RuntimeLite::block_on is not supported on wasm")
-  }
-
-  async fn yield_now() {
-    YieldNow(false).await
+    panic!("LocalRuntimeLite::block_on is not supported on wasm")
   }
 
   cfg_time!(
-    fn interval(interval: Duration) -> Self::Interval {
-      use crate::time::AsyncIntervalExt;
-
-      WasmInterval::interval(interval)
-    }
-
-    fn interval_at(start: Instant, period: Duration) -> Self::Interval {
-      use crate::time::AsyncIntervalExt;
-
-      WasmInterval::interval_at(start, period)
-    }
-
     fn interval_local(interval: Duration) -> Self::LocalInterval {
       use crate::time::AsyncIntervalExt;
 
@@ -274,18 +242,6 @@ impl super::RuntimeLite for WasmRuntime {
       use crate::time::AsyncIntervalExt;
 
       WasmInterval::interval_at(start, period)
-    }
-
-    fn sleep(duration: Duration) -> Self::Sleep {
-      use crate::time::AsyncSleepExt;
-
-      WasmSleep::sleep(duration)
-    }
-
-    fn sleep_until(instant: Instant) -> Self::Sleep {
-      use crate::time::AsyncSleepExt;
-
-      WasmSleep::sleep_until(instant)
     }
 
     fn sleep_local(duration: Duration) -> Self::LocalSleep {
@@ -300,15 +256,6 @@ impl super::RuntimeLite for WasmRuntime {
       WasmSleep::sleep_until(instant)
     }
 
-    fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
-    where
-      F: Future + Send,
-    {
-      use crate::time::AsyncDelayExt;
-
-      <WasmDelay<F> as AsyncDelayExt<F>>::delay(duration, fut)
-    }
-
     fn delay_local<F>(duration: Duration, fut: F) -> Self::LocalDelay<F>
     where
       F: Future,
@@ -318,15 +265,6 @@ impl super::RuntimeLite for WasmRuntime {
       <WasmDelay<F> as AsyncLocalDelayExt<F>>::delay(duration, fut)
     }
 
-    fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
-    where
-      F: Future + Send,
-    {
-      use crate::time::AsyncDelayExt;
-
-      <WasmDelay<F> as AsyncDelayExt<F>>::delay_at(deadline, fut)
-    }
-
     fn delay_local_at<F>(deadline: Instant, fut: F) -> Self::LocalDelay<F>
     where
       F: Future,
@@ -334,24 +272,6 @@ impl super::RuntimeLite for WasmRuntime {
       use crate::time::AsyncLocalDelayExt;
 
       <WasmDelay<F> as AsyncLocalDelayExt<F>>::delay_at(deadline, fut)
-    }
-
-    fn timeout<F>(duration: Duration, future: F) -> Self::Timeout<F>
-    where
-      F: Future + Send,
-    {
-      use crate::time::AsyncTimeout;
-
-      <WasmTimeout<F> as AsyncTimeout<F>>::timeout(duration, future)
-    }
-
-    fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
-    where
-      F: Future + Send,
-    {
-      use crate::time::AsyncTimeout;
-
-      <WasmTimeout<F> as AsyncTimeout<F>>::timeout_at(deadline, future)
     }
 
     fn timeout_local<F>(duration: Duration, future: F) -> Self::LocalTimeout<F>
@@ -370,6 +290,94 @@ impl super::RuntimeLite for WasmRuntime {
       use crate::time::AsyncLocalTimeout;
 
       <WasmTimeout<F> as AsyncLocalTimeout<F>>::timeout_local_at(deadline, future)
+    }
+  );
+}
+
+impl super::RuntimeLite for WasmRuntime {
+  type Spawner = WasmSpawner;
+
+  cfg_time!(
+    type AfterSpawner = WasmSpawner;
+
+    type Interval = WasmInterval;
+
+    type Sleep = WasmSleep;
+
+    type Delay<F>
+      = WasmDelay<F>
+    where
+      F: Future + Send;
+
+    type Timeout<F>
+      = WasmTimeout<F>
+    where
+      F: Future + Send;
+  );
+
+  async fn yield_now() {
+    YieldNow(false).await
+  }
+
+  cfg_time!(
+    fn interval(interval: Duration) -> Self::Interval {
+      use crate::time::AsyncIntervalExt;
+
+      WasmInterval::interval(interval)
+    }
+
+    fn interval_at(start: Instant, period: Duration) -> Self::Interval {
+      use crate::time::AsyncIntervalExt;
+
+      WasmInterval::interval_at(start, period)
+    }
+
+    fn sleep(duration: Duration) -> Self::Sleep {
+      use crate::time::AsyncSleepExt;
+
+      WasmSleep::sleep(duration)
+    }
+
+    fn sleep_until(instant: Instant) -> Self::Sleep {
+      use crate::time::AsyncSleepExt;
+
+      WasmSleep::sleep_until(instant)
+    }
+
+    fn delay<F>(duration: Duration, fut: F) -> Self::Delay<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncDelayExt;
+
+      <WasmDelay<F> as AsyncDelayExt<F>>::delay(duration, fut)
+    }
+
+    fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncDelayExt;
+
+      <WasmDelay<F> as AsyncDelayExt<F>>::delay_at(deadline, fut)
+    }
+
+    fn timeout<F>(duration: Duration, future: F) -> Self::Timeout<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncTimeout;
+
+      <WasmTimeout<F> as AsyncTimeout<F>>::timeout(duration, future)
+    }
+
+    fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
+    where
+      F: Future + Send,
+    {
+      use crate::time::AsyncTimeout;
+
+      <WasmTimeout<F> as AsyncTimeout<F>>::timeout_at(deadline, future)
     }
   );
 }

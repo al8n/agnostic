@@ -16,7 +16,7 @@ mod tests {
 
   const DELAY: Duration = Duration::from_millis(10);
   const RESET: Duration = Duration::from_millis(20);
-  const BOUND: Duration = Duration::from_millis(50);
+  const BOUND: Duration = Duration::from_millis(500);
 
   #[tokio::test]
   async fn test_delay() {

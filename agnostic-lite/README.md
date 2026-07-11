@@ -49,7 +49,10 @@ In addition, the abstraction layer itself is `no_std` and alloc-free, so the tra
 - **`AsyncSleep`**: Sleep for a duration
 - **`AsyncInterval`**: Create periodic intervals
 - **`AsyncTimeout`**: Apply timeouts to operations
-- **`RuntimeLite`**: Combines all traits for convenience
+- **`LocalRuntimeLite`**: The thread-pinned runtime core — construction, `block_on`,
+  local/blocking spawning, and the `!Send`-tolerant time family
+- **`RuntimeLite`**: The `Send` extension of `LocalRuntimeLite` — multithread
+  spawning and the `Send` time family (bounds on it reach every core item too)
 - **`Yielder`**: Yield control back to the runtime
 
 ### Supported Runtimes
@@ -79,7 +82,7 @@ Choose `agnostic` when:
 
 ```toml
 [dependencies]
-agnostic-lite = "0.6"
+agnostic-lite = "0.7"
 ```
 
 ### Runtime Selection
@@ -88,13 +91,13 @@ Choose one runtime feature:
 
 ```toml
 # With tokio
-agnostic-lite = { version = "0.6", features = ["tokio"] }
+agnostic-lite = { version = "0.7", features = ["tokio"] }
 
 # With smol
-agnostic-lite = { version = "0.6", features = ["smol"] }
+agnostic-lite = { version = "0.7", features = ["smol"] }
 
 # With WASM
-agnostic-lite = { version = "0.6", features = ["wasm"] }
+agnostic-lite = { version = "0.7", features = ["wasm"] }
 ```
 
 ### `no_std` Usage
@@ -104,7 +107,7 @@ The `tokio`, `smol`, and `wasm` runtimes all pull in `std`. For a real `no_std` 
 
 ```toml
 # no_std (with alloc), for embedded targets running on embassy-executor
-agnostic-lite = { version = "0.6", default-features = false, features = ["embassy"] }
+agnostic-lite = { version = "0.7", default-features = false, features = ["embassy"] }
 ```
 
 The `embassy` backend has caveats (a one-time spawner `init`, a bounded task pool, a busy-polling
@@ -199,28 +202,44 @@ where
 }
 ```
 
-### RuntimeLite
+### LocalRuntimeLite and RuntimeLite
 
-Brings the spawner and time traits together behind a single runtime type: each is exposed as an
-associated type, alongside convenience methods. This is a trimmed sketch — the real trait also
-carries the `Local*`/`Blocking` spawner and time variants:
+Since 0.7 the runtime abstraction is two traits. `LocalRuntimeLite` is the
+thread-pinned core — everything a consumer needs to host futures on the
+current thread — and `RuntimeLite` is its `Send` extension. A thread-pinned
+host (a `LocalSet`-shaped executor, or any runtime whose timers are
+deliberately `!Send`) can implement the core alone; tokio/smol/wasm/embassy
+implement both. Completion-based (proactor) runtimes such as compio are
+deliberately out of scope: their I/O model warrants a native driver
+integration of its own, not this reactor-shaped abstraction wrapped around
+it. This is a trimmed sketch:
 
 ```rust,ignore
-pub trait RuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
-    type Spawner: AsyncSpawner;
+pub trait LocalRuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
     type LocalSpawner: AsyncLocalSpawner;
     type BlockingSpawner: AsyncBlockingSpawner;
-    // with the `time` feature: Instant, AfterSpawner, Sleep, Interval, Timeout, Delay, ...
+    // with the `time` feature: Instant, LocalSleep, LocalInterval, LocalTimeout, LocalDelay
+
+    fn new() -> Self;
+    fn block_on<F: Future>(f: F) -> F::Output;
+    // ... plus spawn_local / spawn_blocking / sleep_local / timeout_local and more
+}
+
+pub trait RuntimeLite: LocalRuntimeLite {
+    type Spawner: AsyncSpawner;
+    // with the `time` feature: AfterSpawner, Sleep, Interval, Timeout, Delay
 
     fn spawn<F>(future: F) -> <Self::Spawner as AsyncSpawner>::JoinHandle<F::Output>
     where
         F: Future + Send + 'static,
         F::Output: Send + 'static;
-
-    fn block_on<F: Future>(f: F) -> F::Output;
     // ... plus sleep / timeout / interval / spawn_after and more
 }
 ```
+
+Generic `R: RuntimeLite` bounds reach every core item through the supertrait
+unchanged. Concrete-type calls of moved members (`SmolRuntime::block_on(..)`)
+need `LocalRuntimeLite` in scope, and UFCS calls must name the owning trait.
 
 ## Conditional Compilation Helpers
 

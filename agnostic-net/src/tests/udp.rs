@@ -243,7 +243,7 @@ async fn peek_from<N: Net>() {
     // TODO(al8n): remove this feature gate when async-net fixes https://github.com/smol-rs/async-net/issues/33
     #[cfg(target_os = "macos")]
     let should_run = {
-      let is_smol = <N::Runtime as RuntimeLite>::name() == "smol";
+      let is_smol = <N::Runtime as agnostic_lite::LocalRuntimeLite>::name() == "smol";
       !is_smol
     };
 
