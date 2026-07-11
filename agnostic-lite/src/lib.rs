@@ -163,8 +163,8 @@ pub mod wasm;
 /// - The number of concurrently-alive spawned tasks is bounded by [`embassy::TASK_POOL_SIZE`];
 ///   exceeding it makes the returned handle resolve to an error.
 /// - [`block_on`](embassy::block_on) busy-polls (it does not sleep the CPU).
-/// - [`spawn_blocking`](RuntimeLite::spawn_blocking) and local spawning
-///   ([`spawn_local`](RuntimeLite::spawn_local)) **panic**: the global spawner is `Send`-only, so
+/// - [`spawn_blocking`](LocalRuntimeLite::spawn_blocking) and local spawning
+///   ([`spawn_local`](LocalRuntimeLite::spawn_local)) **panic**: the global spawner is `Send`-only, so
 ///   `!Send` local tasks cannot be spawned through it.
 ///
 /// [`embassy-executor`]: https://docs.rs/embassy-executor
@@ -350,11 +350,23 @@ pub trait LocalRuntimeLite: Sized + Unpin + Copy + Send + Sync + 'static {
 /// Split in 0.7: the thread-pinned half — construction, `block_on`, local and
 /// blocking spawning, and the `Local*` time family — lives on
 /// [`LocalRuntimeLite`]; this trait adds the multithread-spawnable family
-/// (`Send` futures, `Send` timers, the after-spawner). Every former
-/// `RuntimeLite` item remains reachable through an `R: RuntimeLite` bound via
-/// the supertrait, so consumers are unaffected; implementors provide the two
-/// impl blocks separately. A runtime that can only pin work to the current
-/// thread implements [`LocalRuntimeLite`] alone.
+/// (`Send` futures, `Send` timers, the after-spawner).
+///
+/// # 0.7 source compatibility
+///
+/// **Generic** consumers are unaffected: with an `R: RuntimeLite` bound, every
+/// former item still resolves through the same `R::` paths via the supertrait.
+/// Two invocation forms ARE source-breaking and need a one-line migration:
+///
+/// - a **concrete-type** call of a moved member (`SmolRuntime::block_on(..)`)
+///   needs [`LocalRuntimeLite`] in scope — supertrait items do not come into
+///   scope by importing the subtrait;
+/// - a **UFCS** call through this trait (`<R as RuntimeLite>::name()`) must
+///   name the trait that now owns the member
+///   (`<R as LocalRuntimeLite>::name()`).
+///
+/// Implementors provide the two impl blocks separately. A runtime that can
+/// only pin work to the current thread implements [`LocalRuntimeLite`] alone.
 pub trait RuntimeLite: LocalRuntimeLite {
   /// The spawner type for this runtime
   type Spawner: AsyncSpawner;

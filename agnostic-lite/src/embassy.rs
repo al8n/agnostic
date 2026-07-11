@@ -417,7 +417,7 @@ const _: () = {
 /// caveats of this backend ([`block_on`] busy-polls, [`spawn_blocking`] and local spawning panic,
 /// and the number of live spawned tasks is bounded by [`TASK_POOL_SIZE`]).
 ///
-/// [`spawn_blocking`]: crate::RuntimeLite::spawn_blocking
+/// [`spawn_blocking`]: crate::LocalRuntimeLite::spawn_blocking
 #[derive(Debug, Clone, Copy)]
 pub struct EmbassyRuntime;
 
