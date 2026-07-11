@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## agnostic [0.11.0] - 2026-07-11
+
+### Changed
+- **Breaking:** track `agnostic-lite` 0.7 — the facade re-exports `LocalRuntimeLite` alongside `RuntimeLite`, and the optional components move in lockstep (`agnostic-net` 0.4, `agnostic-dns` 0.6) so no feature combination mixes 0.6 and 0.7 runtime traits.
+
+## agnostic-lite [0.7.0] - 2026-07-11
+
+### Changed
+- **Breaking:** split the monolithic `RuntimeLite` into `LocalRuntimeLite` — the thread-pinned core owning `new`, `name`, `fqname`, `block_on`, `now`, the local and blocking spawn families, the `Local*` time family, and their associated types (`LocalSpawner`, `BlockingSpawner`, `Instant`, `LocalInterval`, `LocalSleep`, `LocalDelay`, `LocalTimeout`) — and `RuntimeLite: LocalRuntimeLite`, the `Send` extension keeping `Spawner`, `AfterSpawner`, the `Send` time family, and `yield_now`. A runtime whose timers and join handles are not `Send` can now implement the local core alone.
+- **Breaking:** generic `R: RuntimeLite` consumers compile unchanged — supertrait items resolve through the same `R::` paths. Two forms need a one-line migration: a concrete-type call of a moved member (`TokioRuntime::block_on(..)`) needs `LocalRuntimeLite` in scope, and a UFCS call of a moved member must name the owning trait (`<R as LocalRuntimeLite>::name()`).
+
+### Fixed
+- The smol `AsyncLocalSpawner` no longer spawns onto a freshly created `smol::LocalExecutor` that is dropped, never driven, before the task can run — `SmolRuntime`'s `spawn_local`/`spawn_local_detach` now panic with an explanatory message, since smol has no ambient thread-local executor to target; drive a `smol::LocalExecutor` yourself and spawn onto it directly.
+
+## agnostic-net [0.4.0] - 2026-07-11
+
+### Changed
+- **Breaking:** track `agnostic-lite` 0.7 (the `LocalRuntimeLite`/`RuntimeLite` split).
+
+## agnostic-dns [0.6.0] - 2026-07-11
+
+### Changed
+- **Breaking:** track `agnostic-net` 0.4 and `agnostic-lite` 0.7.
+
 ## agnostic [0.10.0] - 2026-06-24
 
 ### Changed
