@@ -5,14 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## Unreleased
 
-## agnostic [0.11.0] - 2026-07-11
+## agnostic 0.11.0 - 2026-07-11
 
 ### Changed
 - **Breaking:** track `agnostic-lite` 0.7 — the facade re-exports `LocalRuntimeLite` alongside `RuntimeLite`, and the optional components move in lockstep (`agnostic-net` 0.4, `agnostic-dns` 0.6) so no feature combination mixes 0.6 and 0.7 runtime traits.
 
-## agnostic-lite [0.7.0] - 2026-07-11
+## agnostic-lite 0.7.0 - 2026-07-11
 
 ### Changed
 - **Breaking:** split the monolithic `RuntimeLite` into `LocalRuntimeLite` — the thread-pinned core owning `new`, `name`, `fqname`, `block_on`, `now`, the local and blocking spawn families, the `Local*` time family, and their associated types (`LocalSpawner`, `BlockingSpawner`, `Instant`, `LocalInterval`, `LocalSleep`, `LocalDelay`, `LocalTimeout`) — and `RuntimeLite: LocalRuntimeLite`, the `Send` extension keeping `Spawner`, `AfterSpawner`, the `Send` time family, and `yield_now`. A runtime whose timers and join handles are not `Send` can now implement the local core alone.
@@ -21,22 +21,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - The smol `AsyncLocalSpawner` no longer spawns onto a freshly created `smol::LocalExecutor` that is dropped, never driven, before the task can run — `SmolRuntime`'s `spawn_local`/`spawn_local_detach` now panic with an explanatory message, since smol has no ambient thread-local executor to target; drive a `smol::LocalExecutor` yourself and spawn onto it directly.
 
-## agnostic-net [0.4.0] - 2026-07-11
+## agnostic-net 0.4.0 - 2026-07-11
 
 ### Changed
 - **Breaking:** track `agnostic-lite` 0.7 (the `LocalRuntimeLite`/`RuntimeLite` split).
 
-## agnostic-dns [0.6.0] - 2026-07-11
+## agnostic-dns 0.6.0 - 2026-07-11
 
 ### Changed
 - **Breaking:** track `agnostic-net` 0.4 and `agnostic-lite` 0.7.
 
-## agnostic [0.10.0] - 2026-06-24
+## agnostic 0.10.0 - 2026-06-24
 
 ### Changed
 - **Breaking:** track hickory-dns 0.26 in the `dns` re-exports — `Protocol` is now `ProtocolConfig`, the `{GOOGLE,CLOUDFLARE,QUAD9}_IPS` constants are now `{GOOGLE,CLOUDFLARE,QUAD9}`, and `NameServerConfigGroup` is now `ServerGroup`.
 
-## agnostic-lite [0.6.2] - 2026-06-24
+## agnostic-lite 0.6.2 - 2026-06-24
 
 ### Added
 - `embassy` feature: an [`embassy-executor`](https://docs.rs/embassy-executor) backend (`EmbassyRuntime`) for true `no_std` async on bare-metal targets, with time primitives backed by `embassy-time`.
@@ -44,17 +44,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Corrected the `no_std` documentation — the tokio backend requires `std`; use the new `embassy` backend for genuine `no_std` environments.
 
-## agnostic-net [0.3.1] - 2026-06-24
+## agnostic-net 0.3.1 - 2026-06-24
 
 ### Fixed
 - The smol `UdpSocket::poll_recv_from`/`poll_send_to` now poll the underlying `Async` source's readiness rather than recreating a future on every poll, which could otherwise stall a receive forever when the socket is polled directly (e.g. by hickory-dns 0.26's UDP client).
 
-## agnostic-dns [0.5.0] - 2026-06-24
+## agnostic-dns 0.5.0 - 2026-06-24
 
 ### Changed
 - **Breaking:** updated to hickory-dns 0.26. Provider traits now come from `hickory-resolver::net`, `AsyncConnectionProvider` is an alias for `AsyncRuntimeProvider` (hickory now blanket-implements `ConnectionProvider` for every `RuntimeProvider`), `hickory-proto` is no longer a direct dependency, and the transport features map 1:1 to `hickory-resolver`.
 
-## agnostic [0.8.0] - 2025-11-04
+## agnostic 0.8.0 - 2025-11-04
 
 ### Added
 - Quick start examples for: task spawning, sleep/timeouts, TCP server/client, UDP, DNS resolution, process spawning, intervals
@@ -69,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved introduction with clearer value proposition
 - Enhanced feature categorization (Core, Runtime, Component, DNS Transport, DNSSEC)
 
-## agnostic-lite [0.6.0] - 2025-11-04
+## agnostic-lite 0.6.0 - 2025-11-04
 
 ### Added
 - WASM/WebAssembly usage example with wasm-bindgen
@@ -86,7 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved feature flags documentation
 - Enhanced embedded and no_std documentation
 
-## agnostic-io [0.2.0] - 2025-11-04
+## agnostic-io 0.2.0 - 2025-11-04
 
 ### Added
 - Comprehensive Sans-I/O philosophy explanation with detailed benefits
@@ -102,7 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced feature flags explanation
 - Improved API reference with trait signatures
 
-## agnostic-net [0.3.0] - 2025-11-04
+## agnostic-net 0.3.0 - 2025-11-04
 
 ### Added
 
@@ -115,7 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved introduction with clearer feature list
 - Enhanced key features section
 
-## agnostic-dns [0.3.0] - 2025-11-04
+## agnostic-dns 0.3.0 - 2025-11-04
 
 ### Added
 
@@ -129,7 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Corrected version numbers in installation instructions
 
-## agnostic-process [0.3.0] - 2025-11-04
+## agnostic-process 0.3.0 - 2025-11-04
 
 ### Added
 
@@ -167,13 +167,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Version numbers corrected across all crate READMEs
 
-## [0.7.2] - 2025-01-04
+## 0.7.2 - 2025-01-04
 
 ### Changed
 - Updated dependencies to latest versions
 - Improved documentation across all crates
 
-## [0.7.0] - 2025-01-04
+## 0.7.0 - 2025-01-04
 
 ### Removed
 - **BREAKING**: Removed async-std runtime support across all crates due to async-std being discontinued
@@ -196,7 +196,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Runtime switching guides
 - Advanced examples (TCP/UDP servers, DNS protocols, etc.)
 
-## agnostic [0.6.0] - 2024-12-15
+## agnostic 0.6.0 - 2024-12-15
 
 ### Added
 - Enhanced feature flags documentation
@@ -210,7 +210,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Platform-specific build issues on Windows
 - Memory leaks in long-lived DNS resolvers
 
-## agnostic-lite [0.5.0] - 2024-12-10
+## agnostic-lite 0.5.0 - 2024-12-10
 
 ### Added
 - WASM support via wasm-bindgen-futures
@@ -226,7 +226,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timer precision issues in some runtime configurations
 - Memory safety issues in local task spawning
 
-## agnostic-net [0.2.0] - 2024-12-01
+## agnostic-net 0.2.0 - 2024-12-01
 
 ### Added
 - UDP socket support
@@ -243,7 +243,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connection timeout issues
 - Socket option setting failures on some platforms
 
-## agnostic-dns [0.2.0] - 2024-11-25
+## agnostic-dns 0.2.0 - 2024-11-25
 
 ### Added
 - DNS over QUIC (DoQ) support (RFC 9250)
@@ -262,7 +262,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Memory leaks in long-running resolvers
 - Timeout handling in DoH/DoT connections
 
-## agnostic-process [0.2.0] - 2024-11-20
+## agnostic-process 0.2.0 - 2024-11-20
 
 ### Added
 - Stdio redirection support
@@ -277,7 +277,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Process zombie prevention
 - Stdio deadlock issues
 
-## agnostic-io [0.1.2] - 2024-11-15
+## agnostic-io 0.1.2 - 2024-11-15
 
 ### Added
 - Comprehensive Sans-I/O documentation
@@ -291,7 +291,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Trait bound issues in some configurations
 
-## agnostic-lite [0.4.0] - 2024-11-01
+## agnostic-lite 0.4.0 - 2024-11-01
 
 ### Added
 - Time abstractions (AsyncSleep, AsyncInterval, AsyncTimeout)
@@ -302,7 +302,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved from monolithic Runtime trait to focused traits
 - Improved documentation
 
-## agnostic [0.5.0] - 2024-10-15
+## agnostic 0.5.0 - 2024-10-15
 
 ### Added
 - Quinn QUIC protocol support
@@ -313,14 +313,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restructured crate organization into workspace
 - Split into specialized sub-crates
 
-## agnostic-net [0.1.0] - 2024-10-01
+## agnostic-net 0.1.0 - 2024-10-01
 
 ### Added
 - Initial release
 - TCP listener and stream abstractions
 - Runtime-agnostic networking for tokio, async-std, and smol
 
-## agnostic-lite [0.3.0] - 2024-09-20
+## agnostic-lite 0.3.0 - 2024-09-20
 
 ### Added
 - Allocation-free operation mode
@@ -331,7 +331,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved no_std compatibility
 - Reduced memory footprint
 
-## agnostic [0.4.0] - 2024-09-01
+## agnostic 0.4.0 - 2024-09-01
 
 ### Added
 - Support for smol runtime
@@ -342,7 +342,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved error handling
 - Better documentation
 
-## agnostic [0.3.0] - 2024-08-15
+## agnostic 0.3.0 - 2024-08-15
 
 ### Added
 - Support for async-std runtime (now removed in 0.7.0)
@@ -352,7 +352,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved API ergonomics
 - Better runtime detection
 
-## agnostic [0.2.0] - 2024-08-01
+## agnostic 0.2.0 - 2024-08-01
 
 ### Added
 - Basic networking abstractions
@@ -365,7 +365,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Various runtime compatibility issues
 
-## agnostic-lite [0.2.0] - 2024-07-20
+## agnostic-lite 0.2.0 - 2024-07-20
 
 ### Added
 - Initial time abstractions
@@ -374,7 +374,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Simplified API surface
 
-## agnostic [0.1.0] - 2024-07-01
+## agnostic 0.1.0 - 2024-07-01
 
 ### Added
 - Initial release
@@ -382,7 +382,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Core runtime abstractions
 - Task spawning capabilities
 
-## agnostic-lite [0.1.0] - 2024-07-01
+## agnostic-lite 0.1.0 - 2024-07-01
 
 ### Added
 - Initial release
@@ -471,9 +471,3 @@ Your application code using agnostic abstractions remains unchanged - only the r
 - [Repository](https://github.com/al8n/agnostic)
 - [Documentation](https://docs.rs/agnostic)
 - [Issue Tracker](https://github.com/al8n/agnostic/issues)
-
-[Unreleased]: https://github.com/al8n/agnostic/compare/v0.8.0...HEAD
-[0.8.0]: https://github.com/al8n/agnostic/compare/v0.7.2...v0.8.0
-[0.7.2]: https://github.com/al8n/agnostic/compare/v0.7.0...v0.7.2
-[0.7.0]: https://github.com/al8n/agnostic/compare/v0.6.0...v0.7.0
-[0.6.0]: https://github.com/al8n/agnostic/releases/tag/v0.6.0
