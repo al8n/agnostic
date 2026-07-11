@@ -89,6 +89,7 @@ jobs:
   test:
     name: test
     strategy:
+      fail-fast: false
       matrix:
         os:
           - ubuntu-latest

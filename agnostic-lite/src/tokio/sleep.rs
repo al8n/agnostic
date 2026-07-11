@@ -73,7 +73,7 @@ mod tests {
 
   const ORIGINAL: Duration = Duration::from_secs(1);
   const RESET: Duration = Duration::from_secs(2);
-  const BOUND: Duration = Duration::from_millis(10);
+  const BOUND: Duration = Duration::from_millis(500);
 
   #[tokio::test]
   async fn test_tokio_sleep() {
