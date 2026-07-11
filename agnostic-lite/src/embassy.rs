@@ -427,34 +427,20 @@ impl core::fmt::Display for EmbassyRuntime {
   }
 }
 
-impl crate::RuntimeLite for EmbassyRuntime {
-  type Spawner = EmbassySpawner;
+impl crate::LocalRuntimeLite for EmbassyRuntime {
   type LocalSpawner = EmbassySpawner;
   type BlockingSpawner = EmbassySpawner;
 
   type Instant = Instant;
-  type AfterSpawner = EmbassySpawner;
 
-  type Interval = EmbassyInterval;
   type LocalInterval = EmbassyInterval;
 
-  type Sleep = EmbassySleep;
   type LocalSleep = EmbassySleep;
-
-  type Delay<F>
-    = EmbassyDelay<F>
-  where
-    F: Future + Send;
 
   type LocalDelay<F>
     = EmbassyDelay<F>
   where
     F: Future;
-
-  type Timeout<F>
-    = EmbassyTimeout<F>
-  where
-    F: Future + Send;
 
   type LocalTimeout<F>
     = EmbassyTimeout<F>
@@ -477,22 +463,6 @@ impl crate::RuntimeLite for EmbassyRuntime {
     block_on(f)
   }
 
-  async fn yield_now() {
-    YieldNow(false).await
-  }
-
-  fn interval(interval: core::time::Duration) -> Self::Interval {
-    use crate::time::AsyncIntervalExt;
-
-    EmbassyInterval::interval(interval)
-  }
-
-  fn interval_at(start: Instant, period: core::time::Duration) -> Self::Interval {
-    use crate::time::AsyncIntervalExt;
-
-    EmbassyInterval::interval_at(start, period)
-  }
-
   fn interval_local(interval: core::time::Duration) -> Self::LocalInterval {
     use crate::time::AsyncIntervalExt;
 
@@ -503,18 +473,6 @@ impl crate::RuntimeLite for EmbassyRuntime {
     use crate::time::AsyncIntervalExt;
 
     EmbassyInterval::interval_at(start, period)
-  }
-
-  fn sleep(duration: core::time::Duration) -> Self::Sleep {
-    use crate::time::AsyncSleepExt;
-
-    EmbassySleep::sleep(duration)
-  }
-
-  fn sleep_until(instant: Instant) -> Self::Sleep {
-    use crate::time::AsyncSleepExt;
-
-    EmbassySleep::sleep_until(instant)
   }
 
   fn sleep_local(duration: core::time::Duration) -> Self::LocalSleep {
@@ -529,15 +487,6 @@ impl crate::RuntimeLite for EmbassyRuntime {
     EmbassySleep::sleep_until(instant)
   }
 
-  fn delay<F>(duration: core::time::Duration, fut: F) -> Self::Delay<F>
-  where
-    F: Future + Send,
-  {
-    use crate::time::AsyncDelayExt;
-
-    <EmbassyDelay<F> as AsyncDelayExt<F>>::delay(duration, fut)
-  }
-
   fn delay_local<F>(duration: core::time::Duration, fut: F) -> Self::LocalDelay<F>
   where
     F: Future,
@@ -547,15 +496,6 @@ impl crate::RuntimeLite for EmbassyRuntime {
     <EmbassyDelay<F> as AsyncLocalDelayExt<F>>::delay(duration, fut)
   }
 
-  fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
-  where
-    F: Future + Send,
-  {
-    use crate::time::AsyncDelayExt;
-
-    <EmbassyDelay<F> as AsyncDelayExt<F>>::delay_at(deadline, fut)
-  }
-
   fn delay_local_at<F>(deadline: Instant, fut: F) -> Self::LocalDelay<F>
   where
     F: Future,
@@ -563,24 +503,6 @@ impl crate::RuntimeLite for EmbassyRuntime {
     use crate::time::AsyncLocalDelayExt;
 
     <EmbassyDelay<F> as AsyncLocalDelayExt<F>>::delay_at(deadline, fut)
-  }
-
-  fn timeout<F>(duration: core::time::Duration, future: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    use crate::time::AsyncTimeout;
-
-    <EmbassyTimeout<F> as AsyncTimeout<F>>::timeout(duration, future)
-  }
-
-  fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
-  where
-    F: Future + Send,
-  {
-    use crate::time::AsyncTimeout;
-
-    <EmbassyTimeout<F> as AsyncTimeout<F>>::timeout_at(deadline, future)
   }
 
   fn timeout_local<F>(duration: core::time::Duration, future: F) -> Self::LocalTimeout<F>
@@ -602,10 +524,94 @@ impl crate::RuntimeLite for EmbassyRuntime {
   }
 }
 
+impl crate::RuntimeLite for EmbassyRuntime {
+  type Spawner = EmbassySpawner;
+
+  type AfterSpawner = EmbassySpawner;
+
+  type Interval = EmbassyInterval;
+
+  type Sleep = EmbassySleep;
+
+  type Delay<F>
+    = EmbassyDelay<F>
+  where
+    F: Future + Send;
+
+  type Timeout<F>
+    = EmbassyTimeout<F>
+  where
+    F: Future + Send;
+
+  async fn yield_now() {
+    YieldNow(false).await
+  }
+
+  fn interval(interval: core::time::Duration) -> Self::Interval {
+    use crate::time::AsyncIntervalExt;
+
+    EmbassyInterval::interval(interval)
+  }
+
+  fn interval_at(start: Instant, period: core::time::Duration) -> Self::Interval {
+    use crate::time::AsyncIntervalExt;
+
+    EmbassyInterval::interval_at(start, period)
+  }
+
+  fn sleep(duration: core::time::Duration) -> Self::Sleep {
+    use crate::time::AsyncSleepExt;
+
+    EmbassySleep::sleep(duration)
+  }
+
+  fn sleep_until(instant: Instant) -> Self::Sleep {
+    use crate::time::AsyncSleepExt;
+
+    EmbassySleep::sleep_until(instant)
+  }
+
+  fn delay<F>(duration: core::time::Duration, fut: F) -> Self::Delay<F>
+  where
+    F: Future + Send,
+  {
+    use crate::time::AsyncDelayExt;
+
+    <EmbassyDelay<F> as AsyncDelayExt<F>>::delay(duration, fut)
+  }
+
+  fn delay_at<F>(deadline: Instant, fut: F) -> Self::Delay<F>
+  where
+    F: Future + Send,
+  {
+    use crate::time::AsyncDelayExt;
+
+    <EmbassyDelay<F> as AsyncDelayExt<F>>::delay_at(deadline, fut)
+  }
+
+  fn timeout<F>(duration: core::time::Duration, future: F) -> Self::Timeout<F>
+  where
+    F: Future + Send,
+  {
+    use crate::time::AsyncTimeout;
+
+    <EmbassyTimeout<F> as AsyncTimeout<F>>::timeout(duration, future)
+  }
+
+  fn timeout_at<F>(deadline: Instant, future: F) -> Self::Timeout<F>
+  where
+    F: Future + Send,
+  {
+    use crate::time::AsyncTimeout;
+
+    <EmbassyTimeout<F> as AsyncTimeout<F>>::timeout_at(deadline, future)
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::{RuntimeLite, time::Instant as _};
+  use crate::{LocalRuntimeLite, RuntimeLite, time::Instant as _};
   use core::{
     sync::atomic::{AtomicBool, Ordering},
     time::Duration,
