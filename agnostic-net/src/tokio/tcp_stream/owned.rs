@@ -103,6 +103,11 @@ impl super::super::super::OwnedReadHalf for OwnedReadHalf {
   type Runtime = TokioRuntime;
 
   tcp_stream_owned_read_half_common_methods!(stream);
+
+  fn poll_peek(&mut self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+    let mut buf = ::tokio::io::ReadBuf::new(buf);
+    self.stream.poll_peek(cx, &mut buf)
+  }
 }
 
 impl super::super::super::OwnedWriteHalf for OwnedWriteHalf {

@@ -25,7 +25,6 @@ tokio = [
   "dep:tokio",
   "agnostic-lite/tokio",
   "agnostic-io/tokio",
-  "pin-project-lite",
   "tokio-stream",
   "tokio/rt",
   "tokio/sync",
@@ -33,14 +32,13 @@ tokio = [
   "tokio/time",
   "tokio-io",
 ]
-smol = ["std", "dep:smol", "agnostic-lite/smol", "pin-project-lite", "async-io"]
+smol = ["std", "dep:smol", "agnostic-lite/smol", "async-io"]
 
 [target.'cfg(unix)'.dependencies]
 rustix = { version = "1", features = ["net"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Networking_WinSock"] }
-socket2 = "0.6"
 
 [dependencies]
 agnostic-lite = { workspace = true, features = ["time", "std"] }
@@ -48,6 +46,7 @@ agnostic-io.workspace = true
 async-trait = "0.1"
 futures-util.workspace = true
 triomphe = "0.1"
+socket2 = "0.6"
 
 tokio = { version = "1", default-features = false, optional = true, features = ["net", "io-std", "io-util"] }
 tokio-stream = { version = "0.1", default-features = false, optional = true, features = [
@@ -56,7 +55,7 @@ tokio-stream = { version = "0.1", default-features = false, optional = true, fea
 
 async-io = { workspace = true, optional = true }
 paste = "1"
-pin-project-lite = { workspace = true, optional = true }
+pin-project-lite = { workspace = true }
 smol = { workspace = true, default-features = false, optional = true }
 
 tracing = { version = "0.1", optional = true }

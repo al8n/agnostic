@@ -100,6 +100,31 @@ macro_rules! owned_halves {
         type Runtime = ::agnostic_lite::[< $runtime:snake >]::[< $runtime:camel Runtime >];
 
         tcp_stream_owned_read_half_common_methods!(stream);
+
+        fn poll_peek(
+          &mut self,
+          cx: &mut ::std::task::Context<'_>,
+          buf: &mut [u8],
+        ) -> ::std::task::Poll<::std::io::Result<usize>> {
+          let inner: ::std::sync::Arc<::async_io::Async<::std::net::TcpStream>> =
+            self.stream.clone().into();
+          loop {
+            match inner.get_ref().peek(buf) {
+              ::core::result::Result::Err(e)
+                if e.kind() == ::std::io::ErrorKind::WouldBlock =>
+              {
+                match inner.poll_readable(cx) {
+                  ::std::task::Poll::Ready(::core::result::Result::Ok(())) => continue,
+                  ::std::task::Poll::Ready(::core::result::Result::Err(e)) => {
+                    return ::std::task::Poll::Ready(::core::result::Result::Err(e));
+                  }
+                  ::std::task::Poll::Pending => return ::std::task::Poll::Pending,
+                }
+              }
+              res => return ::std::task::Poll::Ready(res),
+            }
+          }
+        }
       }
 
       impl $crate::OwnedWriteHalf for OwnedWriteHalf {
@@ -244,7 +269,7 @@ macro_rules! tcp_stream {
         type OwnedWriteHalf = OwnedWriteHalf;
         type ReuniteError = ReuniteError;
 
-        tcp_stream_common_methods!($runtime::stream);
+        tcp_stream_common_methods!(stream);
 
         fn shutdown(&self, how: ::std::net::Shutdown) -> ::std::io::Result<()> {
           self.stream.shutdown(how)
@@ -289,6 +314,43 @@ macro_rules! tcp_stream {
           ::core::result::Result::Ok(Self {
             stream: read.stream,
           })
+        }
+
+        fn poll_peek(
+          &self,
+          cx: &mut ::std::task::Context<'_>,
+          buf: &mut [u8],
+        ) -> ::std::task::Poll<::std::io::Result<usize>> {
+          // Mirror the UDP `poll_peek_from` strategy: drive readiness on the persistent `Async`
+          // source and run the peek as a non-blocking syscall, since re-creating an `async` future
+          // per poll does not reliably deliver readiness wakeups when polled directly.
+          let inner: ::std::sync::Arc<::async_io::Async<::std::net::TcpStream>> =
+            self.stream.clone().into();
+          loop {
+            match inner.get_ref().peek(buf) {
+              ::core::result::Result::Err(e)
+                if e.kind() == ::std::io::ErrorKind::WouldBlock =>
+              {
+                match inner.poll_readable(cx) {
+                  ::std::task::Poll::Ready(::core::result::Result::Ok(())) => continue,
+                  ::std::task::Poll::Ready(::core::result::Result::Err(e)) => {
+                    return ::std::task::Poll::Ready(::core::result::Result::Err(e));
+                  }
+                  ::std::task::Poll::Pending => return ::std::task::Poll::Pending,
+                }
+              }
+              res => return ::std::task::Poll::Ready(res),
+            }
+          }
+        }
+
+        fn poll_write_ready(
+          &self,
+          cx: &mut ::std::task::Context<'_>,
+        ) -> ::std::task::Poll<::std::io::Result<()>> {
+          let inner: ::std::sync::Arc<::async_io::Async<::std::net::TcpStream>> =
+            self.stream.clone().into();
+          inner.poll_writable(cx)
         }
       }
     }

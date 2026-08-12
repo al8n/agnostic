@@ -138,7 +138,11 @@ async fn connect_timeout_error<N: Net>() {
   );
 }
 
-async fn listen_localhost<N: Net>() {
+async fn listen_localhost<N: Net>()
+where
+  N::TcpStream: Send,
+  for<'a, 'b> <N::TcpStream as TcpStream>::Connect<&'a (&'b str, u16)>: Send,
+{
   let socket_addr = next_test_ip4();
   let listener = t!(<N::TcpListener as TcpListener>::bind(&socket_addr).await);
 
@@ -154,7 +158,11 @@ async fn listen_localhost<N: Net>() {
   assert!(buf[0] == 144);
 }
 
-async fn connect_loopback<N: Net>() {
+async fn connect_loopback<N: Net>()
+where
+  N::TcpStream: Send,
+  for<'a, 'b> <N::TcpStream as TcpStream>::Connect<&'a (&'b str, u16)>: Send,
+{
   each_ip(&mut |addr| async move {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
 
@@ -175,7 +183,11 @@ async fn connect_loopback<N: Net>() {
   .await
 }
 
-async fn smoke<N: Net>() {
+async fn smoke<N: Net>()
+where
+  N::TcpStream: Send,
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   each_ip(&mut |addr| async move {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
 
@@ -198,7 +210,11 @@ async fn smoke<N: Net>() {
 }
 
 #[cfg(feature = "tokio")]
-async fn tokio_smoke<N: Net>() {
+async fn tokio_smoke<N: Net>()
+where
+  N::TcpStream: Send,
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   each_ip(&mut |addr| async move {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
 
@@ -220,7 +236,10 @@ async fn tokio_smoke<N: Net>() {
   .await
 }
 
-async fn read_eof<N: Net>() {
+async fn read_eof<N: Net>()
+where
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   each_ip(&mut |addr| async move {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
 
@@ -239,7 +258,10 @@ async fn read_eof<N: Net>() {
   .await
 }
 
-async fn write_close<N: Net>() {
+async fn write_close<N: Net>()
+where
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   each_ip(&mut |addr| async move {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
 
@@ -267,7 +289,11 @@ async fn write_close<N: Net>() {
   .await
 }
 
-async fn multiple_connect_serial<N: Net>() {
+async fn multiple_connect_serial<N: Net>()
+where
+  N::TcpStream: Send,
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   each_ip(&mut |addr| async move {
     let max = 10;
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
@@ -292,7 +318,13 @@ async fn multiple_connect_serial<N: Net>() {
   .await
 }
 
-async fn multiple_connect_interleaved_greedy_schedule<N: Net>() {
+async fn multiple_connect_interleaved_greedy_schedule<N: Net>()
+where
+  N::TcpStream: Send,
+  N::TcpListener: Send,
+  for<'a> <N::TcpListener as TcpListener>::Incoming<'a>: Send + Unpin,
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   const MAX: usize = 10;
   each_ip(&mut |addr| async move {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
@@ -314,7 +346,11 @@ async fn multiple_connect_interleaved_greedy_schedule<N: Net>() {
     connect::<N>(0, addr).await;
   });
 
-  fn connect<N: Net>(i: usize, addr: SocketAddr) -> impl Future<Output = ()> + Send {
+  fn connect<N: Net>(i: usize, addr: SocketAddr) -> impl Future<Output = ()> + Send
+  where
+    N::TcpStream: Send,
+    for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+  {
     async move {
       if i == MAX {
         return;
@@ -331,7 +367,13 @@ async fn multiple_connect_interleaved_greedy_schedule<N: Net>() {
   }
 }
 
-async fn multiple_connect_interleaved_lazy_schedule<N: Net>() {
+async fn multiple_connect_interleaved_lazy_schedule<N: Net>()
+where
+  N::TcpStream: Send,
+  N::TcpListener: Send,
+  for<'a> <N::TcpListener as TcpListener>::Incoming<'a>: Send + Unpin,
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   const MAX: usize = 10;
   each_ip(&mut |addr| async move {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
@@ -357,7 +399,11 @@ async fn multiple_connect_interleaved_lazy_schedule<N: Net>() {
   })
   .await;
 
-  fn connect<N: Net>(i: usize, addr: SocketAddr) -> impl Future<Output = ()> + Send {
+  fn connect<N: Net>(i: usize, addr: SocketAddr) -> impl Future<Output = ()> + Send
+  where
+    N::TcpStream: Send,
+    for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+  {
     async move {
       if i == MAX {
         return;
@@ -373,7 +419,11 @@ async fn multiple_connect_interleaved_lazy_schedule<N: Net>() {
   }
 }
 
-async fn socket_and_peer_name<N: Net>() {
+async fn socket_and_peer_name<N: Net>()
+where
+  N::TcpListener: Send,
+  for<'a> <N::TcpListener as TcpListener>::Accept<'a>: Send,
+{
   each_ip(&mut |addr| async move {
     let listener = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
     let so_name = t!(listener.local_addr());
@@ -388,7 +438,12 @@ async fn socket_and_peer_name<N: Net>() {
   .await
 }
 
-async fn partial_read<N: Net>() {
+async fn partial_read<N: Net>()
+where
+  N::TcpStream: Send,
+  N::TcpListener: Send,
+  for<'a> <N::TcpListener as TcpListener>::Accept<'a>: Send,
+{
   each_ip(&mut |addr| async move {
     let (tx, rx) = unbounded();
     let srv = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
@@ -488,7 +543,11 @@ async fn double_bind<N: Net>() {
   .await
 }
 
-async fn tcp_clone_smoke<N: Net>() {
+async fn tcp_clone_smoke<N: Net>()
+where
+  N::TcpStream: Send,
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   each_ip(&mut |addr| async move {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
 
@@ -519,7 +578,11 @@ async fn tcp_clone_smoke<N: Net>() {
   .await
 }
 
-async fn tcp_clone_two_read<N: Net>() {
+async fn tcp_clone_two_read<N: Net>()
+where
+  N::TcpStream: Send,
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   each_ip(&mut |addr| async move {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
     let (tx1, rx) = unbounded();
@@ -553,7 +616,11 @@ async fn tcp_clone_two_read<N: Net>() {
   .await
 }
 
-async fn tcp_clone_two_write<N: Net>() {
+async fn tcp_clone_two_write<N: Net>()
+where
+  N::TcpStream: Send,
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   each_ip(&mut |addr| async move {
     let acceptor = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
 
@@ -580,7 +647,12 @@ async fn tcp_clone_two_write<N: Net>() {
   .await
 }
 
-async fn shutdown_smoke<N: Net>() {
+async fn shutdown_smoke<N: Net>()
+where
+  N::TcpStream: Send,
+  N::TcpListener: Send,
+  for<'a> <N::TcpListener as TcpListener>::Accept<'a>: Send,
+{
   each_ip(&mut |addr| async move {
     let a = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
     let _t = <N::Runtime as RuntimeLite>::spawn(async move {
@@ -600,7 +672,12 @@ async fn shutdown_smoke<N: Net>() {
   .await
 }
 
-async fn close_readwrite_smoke<N: Net>() {
+async fn close_readwrite_smoke<N: Net>()
+where
+  N::TcpStream: Send,
+  N::TcpListener: Send,
+  for<'a> <N::TcpListener as TcpListener>::Accept<'a>: Send,
+{
   each_ip(&mut |addr| async move {
     let a = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
     let (tx, rx) = unbounded::<()>();
@@ -639,7 +716,12 @@ async fn close_readwrite_smoke<N: Net>() {
 }
 
 #[cfg(not(windows))]
-async fn close_read_wakes_up<N: Net>() {
+async fn close_read_wakes_up<N: Net>()
+where
+  N::TcpStream: Send,
+  N::TcpListener: Send,
+  for<'a> <N::TcpListener as TcpListener>::Accept<'a>: Send,
+{
   each_ip(&mut |addr| async move {
     let listener = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
     let _t = <N::Runtime as RuntimeLite>::spawn(async move {
@@ -666,7 +748,11 @@ async fn close_read_wakes_up<N: Net>() {
   .await
 }
 
-async fn clone_while_reading<N: Net>() {
+async fn clone_while_reading<N: Net>()
+where
+  N::TcpStream: Send,
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   each_ip(&mut |addr| async move {
     let accept = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
 
@@ -706,7 +792,10 @@ async fn clone_while_reading<N: Net>() {
   .await
 }
 
-async fn clone_accept_smoke<N: Net>() {
+async fn clone_accept_smoke<N: Net>()
+where
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   each_ip(&mut |addr| async move {
     let a = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
     let a2 = t!(a.try_clone());
@@ -724,7 +813,13 @@ async fn clone_accept_smoke<N: Net>() {
   .await
 }
 
-async fn clone_accept_concurrent<N: Net>() {
+async fn clone_accept_concurrent<N: Net>()
+where
+  N::TcpStream: Send,
+  N::TcpListener: Send,
+  for<'a> <N::TcpListener as TcpListener>::Accept<'a>: Send,
+  for<'a> <N::TcpStream as TcpStream>::Connect<&'a SocketAddr>: Send,
+{
   each_ip(&mut |addr| async move {
     let a = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
     let a2 = t!(a.try_clone());
@@ -793,7 +888,12 @@ async fn ttl<N: Net>() {
   assert_eq!(ttl, t!(stream.ttl()));
 }
 
-async fn peek<N: Net>() {
+async fn peek<N: Net>()
+where
+  N::TcpStream: Send,
+  N::TcpListener: Send,
+  for<'a> <N::TcpListener as TcpListener>::Accept<'a>: Send,
+{
   use crate::tcp::OwnedReadHalf;
 
   each_ip(&mut |addr| async move {
@@ -856,7 +956,14 @@ async fn reunite<N: Net>() {
   let (r, w) = err.into_components();
 }
 
-async fn into_split<N: Net>() {
+async fn into_split<N: Net>()
+where
+  N::TcpStream: Send,
+  N::TcpListener: Send,
+  for<'a> <N::TcpListener as TcpListener>::Accept<'a>: Send,
+  <N::TcpStream as TcpStream>::OwnedReadHalf: Send,
+  <N::TcpStream as TcpStream>::OwnedWriteHalf: Send,
+{
   each_ip(&mut |addr| async move {
     let listener = t!(<N::TcpListener as TcpListener>::bind(&addr).await);
 
@@ -895,7 +1002,14 @@ async fn into_split<N: Net>() {
 }
 
 #[cfg(feature = "tokio")]
-async fn tokio_into_split<N: Net>() {
+async fn tokio_into_split<N: Net>()
+where
+  N::TcpStream: Send,
+  N::TcpListener: Send,
+  for<'a> <N::TcpListener as TcpListener>::Accept<'a>: Send,
+  <N::TcpStream as TcpStream>::OwnedReadHalf: Send,
+  <N::TcpStream as TcpStream>::OwnedWriteHalf: Send,
+{
   use crate::tcp::{OwnedReadHalf, OwnedWriteHalf};
 
   each_ip(&mut |addr| async move {

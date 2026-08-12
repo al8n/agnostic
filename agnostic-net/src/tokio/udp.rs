@@ -42,7 +42,27 @@ impl super::super::UdpSocket for UdpSocket {
     let len = buf.filled().len();
     Poll::Ready(Ok((len, addr)))
   }
-  
+
+  fn poll_peek_from(
+    &self,
+    cx: &mut Context<'_>,
+    buf: &mut [u8],
+  ) -> Poll<io::Result<(usize, SocketAddr)>> {
+    // `try_peek_from` only reports readiness via `WouldBlock`, so loop until the readiness
+    // registered by `poll_recv_ready` actually yields data (or a non-`WouldBlock` error).
+    loop {
+      futures_util::ready!(self.socket.poll_recv_ready(cx))?;
+      match self.socket.try_peek_from(buf) {
+        Err(e) if e.kind() == io::ErrorKind::WouldBlock => continue,
+        res => return Poll::Ready(res),
+      }
+    }
+  }
+
+  fn poll_send(&self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    self.socket.poll_send(cx, buf)
+  }
+
   fn poll_send_to(
     &self,
     cx: &mut Context<'_>,
